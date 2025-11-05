@@ -1,0 +1,30 @@
+# --- Core Backend Framework ---
+fastapi==0.115.0
+uvicorn==0.30.6
+
+# --- Database & ORM ---
+SQLAlchemy==2.0.35
+pymysql==1.1.1
+
+# --- Data Science & Analytics ---
+pandas==2.2.3
+numpy==2.1.2
+scikit-learn==1.5.2
+
+# --- OpenAI API ---
+openai==1.51.2
+
+# --- Scheduler (for automated AI updates) ---
+APScheduler==3.10.4
+
+# --- Environment & Validation ---
+python-dotenv==1.0.1
+pydantic==2.9.2
+pydantic-settings==2.5.2
+
+# --- Security & Auth ---
+passlib[bcrypt]==1.7.4
+PyJWT==2.9.0
+
+# --- Misc Utils ---
+requests==2.32.3

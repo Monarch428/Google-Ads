@@ -1,0 +1,1742 @@
+import { useState, useEffect } from "react";
+import { Button } from "./ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
+import { Badge } from "./ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "./ui/sheet";
+import { Progress } from "./ui/progress";
+import { Separator } from "./ui/separator";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "./ui/dialog";
+import { Input } from "./ui/input";
+import { Label } from "./ui/label";
+import { Textarea } from "./ui/textarea";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "./ui/tooltip";
+import { ArrowLeft, CheckCircle2, Clock, AlertCircle, Calendar as CalendarIcon, Target, TrendingUp, DollarSign, Users, Package, Play, Lightbulb, XCircle, Download, Settings, MessageSquare, User, FileText, Sparkles, Plus } from "lucide-react";
+import { mockClients, mockActionBundles } from "../lib/mock-data";
+import { ClientChatbotInline } from "./client-chatbot-inline";
+import { CreateBundle } from "./create-bundle";
+import { toast } from "sonner@2.0.3";
+
+interface ClientDetailsProps {
+  clientId: string;
+  onBack: () => void;
+}
+
+interface DayStatus {
+  date: number;
+  status: "completed" | "pending" | "critical" | "none" | "sunday";
+  tasksCompleted: number;
+  totalTasks: number;
+}
+
+interface ActivityLog {
+  id: string;
+  date: string;
+  time: string;
+  action: string;
+  user: string;
+  type: "update" | "optimization" | "alert" | "report";
+}
+
+interface Task {
+  id: string;
+  title: string;
+  description: string;
+  status: "completed" | "pending" | "critical";
+  priority: "high" | "medium" | "low";
+  category: "optimization" | "monitoring" | "reporting" | "bidding";
+  assignedTo: string;
+  completedAt?: string;
+  metrics?: {
+    impressions?: number;
+    clicks?: number;
+    conversions?: number;
+    spend?: number;
+  };
+}
+
+// Month configuration
+const monthConfigs = {
+  "2025-10": { name: "October 2025", days: 31, startDay: 3, currentDay: 30 },
+  "2025-09": { name: "September 2025", days: 30, startDay: 1, currentDay: 30 },
+  "2025-08": { name: "August 2025", days: 31, startDay: 5, currentDay: 31 },
+  "2025-07": { name: "July 2025", days: 31, startDay: 2, currentDay: 31 },
+  "2025-06": { name: "June 2025", days: 30, startDay: 0, currentDay: 30 },
+  "2025-05": { name: "May 2025", days: 31, startDay: 4, currentDay: 31 },
+};
+
+// Generate mock data for a specific month
+const generateMonthlyData = (monthKey: string): DayStatus[] => {
+  const config = monthConfigs[monthKey as keyof typeof monthConfigs];
+  const data: DayStatus[] = [];
+  
+  for (let i = 1; i <= config.days; i++) {
+    let status: "completed" | "pending" | "critical" | "none" | "sunday";
+    let tasksCompleted = 0;
+    let totalTasks = 0;
+    
+    // Calculate day of week (0 = Sunday, 1 = Monday, etc.)
+    const dayOfWeek = (config.startDay + i - 1) % 7;
+    
+    // Check if it's Sunday
+    if (dayOfWeek === 0) {
+      status = "sunday";
+    } else if (i <= config.currentDay - 1) {
+      // Past days have status
+      const random = Math.random();
+      if (random > 0.7) {
+        status = "completed";
+        tasksCompleted = Math.floor(Math.random() * 3) + 3;
+        totalTasks = tasksCompleted;
+      } else if (random > 0.4) {
+        status = "pending";
+        totalTasks = Math.floor(Math.random() * 4) + 2;
+        tasksCompleted = Math.floor(totalTasks * 0.6);
+      } else {
+        status = "critical";
+        totalTasks = Math.floor(Math.random() * 5) + 3;
+        tasksCompleted = Math.floor(totalTasks * 0.3);
+      }
+    } else {
+      // Future days
+      status = "none";
+    }
+    
+    data.push({ date: i, status, tasksCompleted, totalTasks });
+  }
+  
+  return data;
+};
+
+// Generate tasks for a specific day
+const generateTasksForDay = (day: number, dayStatus: DayStatus): Task[] => {
+  const tasks: Task[] = [];
+  const taskTemplates = [
+    { title: "Review keyword performance", description: "Analyze top performing keywords and adjust bids", category: "optimization" as const },
+    { title: "Update ad copy", description: "Refresh ad creative for better engagement", category: "optimization" as const },
+    { title: "Monitor CPA trends", description: "Track cost per acquisition changes", category: "monitoring" as const },
+    { title: "Adjust bidding strategy", description: "Optimize bids based on performance data", category: "bidding" as const },
+    { title: "Generate performance report", description: "Create daily performance summary", category: "reporting" as const },
+    { title: "Check conversion tracking", description: "Verify conversion pixel functionality", category: "monitoring" as const },
+    { title: "Optimize landing pages", description: "Review and improve landing page performance", category: "optimization" as const },
+    { title: "Add negative keywords", description: "Identify and add negative keywords to reduce waste", category: "optimization" as const },
+  ];
+
+  const users = ["Sarah Johnson", "Mike Chen", "Emily Rodriguez", "AI System"];
+  
+  for (let i = 0; i < dayStatus.totalTasks; i++) {
+    const template = taskTemplates[i % taskTemplates.length];
+    const isCompleted = i < dayStatus.tasksCompleted;
+    
+    tasks.push({
+      id: `task-${day}-${i}`,
+      title: template.title,
+      description: template.description,
+      status: isCompleted ? "completed" : dayStatus.status,
+      priority: i % 3 === 0 ? "high" : i % 2 === 0 ? "medium" : "low",
+      category: template.category,
+      assignedTo: users[i % users.length],
+      completedAt: isCompleted ? `${Math.floor(Math.random() * 12) + 1}:${String(Math.floor(Math.random() * 60)).padStart(2, '0')} ${Math.random() > 0.5 ? 'AM' : 'PM'}` : undefined,
+      metrics: isCompleted ? {
+        impressions: Math.floor(Math.random() * 5000) + 1000,
+        clicks: Math.floor(Math.random() * 200) + 50,
+        conversions: Math.floor(Math.random() * 30) + 5,
+        spend: Math.floor(Math.random() * 500) + 100,
+      } : undefined,
+    });
+  }
+  
+  return tasks;
+};
+
+const mockActivityLogs: ActivityLog[] = [
+  {
+    id: "1",
+    date: "Oct 30, 2025",
+    time: "09:15 AM",
+    action: "Updated keyword bids for Q4 Campaign - Increased CPC by 12%",
+    user: "Sarah Johnson",
+    type: "optimization"
+  },
+  {
+    id: "2",
+    date: "Oct 30, 2025",
+    time: "08:30 AM",
+    action: "Generated Weekly Performance Report",
+    user: "System",
+    type: "report"
+  },
+  {
+    id: "3",
+    date: "Oct 29, 2025",
+    time: "04:45 PM",
+    action: "Critical Alert: CPA spike detected (+23%) - Investigation started",
+    user: "AI System",
+    type: "alert"
+  },
+  {
+    id: "4",
+    date: "Oct 29, 2025",
+    time: "02:20 PM",
+    action: "Added 15 negative keywords to reduce wasted spend",
+    user: "Mike Chen",
+    type: "optimization"
+  },
+  {
+    id: "5",
+    date: "Oct 29, 2025",
+    time: "11:00 AM",
+    action: "Updated ad copy for mobile campaigns",
+    user: "Sarah Johnson",
+    type: "update"
+  },
+  {
+    id: "6",
+    date: "Oct 28, 2025",
+    time: "03:30 PM",
+    action: "Paused underperforming ad groups (ROAS < 1.5)",
+    user: "Mike Chen",
+    type: "optimization"
+  },
+  {
+    id: "7",
+    date: "Oct 28, 2025",
+    time: "10:15 AM",
+    action: "Budget reallocation: Shifted $2,500 to high-performing campaigns",
+    user: "Sarah Johnson",
+    type: "update"
+  },
+  {
+    id: "8",
+    date: "Oct 27, 2025",
+    time: "05:00 PM",
+    action: "Generated Monthly Performance Report",
+    user: "System",
+    type: "report"
+  },
+  {
+    id: "9",
+    date: "Oct 27, 2025",
+    time: "01:45 PM",
+    action: "Launched new ad creative set for A/B testing",
+    user: "Emily Rodriguez",
+    type: "update"
+  },
+  {
+    id: "10",
+    date: "Oct 26, 2025",
+    time: "09:30 AM",
+    action: "Warning: CTR drop detected (-8%) in Search campaign",
+    user: "AI System",
+    type: "alert"
+  },
+  {
+    id: "11",
+    date: "Oct 25, 2025",
+    time: "02:15 PM",
+    action: "Expanded target audience for Shopping campaigns",
+    user: "Mike Chen",
+    type: "optimization"
+  },
+  {
+    id: "12",
+    date: "Oct 24, 2025",
+    time: "11:20 AM",
+    action: "Updated conversion tracking parameters",
+    user: "Sarah Johnson",
+    type: "update"
+  }
+];
+
+export function ClientDetails({ clientId, onBack }: ClientDetailsProps) {
+  const client = mockClients.find(c => c.id === clientId);
+  const [selectedMonth, setSelectedMonth] = useState<string>("2025-10");
+  const [monthlyData, setMonthlyData] = useState<DayStatus[]>(generateMonthlyData("2025-10"));
+  const [selectedDay, setSelectedDay] = useState<number | null>(null);
+
+  // Scroll to top when component mounts
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "instant" });
+  }, []);
+  const [isDayDetailsOpen, setIsDayDetailsOpen] = useState(false);
+  const [selectedBundleId, setSelectedBundleId] = useState<string | null>(null);
+  const [isCreatingBundle, setIsCreatingBundle] = useState(false);
+  const [isAddTaskDialogOpen, setIsAddTaskDialogOpen] = useState(false);
+  const [bundleStatusFilter, setBundleStatusFilter] = useState<"all" | "in-progress" | "pending" | "completed">("in-progress");
+  
+  // New task form state
+  const [newTaskType, setNewTaskType] = useState("");
+  const [newTaskPriority, setNewTaskPriority] = useState<"high" | "medium" | "low">("medium");
+  const [newTaskRecommendation, setNewTaskRecommendation] = useState("");
+  const [newTaskImpact, setNewTaskImpact] = useState("");
+  const [newTaskCampaign, setNewTaskCampaign] = useState("");
+
+  const handleMonthChange = (month: string) => {
+    setSelectedMonth(month);
+    setMonthlyData(generateMonthlyData(month));
+    setSelectedDay(null);
+    setIsDayDetailsOpen(false);
+  };
+
+  const handleDayClick = (day: number) => {
+    const dayStatus = monthlyData[day - 1].status;
+    if (dayStatus !== "none" && dayStatus !== "sunday") {
+      setSelectedDay(day);
+      setIsDayDetailsOpen(true);
+    }
+  };
+
+  const handleSaveNewTask = () => {
+    if (!newTaskType || !newTaskRecommendation) {
+      toast.error("Please fill in required fields");
+      return;
+    }
+
+    // In a real app, this would save to backend
+    console.log("Saving new task:", {
+      type: newTaskType,
+      priority: newTaskPriority,
+      recommendation: newTaskRecommendation,
+      impact: newTaskImpact,
+      campaign: newTaskCampaign,
+    });
+    
+    toast.success("Task added successfully to the action bundle");
+    
+    // Reset form
+    setNewTaskType("");
+    setNewTaskPriority("medium");
+    setNewTaskRecommendation("");
+    setNewTaskImpact("");
+    setNewTaskCampaign("");
+    setIsAddTaskDialogOpen(false);
+  };
+
+  const handleExecuteRecommendation = (recId: string, recType: string) => {
+    toast.success(`Executing "${recType}"...`);
+    // In a real app, this would execute the recommendation
+    setTimeout(() => {
+      toast.success(`"${recType}" executed successfully`);
+    }, 1500);
+  };
+
+  const handleSkipRecommendation = (recId: string, recType: string) => {
+    toast.info(`"${recType}" has been skipped`);
+    // In a real app, this would update the recommendation status
+  };
+
+  const currentMonthConfig = monthConfigs[selectedMonth as keyof typeof monthConfigs];
+  const selectedDayData = selectedDay ? monthlyData[selectedDay - 1] : null;
+  const selectedDayTasks = selectedDay && selectedDayData ? generateTasksForDay(selectedDay, selectedDayData) : [];
+
+  if (!client) {
+    return <div>Client not found</div>;
+  }
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "completed":
+        return "bg-green-500 hover:bg-green-600";
+      case "pending":
+        return "bg-yellow-500 hover:bg-yellow-600";
+      case "critical":
+        return "bg-red-500 hover:bg-red-600";
+      case "sunday":
+        return "bg-slate-300 hover:bg-slate-300";
+      default:
+        return "bg-slate-100 hover:bg-slate-200";
+    }
+  };
+
+  const getStatusIcon = (status: string, withColor = false) => {
+    const colorClass = withColor ? (
+      status === "completed" ? "text-green-600" :
+      status === "pending" ? "text-yellow-600" :
+      "text-red-600"
+    ) : "";
+    
+    switch (status) {
+      case "completed":
+        return <CheckCircle2 className={`w-4 h-4 ${colorClass}`} />;
+      case "pending":
+        return <Clock className={`w-4 h-4 ${colorClass}`} />;
+      case "critical":
+        return <AlertCircle className={`w-4 h-4 ${colorClass}`} />;
+      default:
+        return null;
+    }
+  };
+
+  const getActivityTypeColor = (type: string) => {
+    switch (type) {
+      case "optimization":
+        return "text-blue-600 bg-blue-50";
+      case "update":
+        return "text-green-600 bg-green-50";
+      case "alert":
+        return "text-red-600 bg-red-50";
+      case "report":
+        return "text-purple-600 bg-purple-50";
+      default:
+        return "text-slate-600 bg-slate-50";
+    }
+  };
+
+  const getActivityTypeLabel = (type: string) => {
+    return type.charAt(0).toUpperCase() + type.slice(1);
+  };
+
+  const dayLabels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+  // Mock detailed recommendations for the bundle
+  const bundleRecommendations = [
+    {
+      id: "1",
+      type: "Keyword Optimization",
+      priority: "high",
+      status: "completed",
+      recommendation: "Add 12 high-performing keywords with avg. CPC $2.30",
+      impact: "+15% CTR expected",
+      campaign: "Q4 Product Launch",
+      executedAt: "Oct 27, 2025 10:30 AM",
+      result: "+18% CTR achieved",
+    },
+    {
+      id: "2",
+      type: "Bid Adjustment",
+      priority: "high",
+      status: "completed",
+      recommendation: "Increase bids by 15% for top-performing ad groups",
+      impact: "+10% conversions expected",
+      campaign: "Q4 Product Launch",
+      executedAt: "Oct 27, 2025 10:35 AM",
+      result: "+12% conversions achieved",
+    },
+    {
+      id: "3",
+      type: "Ad Copy Update",
+      priority: "medium",
+      status: "in-progress",
+      recommendation: "Update ad headlines with emotional triggers",
+      impact: "+8% engagement expected",
+      campaign: "Brand Awareness",
+      executedAt: null,
+      result: null,
+    },
+    {
+      id: "4",
+      type: "Audience Expansion",
+      priority: "medium",
+      status: "pending",
+      recommendation: "Add lookalike audiences based on converters",
+      impact: "+20% reach expected",
+      campaign: "Retargeting",
+      executedAt: null,
+      result: null,
+    },
+    {
+      id: "5",
+      type: "Budget Reallocation",
+      priority: "high",
+      status: "pending",
+      recommendation: "Shift 20% budget from low-performing campaigns",
+      impact: "+25% ROAS expected",
+      campaign: "Shopping Campaigns",
+      executedAt: null,
+      result: null,
+    },
+  ];
+
+  // Mock recent activity data for bundle
+  const recentActivities = [
+    {
+      id: "1",
+      type: "execution",
+      user: "Sarah Johnson",
+      action: "Executed recommendation #1: Keyword Optimization",
+      timestamp: "Oct 27, 2025 10:30 AM",
+      icon: Play,
+    },
+    {
+      id: "2",
+      type: "execution",
+      user: "Sarah Johnson",
+      action: "Executed recommendation #2: Bid Adjustment",
+      timestamp: "Oct 27, 2025 10:35 AM",
+      icon: Play,
+    },
+    {
+      id: "3",
+      type: "update",
+      user: "System",
+      action: "Updated bundle status to In Progress",
+      timestamp: "Oct 27, 2025 10:28 AM",
+      icon: Settings,
+    },
+    {
+      id: "4",
+      type: "comment",
+      user: "Sarah Johnson",
+      action: "Added comment: Proceeding with top priority items first",
+      timestamp: "Oct 27, 2025 10:15 AM",
+      icon: MessageSquare,
+    },
+    {
+      id: "5",
+      type: "created",
+      user: "Sarah Johnson",
+      action: "Created action bundle with 5 recommendations",
+      timestamp: "Oct 27, 2025 9:45 AM",
+      icon: Package,
+    },
+  ];
+
+  const getStatusIcon2 = (status: string) => {
+    switch (status) {
+      case "completed":
+        return <CheckCircle2 className="w-4 h-4 text-green-600" />;
+      case "in-progress":
+        return <Clock className="w-4 h-4 text-blue-600" />;
+      case "pending":
+        return <AlertCircle className="w-4 h-4 text-yellow-600" />;
+      default:
+        return <XCircle className="w-4 h-4 text-red-600" />;
+    }
+  };
+
+  const getStatusBadge2 = (status: string) => {
+    switch (status) {
+      case "completed":
+        return { variant: "default" as const, label: "Completed" };
+      case "in-progress":
+        return { variant: "outline" as const, label: "In Progress" };
+      case "pending":
+        return { variant: "secondary" as const, label: "Pending" };
+      default:
+        return { variant: "destructive" as const, label: "Failed" };
+    }
+  };
+
+  const getPriorityBadge = (priority: string) => {
+    switch (priority) {
+      case "high":
+        return "destructive";
+      case "medium":
+        return "outline";
+      default:
+        return "secondary";
+    }
+  };
+
+  // Render create bundle view
+  if (isCreatingBundle) {
+    return (
+      <>
+        <CreateBundle 
+          onBack={() => setIsCreatingBundle(false)}
+          onSave={() => {
+            setIsCreatingBundle(false);
+            // In a real app, this would save the bundle to the backend
+            // For now, we just close the form
+          }}
+          preSelectedClientId={client.id}
+        />
+      </>
+    );
+  }
+
+  // Render bundle details view
+  if (selectedBundleId) {
+    const selectedBundle = mockActionBundles.find(b => b.id === selectedBundleId);
+    const completedCount = bundleRecommendations.filter(r => r.status === "completed").length;
+    const inProgressCount = bundleRecommendations.filter(r => r.status === "in-progress").length;
+    const pendingCount = bundleRecommendations.filter(r => r.status === "pending").length;
+    const progressPercentage = (completedCount / bundleRecommendations.length) * 100;
+
+    return (
+      <>
+        <div className="space-y-6">
+          {/* Header */}
+          <div className="flex items-start justify-between">
+            <div className="flex items-center gap-4">
+              <Button variant="ghost" size="sm" onClick={() => setSelectedBundleId(null)}>
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Back to {client.name}
+              </Button>
+              <div>
+                <h1 className="text-slate-900">Action Bundle Details</h1>
+                <p className="text-slate-500">{client.name} • Created by {selectedBundle?.managerName}</p>
+              </div>
+            </div>
+            <div className="flex flex-col items-end gap-2">
+              <Button variant="outline" onClick={() => setIsAddTaskDialogOpen(true)} className="w-full min-w-[200px]">
+                <Plus className="w-4 h-4 mr-2" />
+                Add New Task
+              </Button>
+              <Button variant="outline" className="w-full min-w-[200px]">
+                <Download className="w-4 h-4 mr-2" />
+                Export Bundle
+              </Button>
+              <Button className="w-full min-w-[200px]">
+                <Play className="w-4 h-4 mr-2" />
+                Execute Pending Actions
+              </Button>
+            </div>
+          </div>
+
+          {/* Bundle Overview */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-start justify-between">
+                  <div className="space-y-2">
+                    <p className="text-sm text-slate-500">Total Actions</p>
+                    <p className="text-slate-900">{bundleRecommendations.length}</p>
+                  </div>
+                  <div className="p-3 bg-blue-50 rounded-lg">
+                    <Package className="w-5 h-5 text-blue-600" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-start justify-between">
+                  <div className="space-y-2">
+                    <p className="text-sm text-slate-500">Completed</p>
+                    <p className="text-slate-900 text-green-600">{completedCount}</p>
+                  </div>
+                  <div className="p-3 bg-green-50 rounded-lg">
+                    <CheckCircle2 className="w-5 h-5 text-green-600" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-start justify-between">
+                  <div className="space-y-2">
+                    <p className="text-sm text-slate-500">In Progress</p>
+                    <p className="text-slate-900 text-blue-600">{inProgressCount}</p>
+                  </div>
+                  <div className="p-3 bg-blue-50 rounded-lg">
+                    <Clock className="w-5 h-5 text-blue-600" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-start justify-between">
+                  <div className="space-y-2">
+                    <p className="text-sm text-slate-500">Pending</p>
+                    <p className="text-slate-900 text-yellow-600">{pendingCount}</p>
+                  </div>
+                  <div className="p-3 bg-yellow-50 rounded-lg">
+                    <AlertCircle className="w-5 h-5 text-yellow-600" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Progress Overview */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Execution Progress</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm text-slate-600">Overall Completion</span>
+                  <span className="text-sm text-slate-900">{Math.round(progressPercentage)}%</span>
+                </div>
+                <Progress value={progressPercentage} className="h-2" />
+              </div>
+              <div className="grid grid-cols-3 gap-4 pt-2">
+                <div className="text-center">
+                  <p className="text-xs text-slate-500 mb-1">Estimated Impact</p>
+                  <p className="text-sm text-green-600">{selectedBundle?.estimatedImpact}</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-xs text-slate-500 mb-1">Created Date</p>
+                  <p className="text-sm text-slate-900">{selectedBundle?.createdAt}</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-xs text-slate-500 mb-1">Last Updated</p>
+                  <p className="text-sm text-slate-900">2 hours ago</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Recommendations List - Takes 2/3 of the space */}
+            <div className="lg:col-span-2">
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <CardTitle>Recommendations Breakdown</CardTitle>
+                    <div className="flex items-center gap-2">
+                      <Label htmlFor="status-filter" className="text-sm text-slate-600">Filter by status:</Label>
+                      <Select value={bundleStatusFilter} onValueChange={(value: any) => setBundleStatusFilter(value)}>
+                        <SelectTrigger id="status-filter" className="w-[180px]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">
+                            <div className="flex items-center gap-2">
+                              <Package className="w-4 h-4 text-slate-600" />
+                              All ({bundleRecommendations.length})
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="in-progress">
+                            <div className="flex items-center gap-2">
+                              <Clock className="w-4 h-4 text-blue-600" />
+                              In Progress ({inProgressCount})
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="pending">
+                            <div className="flex items-center gap-2">
+                              <AlertCircle className="w-4 h-4 text-yellow-600" />
+                              Pending ({pendingCount})
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="completed">
+                            <div className="flex items-center gap-2">
+                              <CheckCircle2 className="w-4 h-4 text-green-600" />
+                              Completed ({completedCount})
+                            </div>
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {(() => {
+                    // Filter and sort recommendations
+                    const statusOrder = { "in-progress": 1, "pending": 2, "completed": 3 };
+                    const filteredRecs = bundleStatusFilter === "all" 
+                      ? bundleRecommendations.sort((a, b) => statusOrder[a.status] - statusOrder[b.status])
+                      : bundleRecommendations.filter(r => r.status === bundleStatusFilter);
+                    
+                    if (filteredRecs.length === 0) {
+                      return (
+                        <div className="text-center py-12">
+                          <AlertCircle className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+                          <p className="text-slate-500">No recommendations with this status</p>
+                        </div>
+                      );
+                    }
+                    
+                    return (
+                      <div className="space-y-4">
+                        {filteredRecs.map((rec, index) => {
+                      const statusBadge = getStatusBadge2(rec.status);
+                      return (
+                        <div key={rec.id}>
+                          <div className="flex items-start gap-4">
+                            <div className="w-10 h-10 bg-purple-50 rounded-lg flex items-center justify-center flex-shrink-0">
+                              {getStatusIcon2(rec.status)}
+                            </div>
+                            <div className="flex-1">
+                              <div className="flex items-start justify-between mb-2">
+                                <div>
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <h4 className="text-slate-900">#{index + 1} {rec.type}</h4>
+                                    <Badge variant={getPriorityBadge(rec.priority)} className="text-xs">
+                                      {rec.priority}
+                                    </Badge>
+                                    <Badge variant={statusBadge.variant} className="text-xs">
+                                      {statusBadge.label}
+                                    </Badge>
+                                  </div>
+                                  <p className="text-sm text-slate-500 mb-2">{rec.campaign}</p>
+                                </div>
+                              </div>
+
+                              <p className="text-sm text-slate-700 mb-3">{rec.recommendation}</p>
+
+                              <div className="grid grid-cols-2 gap-4 mb-3">
+                                <div>
+                                  <p className="text-xs text-slate-500 mb-1">Expected Impact</p>
+                                  <p className="text-sm text-green-600 flex items-center gap-1">
+                                    <TrendingUp className="w-3 h-3" />
+                                    {rec.impact}
+                                  </p>
+                                </div>
+                                {rec.status === "completed" && rec.result && (
+                                  <div>
+                                    <p className="text-xs text-slate-500 mb-1">Actual Result</p>
+                                    <p className="text-sm text-green-600 flex items-center gap-1">
+                                      <CheckCircle2 className="w-3 h-3" />
+                                      {rec.result}
+                                    </p>
+                                  </div>
+                                )}
+                              </div>
+
+                              {rec.executedAt && (
+                                <p className="text-xs text-slate-400">
+                                  Executed on {rec.executedAt}
+                                </p>
+                              )}
+
+                              {rec.status === "pending" && (
+                                <div className="flex gap-2 mt-3">
+                                  <Button 
+                                    variant="outline" 
+                                    size="sm"
+                                    onClick={() => handleSkipRecommendation(rec.id, rec.type)}
+                                  >
+                                    <XCircle className="w-4 h-4 mr-1" />
+                                    Skip
+                                  </Button>
+                                  <Button 
+                                    size="sm"
+                                    onClick={() => handleExecuteRecommendation(rec.id, rec.type)}
+                                  >
+                                    <Play className="w-4 h-4 mr-1" />
+                                    Execute Now
+                                  </Button>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          {index < filteredRecs.length - 1 && (
+                            <Separator className="my-4" />
+                          )}
+                        </div>
+                      );
+                    })}
+                      </div>
+                    );
+                  })()}
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Recent Activity - Takes 1/3 of the space */}
+            <div className="lg:col-span-1">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Recent Activity</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {recentActivities.map((activity, index) => {
+                      const Icon = activity.icon;
+                      return (
+                        <div key={activity.id}>
+                          <div className="flex gap-3">
+                            <div className="flex flex-col items-center">
+                              <div className="w-8 h-8 bg-blue-50 rounded-full flex items-center justify-center flex-shrink-0">
+                                <Icon className="w-4 h-4 text-blue-600" />
+                              </div>
+                              {index < recentActivities.length - 1 && (
+                                <div className="w-px h-full bg-slate-200 mt-2 flex-1 min-h-8" />
+                              )}
+                            </div>
+                            <div className="flex-1 pb-4">
+                              <p className="text-sm text-slate-900 mb-1">{activity.action}</p>
+                              <div className="flex items-center gap-2 text-xs text-slate-500">
+                                <User className="w-3 h-3" />
+                                <span>{activity.user}</span>
+                              </div>
+                              <p className="text-xs text-slate-400 mt-1">{activity.timestamp}</p>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </div>
+
+        {/* Add New Task Dialog */}
+        <Dialog open={isAddTaskDialogOpen} onOpenChange={setIsAddTaskDialogOpen}>
+          <DialogContent className="sm:max-w-[600px]">
+            <DialogHeader>
+              <DialogTitle>Add New Task to Bundle</DialogTitle>
+              <DialogDescription>
+                Create a new recommendation task for this action bundle
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label htmlFor="task-type">Task Type</Label>
+                <Input
+                  id="task-type"
+                  placeholder="e.g., Keyword Optimization, Bid Adjustment"
+                  value={newTaskType}
+                  onChange={(e) => setNewTaskType(e.target.value)}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="task-priority">Priority</Label>
+                <Select value={newTaskPriority} onValueChange={(value: any) => setNewTaskPriority(value)}>
+                  <SelectTrigger id="task-priority">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="high">High</SelectItem>
+                    <SelectItem value="medium">Medium</SelectItem>
+                    <SelectItem value="low">Low</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="task-recommendation">Recommendation Description</Label>
+                <Textarea
+                  id="task-recommendation"
+                  placeholder="Describe the recommendation in detail..."
+                  value={newTaskRecommendation}
+                  onChange={(e) => setNewTaskRecommendation(e.target.value)}
+                  rows={3}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="task-impact">Expected Impact</Label>
+                <Input
+                  id="task-impact"
+                  placeholder="e.g., +15% CTR expected"
+                  value={newTaskImpact}
+                  onChange={(e) => setNewTaskImpact(e.target.value)}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="task-campaign">Campaign</Label>
+                <Input
+                  id="task-campaign"
+                  placeholder="e.g., Q4 Product Launch"
+                  value={newTaskCampaign}
+                  onChange={(e) => setNewTaskCampaign(e.target.value)}
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsAddTaskDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleSaveNewTask}>
+                Add Task
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </>
+    );
+  }
+
+  return (
+    <>
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" size="sm" onClick={onBack}>
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back to Accounts
+          </Button>
+          <div>
+            <h1 className="text-slate-900">{client.name}</h1>
+            <p className="text-slate-500">{client.industry}</p>
+          </div>
+        </div>
+        <Badge className={
+          client.status === "healthy" ? "bg-green-600" :
+          client.status === "warning" ? "bg-yellow-500" :
+          "bg-red-600"
+        }>
+          {client.status}
+        </Badge>
+      </div>
+
+      {/* Key Performance Metrics */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-3">
+              <div className="p-3 bg-green-50 rounded-lg">
+                <CheckCircle2 className="w-5 h-5 text-green-600" />
+              </div>
+              <div>
+                <p className="text-sm text-slate-500">Completed Tasks</p>
+                <p className="text-slate-900">
+                  {monthlyData.filter(d => d.status === "completed").length} days
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-3">
+              <div className="p-3 bg-yellow-50 rounded-lg">
+                <Clock className="w-5 h-5 text-yellow-600" />
+              </div>
+              <div>
+                <p className="text-sm text-slate-500">Pending Tasks</p>
+                <p className="text-slate-900">
+                  {monthlyData.filter(d => d.status === "pending").length} days
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-3">
+              <div className="p-3 bg-red-50 rounded-lg">
+                <AlertCircle className="w-5 h-5 text-red-600" />
+              </div>
+              <div>
+                <p className="text-sm text-slate-500">Critical Days</p>
+                <p className="text-slate-900">
+                  {monthlyData.filter(d => d.status === "critical").length} days
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-3">
+              <div className="p-3 bg-blue-50 rounded-lg">
+                <CalendarIcon className="w-5 h-5 text-blue-600" />
+              </div>
+              <div>
+                <p className="text-sm text-slate-500">Month Progress</p>
+                <p className="text-slate-900">
+                  {Math.round((monthlyData.filter(d => d.status === "completed").length / (currentMonthConfig.currentDay - 1 || 1)) * 100)}%
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Account Details Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Account Overview</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Campaign Performance */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="p-2 bg-blue-50 rounded-lg">
+                  <Target className="w-4 h-4 text-blue-600" />
+                </div>
+                <h3 className="text-sm text-slate-900">Active Campaigns</h3>
+              </div>
+              <div className="space-y-3">
+                <div className="p-3 bg-slate-50 rounded-lg">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm text-slate-900">Search Campaigns</span>
+                    <Badge variant="outline" className="text-xs">Active</Badge>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div>
+                      <p className="text-slate-500">Impressions</p>
+                      <p className="text-slate-900">125,430</p>
+                    </div>
+                    <div>
+                      <p className="text-slate-500">CTR</p>
+                      <p className="text-green-600">5.8%</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="p-3 bg-slate-50 rounded-lg">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm text-slate-900">Display Network</span>
+                    <Badge variant="outline" className="text-xs">Active</Badge>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div>
+                      <p className="text-slate-500">Impressions</p>
+                      <p className="text-slate-900">342,100</p>
+                    </div>
+                    <div>
+                      <p className="text-slate-500">CTR</p>
+                      <p className="text-green-600">2.3%</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="p-3 bg-slate-50 rounded-lg">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm text-slate-900">Shopping Ads</span>
+                    <Badge variant="outline" className="text-xs">Active</Badge>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div>
+                      <p className="text-slate-500">Impressions</p>
+                      <p className="text-slate-900">89,250</p>
+                    </div>
+                    <div>
+                      <p className="text-slate-500">CTR</p>
+                      <p className="text-green-600">4.2%</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Financial Metrics */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="p-2 bg-green-50 rounded-lg">
+                  <DollarSign className="w-4 h-4 text-green-600" />
+                </div>
+                <h3 className="text-sm text-slate-900">Financial Performance</h3>
+              </div>
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="p-3 border rounded-lg">
+                    <p className="text-xs text-slate-500 mb-1">Monthly Budget</p>
+                    <p className="text-lg text-slate-900">$45,000</p>
+                  </div>
+                  <div className="p-3 border rounded-lg">
+                    <p className="text-xs text-slate-500 mb-1">Monthly Spend</p>
+                    <p className="text-lg text-slate-900">$30,600</p>
+                    <div className="mt-2 w-full bg-slate-200 rounded-full h-1.5">
+                      <div className="bg-blue-600 h-1.5 rounded-full" style={{ width: "68%" }}></div>
+                    </div>
+                    <p className="text-xs text-slate-500 mt-1">68% of budget</p>
+                  </div>
+                </div>
+                <div className="p-3 border rounded-lg">
+                  <p className="text-xs text-slate-500 mb-1">Cost Per Click</p>
+                  <p className="text-lg text-slate-900">$2.34</p>
+                  <p className="text-xs text-green-600 flex items-center gap-1 mt-1">
+                    <TrendingUp className="w-3 h-3" />
+                    12% better than industry avg
+                  </p>
+                </div>
+                <div className="p-3 border rounded-lg">
+                  <p className="text-xs text-slate-500 mb-1">Cost Per Acquisition</p>
+                  <p className="text-lg text-slate-900">$24.50</p>
+                  <p className="text-xs text-green-600 flex items-center gap-1 mt-1">
+                    <TrendingUp className="w-3 h-3" />
+                    8% improvement from last month
+                  </p>
+                </div>
+                <div className="p-3 border rounded-lg">
+                  <p className="text-xs text-slate-500 mb-1">Return on Ad Spend</p>
+                  <p className="text-lg text-green-600">5.2x</p>
+                  <p className="text-xs text-slate-500 mt-1">Target: 4.0x</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Conversion Metrics */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="p-2 bg-purple-50 rounded-lg">
+                  <TrendingUp className="w-4 h-4 text-purple-600" />
+                </div>
+                <h3 className="text-sm text-slate-900">Conversion Tracking</h3>
+              </div>
+              <div className="space-y-3">
+                <div className="p-3 bg-purple-50 rounded-lg">
+                  <p className="text-xs text-purple-700 mb-1">Total Conversions</p>
+                  <p className="text-2xl text-purple-900">1,245</p>
+                  <p className="text-xs text-purple-600 mt-1">This month</p>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="p-3 border rounded-lg">
+                    <p className="text-xs text-slate-500 mb-1">Purchases</p>
+                    <p className="text-lg text-slate-900">856</p>
+                  </div>
+                  <div className="p-3 border rounded-lg">
+                    <p className="text-xs text-slate-500 mb-1">Sign-ups</p>
+                    <p className="text-lg text-slate-900">245</p>
+                  </div>
+                  <div className="p-3 border rounded-lg">
+                    <p className="text-xs text-slate-500 mb-1">Leads</p>
+                    <p className="text-lg text-slate-900">98</p>
+                  </div>
+                  <div className="p-3 border rounded-lg">
+                    <p className="text-xs text-slate-500 mb-1">Phone Calls</p>
+                    <p className="text-lg text-slate-900">46</p>
+                  </div>
+                </div>
+                <div className="p-3 border rounded-lg">
+                  <p className="text-xs text-slate-500 mb-1">Conversion Rate</p>
+                  <p className="text-lg text-slate-900">3.8%</p>
+                  <div className="mt-2 flex items-center gap-2">
+                    <div className="flex-1 bg-slate-200 rounded-full h-1.5">
+                      <div className="bg-purple-600 h-1.5 rounded-full" style={{ width: "76%" }}></div>
+                    </div>
+                    <span className="text-xs text-slate-600">76% to goal</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Action Bundles Section */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <Package className="w-5 h-5" />
+              Action Bundles
+            </CardTitle>
+            <Button variant="outline" size="sm" onClick={() => setIsCreatingBundle(true)}>
+              <Package className="w-4 h-4 mr-2" />
+              Create New Bundle
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {mockActionBundles
+              .filter(bundle => bundle.clientName === client.name)
+              .map((bundle) => {
+                const getStatusColor = (status: string) => {
+                  switch (status) {
+                    case "completed":
+                      return "bg-green-50 text-green-600 border-green-200";
+                    case "in-progress":
+                      return "bg-blue-50 text-blue-600 border-blue-200";
+                    case "pending":
+                      return "bg-yellow-50 text-yellow-600 border-yellow-200";
+                    default:
+                      return "bg-slate-50 text-slate-600 border-slate-200";
+                  }
+                };
+
+                const getStatusIcon = (status: string) => {
+                  switch (status) {
+                    case "completed":
+                      return <CheckCircle2 className="w-4 h-4" />;
+                    case "in-progress":
+                      return <Clock className="w-4 h-4" />;
+                    case "pending":
+                      return <AlertCircle className="w-4 h-4" />;
+                    default:
+                      return null;
+                  }
+                };
+
+                const getStatusBadge = (status: string) => {
+                  switch (status) {
+                    case "completed":
+                      return { variant: "default" as const, label: "Completed" };
+                    case "in-progress":
+                      return { variant: "outline" as const, label: "In Progress" };
+                    case "pending":
+                      return { variant: "secondary" as const, label: "Pending" };
+                    default:
+                      return { variant: "secondary" as const, label: "Unknown" };
+                  }
+                };
+
+                const statusBadge = getStatusBadge(bundle.status);
+
+                return (
+                  <div
+                    key={bundle.id}
+                    className={`p-4 border-2 rounded-lg transition-all hover:shadow-md ${getStatusColor(bundle.status)}`}
+                  >
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex items-start gap-3">
+                        <div className="p-2 bg-white rounded-lg shadow-sm">
+                          {getStatusIcon(bundle.status)}
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2 mb-1">
+                            <h4 className="text-slate-900">Bundle #{bundle.id}</h4>
+                            <Badge variant={statusBadge.variant}>
+                              {statusBadge.label}
+                            </Badge>
+                          </div>
+                          <p className="text-sm text-slate-600">
+                            Created by {bundle.managerName} • {bundle.createdAt}
+                          </p>
+                        </div>
+                      </div>
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={() => setSelectedBundleId(bundle.id)}
+                      >
+                        View Details
+                      </Button>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-white rounded-lg">
+                          <Lightbulb className="w-4 h-4 text-purple-600" />
+                        </div>
+                        <div>
+                          <p className="text-xs text-slate-500">Total Actions</p>
+                          <p className="text-slate-900">{bundle.recommendationsCount}</p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-white rounded-lg">
+                          <TrendingUp className="w-4 h-4 text-green-600" />
+                        </div>
+                        <div>
+                          <p className="text-xs text-slate-500">Estimated Impact</p>
+                          <p className="text-green-600">{bundle.estimatedImpact}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {bundle.status === "pending" && (
+                      <div className="mt-4 pt-4 border-t flex gap-2">
+                        <Button variant="outline" size="sm">
+                          Edit Bundle
+                        </Button>
+                        <Button size="sm">
+                          <Play className="w-4 h-4 mr-1" />
+                          Execute Actions
+                        </Button>
+                      </div>
+                    )}
+
+                    {bundle.status === "in-progress" && (
+                      <div className="mt-4 pt-4 border-t">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-xs text-slate-600">Progress</span>
+                          <span className="text-xs text-slate-900">40%</span>
+                        </div>
+                        <div className="w-full bg-slate-200 rounded-full h-2">
+                          <div className="bg-blue-600 h-2 rounded-full" style={{ width: "40%" }}></div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+
+            {mockActionBundles.filter(bundle => bundle.clientName === client.name).length === 0 && (
+              <div className="text-center py-8">
+                <Package className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                <p className="text-slate-500 mb-4">No action bundles created yet</p>
+                <Button onClick={() => setIsCreatingBundle(true)}>
+                  <Package className="w-4 h-4 mr-2" />
+                  Create First Bundle
+                </Button>
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Monthly Calendar */}
+        <div className="lg:col-span-2">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <CalendarIcon className="w-5 h-5" />
+                  Daily Task Status
+                </CardTitle>
+                <Select value={selectedMonth} onValueChange={handleMonthChange}>
+                  <SelectTrigger className="w-48">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="2025-10">October 2025</SelectItem>
+                    <SelectItem value="2025-09">September 2025</SelectItem>
+                    <SelectItem value="2025-08">August 2025</SelectItem>
+                    <SelectItem value="2025-07">July 2025</SelectItem>
+                    <SelectItem value="2025-06">June 2025</SelectItem>
+                    <SelectItem value="2025-05">May 2025</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {/* Calendar Grid */}
+              <div className="space-y-4">
+                {/* Day Labels */}
+                <div className="grid grid-cols-7 gap-2">
+                  {dayLabels.map(label => (
+                    <div key={label} className="text-center text-xs text-slate-500 py-2">
+                      {label}
+                    </div>
+                  ))}
+                </div>
+
+                {/* Calendar Days */}
+                <TooltipProvider>
+                  <div className="grid grid-cols-7 gap-2">
+                    {/* Empty cells for days before the 1st */}
+                    {[...Array(currentMonthConfig.startDay)].map((_, i) => (
+                      <div key={`empty-${i}`} className="aspect-square" />
+                    ))}
+                    
+                    {monthlyData.map((day) => (
+                      <Tooltip key={day.date} delayDuration={200}>
+                        <TooltipTrigger asChild>
+                          <button
+                            onClick={() => handleDayClick(day.date)}
+                            className={`
+                              aspect-square rounded-lg border-2 transition-all
+                              flex flex-col items-center justify-center gap-1
+                              ${selectedDay === day.date ? "border-blue-500 ring-2 ring-blue-200" : "border-transparent"}
+                              ${getStatusColor(day.status)}
+                              ${day.status === "none" || day.status === "sunday" ? "cursor-default" : "cursor-pointer"}
+                            `}
+                            disabled={day.status === "none" || day.status === "sunday"}
+                          >
+                            <span className={`text-sm ${day.status === "none" ? "text-slate-400" : day.status === "sunday" ? "text-slate-600" : "text-white"}`}>
+                              {day.date}
+                            </span>
+                            {day.status !== "none" && day.status !== "sunday" && (
+                              <span className="text-white opacity-90">
+                                {getStatusIcon(day.status)}
+                              </span>
+                            )}
+                          </button>
+                        </TooltipTrigger>
+                        {day.status === "sunday" ? (
+                          <TooltipContent side="top" className="max-w-xs">
+                            <div className="space-y-1">
+                              <span className="text-sm">{currentMonthConfig.name.split(' ')[0]} {day.date}, 2025</span>
+                              <p className="text-xs text-slate-500">No tasks scheduled - Weekend</p>
+                            </div>
+                          </TooltipContent>
+                        ) : day.status !== "none" && (
+                          <TooltipContent side="top" className="max-w-xs">
+                            <div className="space-y-2">
+                              <div className="flex items-center justify-between gap-3">
+                                <span className="text-sm">{currentMonthConfig.name.split(' ')[0]} {day.date}, 2025</span>
+                                <Badge className={
+                                  day.status === "completed" ? "bg-green-600" :
+                                  day.status === "pending" ? "bg-yellow-500" :
+                                  "bg-red-600"
+                                }>
+                                  {day.status}
+                                </Badge>
+                              </div>
+                              <div className="space-y-1">
+                                <div className="flex items-center justify-between text-xs">
+                                  <span className="text-slate-500">Tasks Progress</span>
+                                  <span className="text-slate-700">
+                                    {day.tasksCompleted} / {day.totalTasks} completed
+                                  </span>
+                                </div>
+                                <div className="w-full bg-slate-200 rounded-full h-1.5">
+                                  <div 
+                                    className={`h-1.5 rounded-full transition-all ${
+                                      day.status === "completed" ? "bg-green-600" :
+                                      day.status === "pending" ? "bg-yellow-500" :
+                                      "bg-red-600"
+                                    }`}
+                                    style={{
+                                      width: `${(day.tasksCompleted / day.totalTasks) * 100}%`
+                                    }}
+                                  />
+                                </div>
+                                <p className="text-xs text-slate-500 pt-1">
+                                  {day.status === "completed" 
+                                    ? "All tasks completed successfully" 
+                                    : day.status === "pending"
+                                    ? "Some tasks still in progress"
+                                    : "Critical tasks need attention"}
+                                </p>
+                              </div>
+                            </div>
+                          </TooltipContent>
+                        )}
+                      </Tooltip>
+                    ))}
+                  </div>
+                </TooltipProvider>
+
+                {/* Legend */}
+                <div className="flex items-center justify-center gap-6 pt-4 border-t">
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 bg-green-500 rounded" />
+                    <span className="text-xs text-slate-600">Completed</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 bg-yellow-500 rounded" />
+                    <span className="text-xs text-slate-600">Pending</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 bg-red-500 rounded" />
+                    <span className="text-xs text-slate-600">Critical</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 bg-slate-300 rounded" />
+                    <span className="text-xs text-slate-600">Sunday</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 bg-slate-100 rounded border border-slate-200" />
+                    <span className="text-xs text-slate-600">Future</span>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Actions & Updates Log */}
+        <div className="lg:col-span-1">
+          <Card className="h-full">
+            <CardHeader>
+              <CardTitle className="text-base">Actions & Updates</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2">
+                {mockActivityLogs.map((log) => (
+                  <div key={log.id} className="pb-4 border-b border-slate-100 last:border-0">
+                    <div className="flex items-start gap-3">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Badge variant="outline" className={`text-xs ${getActivityTypeColor(log.type)}`}>
+                            {getActivityTypeLabel(log.type)}
+                          </Badge>
+                        </div>
+                        <p className="text-sm text-slate-700 mb-2">{log.action}</p>
+                        <div className="flex items-center gap-2 text-xs text-slate-500">
+                          <span>{log.date}</span>
+                          <span>•</span>
+                          <span>{log.time}</span>
+                        </div>
+                        <p className="text-xs text-slate-500 mt-1">by {log.user}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
+      {/* AI Assistant Chatbot */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
+              <Sparkles className="w-5 h-5 text-white" />
+            </div>
+            AI Assistant
+          </CardTitle>
+          <p className="text-xs text-slate-500">Ask me anything about your accounts</p>
+        </CardHeader>
+        <CardContent>
+          <ClientChatbotInline clientName={client.name} />
+        </CardContent>
+      </Card>
+
+      {/* Day Details Sheet */}
+      <Sheet open={isDayDetailsOpen} onOpenChange={setIsDayDetailsOpen}>
+        <SheetContent side="right" className="w-full sm:max-w-2xl overflow-y-auto p-0">
+          <div className="px-6 py-6">
+            <SheetHeader>
+              <div className="flex items-center justify-between">
+                <SheetTitle>
+                  {selectedDay && `${currentMonthConfig.name.split(' ')[0]} ${selectedDay}, 2025`}
+                </SheetTitle>
+                {selectedDayData && (
+                  <Badge className={
+                    selectedDayData.status === "completed" ? "bg-green-600" :
+                    selectedDayData.status === "pending" ? "bg-yellow-500" :
+                    "bg-red-600"
+                  }>
+                    {selectedDayData.status}
+                  </Badge>
+                )}
+              </div>
+            </SheetHeader>
+
+            <div className="mt-6 space-y-6">
+              {/* Summary Stats */}
+              {selectedDayData && (
+                <div className="grid grid-cols-2 gap-4">
+                  <Card>
+                    <CardContent className="pt-4">
+                      <div className="flex items-center gap-3">
+                        <div className={`p-2 rounded-lg ${
+                          selectedDayData.status === "completed" ? "bg-green-50" :
+                          selectedDayData.status === "pending" ? "bg-yellow-50" :
+                          "bg-red-50"
+                        }`}>
+                          {getStatusIcon(selectedDayData.status, true)}
+                        </div>
+                        <div>
+                          <p className="text-xs text-slate-500">Tasks Completed</p>
+                          <p className="text-lg text-slate-900">
+                            {selectedDayData.tasksCompleted} / {selectedDayData.totalTasks}
+                          </p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardContent className="pt-4">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-blue-50 rounded-lg">
+                          <Target className="w-4 h-4 text-blue-600" />
+                        </div>
+                        <div>
+                          <p className="text-xs text-slate-500">Completion Rate</p>
+                          <p className="text-lg text-slate-900">
+                            {selectedDayData.totalTasks > 0 
+                              ? Math.round((selectedDayData.tasksCompleted / selectedDayData.totalTasks) * 100) 
+                              : 0}%
+                          </p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
+
+              {/* Progress Bar */}
+              {selectedDayData && (
+                <Card>
+                  <CardContent className="pt-4">
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-slate-600">Overall Progress</span>
+                        <span className="text-slate-900">
+                          {Math.round((selectedDayData.tasksCompleted / selectedDayData.totalTasks) * 100)}%
+                        </span>
+                      </div>
+                      <div className="w-full bg-slate-200 rounded-full h-2">
+                        <div 
+                          className={`h-2 rounded-full transition-all ${
+                            selectedDayData.status === "completed" ? "bg-green-600" :
+                            selectedDayData.status === "pending" ? "bg-yellow-500" :
+                            "bg-red-600"
+                          }`}
+                          style={{
+                            width: `${(selectedDayData.tasksCompleted / selectedDayData.totalTasks) * 100}%`
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Tasks List */}
+              <div className="space-y-3">
+                <h3 className="text-sm text-slate-900">Tasks</h3>
+                {selectedDayTasks.map((task, index) => (
+                  <Card key={task.id} className={`border-l-4 ${
+                    task.status === "completed" ? "border-l-green-500" :
+                    task.status === "pending" ? "border-l-yellow-500" :
+                    "border-l-red-500"
+                  }`}>
+                    <CardContent className="pt-4">
+                      <div className="space-y-3">
+                        {/* Task Header */}
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <h4 className="text-sm text-slate-900">{task.title}</h4>
+                              <Badge variant="outline" className={`text-xs ${
+                                task.priority === "high" ? "border-red-300 text-red-700" :
+                                task.priority === "medium" ? "border-yellow-300 text-yellow-700" :
+                                "border-slate-300 text-slate-700"
+                              }`}>
+                                {task.priority}
+                              </Badge>
+                            </div>
+                            <p className="text-xs text-slate-600">{task.description}</p>
+                          </div>
+                          <Badge variant={task.status === "completed" ? "default" : "secondary"} className={
+                            task.status === "completed" ? "bg-green-600" :
+                            task.status === "pending" ? "bg-yellow-500" :
+                            "bg-red-600"
+                          }>
+                            {task.status}
+                          </Badge>
+                        </div>
+
+                        {/* Task Details */}
+                        <div className="flex items-center gap-4 text-xs text-slate-500">
+                          <div className="flex items-center gap-1">
+                            <Users className="w-3 h-3" />
+                            <span>{task.assignedTo}</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Badge variant="outline" className="text-xs">
+                              {task.category}
+                            </Badge>
+                          </div>
+                          {task.completedAt && (
+                            <div className="flex items-center gap-1">
+                              <CheckCircle2 className="w-3 h-3" />
+                              <span>{task.completedAt}</span>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Metrics */}
+                        {task.metrics && task.status === "completed" && (
+                          <div className="grid grid-cols-4 gap-2 pt-2 border-t border-slate-100">
+                            <div className="text-center">
+                              <p className="text-xs text-slate-500">Impressions</p>
+                              <p className="text-sm text-slate-900">{task.metrics.impressions?.toLocaleString()}</p>
+                            </div>
+                            <div className="text-center">
+                              <p className="text-xs text-slate-500">Clicks</p>
+                              <p className="text-sm text-slate-900">{task.metrics.clicks?.toLocaleString()}</p>
+                            </div>
+                            <div className="text-center">
+                              <p className="text-xs text-slate-500">Conv.</p>
+                              <p className="text-sm text-slate-900">{task.metrics.conversions}</p>
+                            </div>
+                            <div className="text-center">
+                              <p className="text-xs text-slate-500">Spend</p>
+                              <p className="text-sm text-slate-900">${task.metrics.spend}</p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-3 pt-4">
+                <Button className="flex-1">
+                  Export Tasks
+                </Button>
+                <Button variant="outline" className="flex-1">
+                  Generate Report
+                </Button>
+              </div>
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
+    </div>
+    </>
+  );
+}
