@@ -1,4 +1,14 @@
-import { LayoutDashboard, Lightbulb, Package, FileText, Users, Settings, ChevronUp, LogOut, ClipboardCheck, Building2 } from "lucide-react";
+import {
+  LayoutDashboard,
+  Lightbulb,
+  FileText,
+  Users,
+  Settings,
+  ChevronUp,
+  LogOut,
+  ClipboardCheck,
+  Building2,
+} from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -21,10 +31,20 @@ import {
 } from "./ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "./ui/avatar";
 import beezLogo from "figma:asset/e78fffddab88e738f7460441ac9695d5a0e809a4.png";
+import { BackendUser } from "../lib/api";
 
 interface AppSidebarProps {
   currentView: string;
   onViewChange: (view: string) => void;
+  user: BackendUser;
+  onLogout: () => void;
+}
+
+function getInitials(name: string | undefined) {
+  if (!name) return "AU";
+  const [first = "", second = ""] = name.trim().split(" ");
+  const initials = `${first.charAt(0)}${second.charAt(0)}`.toUpperCase();
+  return initials || "AU";
 }
 
 const menuItems = [
@@ -40,7 +60,7 @@ const systemItems = [
   { id: "settings", label: "Settings", icon: Settings },
 ];
 
-export function AppSidebar({ currentView, onViewChange }: AppSidebarProps) {
+export function AppSidebar({ currentView, onViewChange, user, onLogout }: AppSidebarProps) {
   return (
     <Sidebar>
       <SidebarHeader className="border-b px-6 py-4">
@@ -96,11 +116,13 @@ export function AppSidebar({ currentView, onViewChange }: AppSidebarProps) {
           <DropdownMenuTrigger className="w-full">
             <div className="flex items-center gap-3 p-2 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer">
               <Avatar className="w-10 h-10">
-                <AvatarFallback className="bg-blue-600 text-white">AU</AvatarFallback>
+                <AvatarFallback className="bg-blue-600 text-white">
+                  {getInitials(user.name)}
+                </AvatarFallback>
               </Avatar>
               <div className="flex-1 text-left">
-                <p className="text-sm text-slate-900">Admin User</p>
-                <p className="text-xs text-slate-500">admin@aaaplatform.com</p>
+                <p className="text-sm text-slate-900">{user.name || "Team Member"}</p>
+                <p className="text-xs text-slate-500">{user.email}</p>
               </div>
               <ChevronUp className="w-4 h-4 text-slate-400" />
             </div>
@@ -112,7 +134,7 @@ export function AppSidebar({ currentView, onViewChange }: AppSidebarProps) {
               <Settings className="w-4 h-4 mr-2" />
               <span>Settings</span>
             </DropdownMenuItem>
-            <DropdownMenuItem className="text-red-600">
+            <DropdownMenuItem className="text-red-600" onClick={onLogout}>
               <LogOut className="w-4 h-4 mr-2" />
               <span>Log out</span>
             </DropdownMenuItem>

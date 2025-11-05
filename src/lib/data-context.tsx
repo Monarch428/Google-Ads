@@ -176,7 +176,7 @@ function mapManagers(backendUsers: BackendUser[], clients: Client[]): Manager[] 
   });
 }
 
-export function DataProvider({ children }: { children: React.ReactNode }) {
+export function DataProvider({ children, authToken }: { children: React.ReactNode; authToken?: string }) {
   const [clients, setClients] = useState<Client[]>([]);
   const [clientsLoading, setClientsLoading] = useState(true);
   const [clientsError, setClientsError] = useState<string | null>(null);
@@ -187,11 +187,19 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [managersError, setManagersError] = useState<string | null>(null);
 
   const loadClients = useCallback(async () => {
+    if (!authToken) {
+      setClients(mockClients);
+      setCampaigns([]);
+      setClientsError(null);
+      setClientsLoading(false);
+      return;
+    }
+
     setClientsLoading(true);
     try {
       const [clientResponse, campaignResponse] = await Promise.all([
-        fetchClients(),
-        fetchCampaigns().catch(() => []),
+        fetchClients(authToken),
+        fetchCampaigns(authToken).catch(() => []),
       ]);
 
       const { summaries, metricsByClient } = buildCampaignSummaries(campaignResponse);
@@ -208,12 +216,19 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setClientsLoading(false);
     }
-  }, []);
+  }, [authToken]);
 
   const loadManagers = useCallback(async () => {
+    if (!authToken) {
+      setManagers(mockManagers);
+      setManagersError(null);
+      setManagersLoading(false);
+      return;
+    }
+
     setManagersLoading(true);
     try {
-      const users = await fetchUsers();
+      const users = await fetchUsers(authToken);
       const mappedManagers = mapManagers(users, clients.length ? clients : mockClients);
       setManagers(mappedManagers);
       setManagersError(null);
@@ -224,7 +239,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setManagersLoading(false);
     }
-  }, [clients]);
+  }, [authToken, clients]);
 
   useEffect(() => {
     loadClients();
