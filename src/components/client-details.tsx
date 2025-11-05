@@ -18,6 +18,7 @@ import {
 } from "./ui/tooltip";
 import { ArrowLeft, CheckCircle2, Clock, AlertCircle, Calendar as CalendarIcon, Target, TrendingUp, DollarSign, Users, Package, Play, Lightbulb, XCircle, Download, Settings, MessageSquare, User, FileText, Sparkles, Plus } from "lucide-react";
 import { mockClients, mockActionBundles } from "../lib/mock-data";
+import { useData } from "../lib/data-context";
 import { ClientChatbotInline } from "./client-chatbot-inline";
 import { CreateBundle } from "./create-bundle";
 import { toast } from "sonner@2.0.3";
@@ -254,7 +255,9 @@ const mockActivityLogs: ActivityLog[] = [
 ];
 
 export function ClientDetails({ clientId, onBack }: ClientDetailsProps) {
-  const client = mockClients.find(c => c.id === clientId);
+  const { clients } = useData();
+  const availableClients = clients.length ? clients : mockClients;
+  const client = availableClients.find(c => c.id === clientId);
   const [selectedMonth, setSelectedMonth] = useState<string>("2025-10");
   const [monthlyData, setMonthlyData] = useState<DayStatus[]>(generateMonthlyData("2025-10"));
   const [selectedDay, setSelectedDay] = useState<number | null>(null);

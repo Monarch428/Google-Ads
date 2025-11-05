@@ -20,6 +20,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { Manager, mockRecommendations, mockActionBundles, mockClients } from "../lib/mock-data";
+import { useData } from "../lib/data-context";
 
 interface ManagerDetailsProps {
   manager: Manager;
@@ -41,8 +42,9 @@ export function ManagerDetails({ manager, onBack }: ManagerDetailsProps) {
     b => b.managerName === manager.name
   );
 
-  // Get manager's clients (mock data - in real app would be from backend)
-  const assignedClients = mockClients.slice(0, manager.clientsAssigned);
+  const { clients } = useData();
+  const availableClients = clients.length ? clients : mockClients;
+  const assignedClients = availableClients.slice(0, manager.clientsAssigned);
 
   // Recent activities for this manager
   const recentActivities = [

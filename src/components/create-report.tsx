@@ -20,6 +20,7 @@ import {
   Target,
 } from "lucide-react";
 import { mockClients } from "../lib/mock-data";
+import { useData } from "../lib/data-context";
 import { toast } from "sonner@2.0.3";
 
 interface CreateReportProps {
@@ -47,8 +48,11 @@ export function CreateReport({ onBack, onGenerate }: CreateReportProps) {
     }));
   };
 
+  const { clients } = useData();
+  const availableClients = clients.length ? clients : mockClients;
+
   const selectedSectionsCount = Object.values(includeSections).filter(Boolean).length;
-  const selectedClientData = mockClients.find(c => c.id === selectedClient);
+  const selectedClientData = availableClients.find(c => c.id === selectedClient);
 
   return (
     <div className="space-y-6">
@@ -98,7 +102,7 @@ export function CreateReport({ onBack, onGenerate }: CreateReportProps) {
                   <SelectValue placeholder="Choose a client..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {mockClients.map((client) => (
+                  {availableClients.map((client) => (
                     <SelectItem key={client.id} value={client.id}>
                       {client.name}
                     </SelectItem>

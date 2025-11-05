@@ -21,6 +21,7 @@ import {
 import { Badge } from "./ui/badge";
 import { CheckCircle2, RotateCcw, CheckCheck, ArrowLeft, ChevronRight, Building2, Search, Filter, TrendingUp, ClipboardCheck } from "lucide-react";
 import { mockClients } from "../lib/mock-data";
+import { useData } from "../lib/data-context";
 
 interface SubChecklistItem {
   id: string;
@@ -177,6 +178,8 @@ export function SetupChecklist() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [sortBy, setSortBy] = useState("name");
   const [checklistSearchQuery, setChecklistSearchQuery] = useState("");
+  const { clients, clientsLoading } = useData();
+  const availableClients = clients.length ? clients : mockClients;
 
   // Load checklist for selected client
   useEffect(() => {
@@ -399,7 +402,7 @@ export function SetupChecklist() {
   // If no client is selected, show the list of clients
   if (!selectedClientId) {
     // Filter and sort clients
-    let filteredClients = mockClients.filter((client) => {
+    let filteredClients = availableClients.filter((client) => {
       const matchesSearch = client.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
                            client.industry?.toLowerCase().includes(searchQuery.toLowerCase()) || false;
       const matchesStatus = statusFilter === "all" || client.status === statusFilter;
@@ -422,16 +425,16 @@ export function SetupChecklist() {
     });
 
     // Calculate summary stats
-    const totalAccounts = mockClients.length;
-    const completedAccounts = mockClients.filter(c => getClientProgress(c.id) === 100).length;
-    const inProgressAccounts = mockClients.filter(c => {
+    const totalAccounts = availableClients.length;
+    const completedAccounts = availableClients.filter(c => getClientProgress(c.id) === 100).length;
+    const inProgressAccounts = availableClients.filter(c => {
       const progress = getClientProgress(c.id);
       return progress > 0 && progress < 100;
     }).length;
-    const notStartedAccounts = mockClients.filter(c => getClientProgress(c.id) === 0).length;
-    const avgProgress = Math.round(
-      mockClients.reduce((sum, c) => sum + getClientProgress(c.id), 0) / totalAccounts
-    );
+    const notStartedAccounts = availableClients.filter(c => getClientProgress(c.id) === 0).length;
+    const avgProgress = totalAccounts > 0
+      ? Math.round(availableClients.reduce((sum, c) => sum + getClientProgress(c.id), 0) / totalAccounts)
+      : 0;
 
     return (
       <div className="space-y-6">
@@ -440,6 +443,9 @@ export function SetupChecklist() {
           <p className="text-sm text-slate-500">
             Select a client account to manage their setup checklist
           </p>
+          {clientsLoading && (
+            <p className="text-xs text-slate-500 mt-2">Loading latest client data...</p>
+          )}
         </div>
 
         {/* Summary Stats */}
@@ -600,7 +606,9 @@ export function SetupChecklist() {
   }
 
   // Show checklist for selected client
-  const selectedClient = mockClients.find((c) => c.id === selectedClientId);
+  const selectedClient = selectedClientId
+    ? availableClients.find((c) => c.id === selectedClientId)
+    : null;
   const overallProgress = getOverallProgress();
 
   // Filter checklist items based on search
