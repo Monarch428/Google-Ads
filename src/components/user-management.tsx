@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
@@ -49,6 +49,7 @@ import {
   MoreVertical
 } from "lucide-react";
 import { mockManagers, mockClients, Manager } from "../lib/mock-data";
+import { useData } from "../lib/data-context";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -69,14 +70,20 @@ export function UserManagement({ onManagerClick }: UserManagementProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [selectedClients, setSelectedClients] = useState<string[]>([]);
+  const { managers, managersLoading, clients } = useData();
+
+  const displayManagers = managers.length ? managers : mockManagers;
+  const displayClients = clients.length ? clients : mockClients;
 
   // Filter managers based on search and status
-  const filteredManagers = mockManagers.filter(manager => {
-    const matchesSearch = manager.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         manager.email.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesStatus = statusFilter === "all" || manager.status === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
+  const filteredManagers = useMemo(() => {
+    return displayManagers.filter(manager => {
+      const matchesSearch = manager.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                           manager.email.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesStatus = statusFilter === "all" || manager.status === statusFilter;
+      return matchesSearch && matchesStatus;
+    });
+  }, [displayManagers, searchQuery, statusFilter]);
 
   const handleEditClick = (manager: Manager) => {
     setSelectedManager(manager);
@@ -167,9 +174,9 @@ export function UserManagement({ onManagerClick }: UserManagementProps) {
                 <Label>Assign Client Accounts</Label>
                 <p className="text-xs text-slate-500 mb-3">Select which clients this manager will oversee</p>
                 <div className="grid grid-cols-2 gap-3 max-h-48 overflow-y-auto border border-slate-200 rounded-lg p-3">
-                  {mockClients.map((client) => (
+                  {displayClients.map((client) => (
                     <div key={client.id} className="flex items-center space-x-2">
-                      <Checkbox 
+                      <Checkbox
                         id={`client-${client.id}`}
                         checked={selectedClients.includes(client.id)}
                         onCheckedChange={() => handleClientToggle(client.id)}
@@ -248,7 +255,7 @@ export function UserManagement({ onManagerClick }: UserManagementProps) {
             <div className="flex items-start justify-between">
               <div className="space-y-2">
                 <p className="text-sm text-slate-500">Total Managers</p>
-                <p className="text-slate-900">{mockManagers.length}</p>
+                <p className="text-slate-900">{displayManagers.length}</p>
               </div>
               <div className="p-3 bg-blue-50 rounded-lg">
                 <Users className="w-5 h-5 text-blue-600" />
@@ -262,7 +269,7 @@ export function UserManagement({ onManagerClick }: UserManagementProps) {
               <div className="space-y-2">
                 <p className="text-sm text-slate-500">Active Managers</p>
                 <p className="text-slate-900 text-green-600">
-                  {mockManagers.filter(m => m.status === "active").length}
+                  {displayManagers.filter(m => m.status === "active").length}
                 </p>
               </div>
               <div className="p-3 bg-green-50 rounded-lg">
@@ -277,7 +284,7 @@ export function UserManagement({ onManagerClick }: UserManagementProps) {
               <div className="space-y-2">
                 <p className="text-sm text-slate-500">Total Clients Managed</p>
                 <p className="text-slate-900">
-                  {mockManagers.reduce((sum, m) => sum + m.clientsAssigned, 0)}
+                  {displayManagers.reduce((sum, m) => sum + m.clientsAssigned, 0)}
                 </p>
               </div>
               <div className="p-3 bg-purple-50 rounded-lg">
@@ -292,7 +299,7 @@ export function UserManagement({ onManagerClick }: UserManagementProps) {
               <div className="space-y-2">
                 <p className="text-sm text-slate-500">Pending Reviews</p>
                 <p className="text-slate-900 text-yellow-600">
-                  {mockManagers.reduce((sum, m) => sum + m.recommendationsPending, 0)}
+                  {displayManagers.reduce((sum, m) => sum + m.recommendationsPending, 0)}
                 </p>
               </div>
               <div className="p-3 bg-yellow-50 rounded-lg">
@@ -322,7 +329,13 @@ export function UserManagement({ onManagerClick }: UserManagementProps) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredManagers.length === 0 ? (
+              {managersLoading ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center text-slate-500 py-8">
+                    Loading managers...
+                  </TableCell>
+                </TableRow>
+              ) : filteredManagers.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={7} className="text-center text-slate-500 py-8">
                     No managers found matching your criteria

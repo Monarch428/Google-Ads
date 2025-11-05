@@ -16,6 +16,7 @@ import {
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { mockClients, mockManagers, mockRecommendations, mockAlerts, Manager } from "../lib/mock-data";
+import { useData } from "../lib/data-context";
 import { KPICard } from "./kpi-card";
 import { ClientCard } from "./client-card";
 import { ManagerActivityPanel } from "./manager-activity-panel";
@@ -35,16 +36,19 @@ interface DashboardOverviewProps {
   onReportClick?: (reportId: string) => void;
 }
 
-export function DashboardOverview({ 
-  onClientClick, 
+export function DashboardOverview({
+  onClientClick,
   onNavigate,
   onAlertClick,
   onManagerClick,
   onBundleClick,
-  onReportClick 
+  onReportClick
 }: DashboardOverviewProps) {
   const [isAddClientDialogOpen, setIsAddClientDialogOpen] = useState(false);
   const [showCreateReport, setShowCreateReport] = useState(false);
+  const { clients, clientsLoading, managers } = useData();
+  const displayClients = clients.length ? clients : mockClients;
+  const displayManagers = managers.length ? managers : mockManagers;
 
   if (showCreateReport) {
     return (
@@ -145,7 +149,7 @@ export function DashboardOverview({
                             <SelectValue placeholder="Select a manager..." />
                           </SelectTrigger>
                           <SelectContent>
-                            {mockManagers.map((manager) => (
+                            {displayManagers.map((manager) => (
                               <SelectItem key={manager.id} value={manager.id}>
                                 {manager.name}
                               </SelectItem>
@@ -202,8 +206,8 @@ export function DashboardOverview({
       />
 
       {/* Manager Activity */}
-      <ManagerActivityPanel 
-        managers={mockManagers} 
+      <ManagerActivityPanel
+        managers={displayManagers}
         onManagerClick={onManagerClick}
       />
 
@@ -214,20 +218,23 @@ export function DashboardOverview({
           <div className="flex items-center gap-2">
             <Badge variant="outline" className="gap-1">
               <div className="w-2 h-2 bg-green-500 rounded-full" />
-              {mockClients.filter(c => c.status === "healthy").length} Healthy
+              {displayClients.filter(c => c.status === "healthy").length} Healthy
             </Badge>
             <Badge variant="outline" className="gap-1">
               <div className="w-2 h-2 bg-yellow-500 rounded-full" />
-              {mockClients.filter(c => c.status === "warning").length} Warning
+              {displayClients.filter(c => c.status === "warning").length} Warning
             </Badge>
             <Badge variant="outline" className="gap-1">
               <div className="w-2 h-2 bg-red-500 rounded-full" />
-              {mockClients.filter(c => c.status === "critical").length} Critical
+              {displayClients.filter(c => c.status === "critical").length} Critical
             </Badge>
           </div>
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
-          {mockClients.map((client) => (
+          {clientsLoading && (
+            <div className="col-span-full text-sm text-slate-500">Loading client accounts...</div>
+          )}
+          {displayClients.map((client) => (
             <ClientCard key={client.id} client={client} onClick={() => onClientClick(client.id)} />
           ))}
         </div>

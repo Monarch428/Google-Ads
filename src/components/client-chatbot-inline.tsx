@@ -11,6 +11,7 @@ import {
   PopoverTrigger,
 } from "./ui/popover";
 import { mockClients } from "../lib/mock-data";
+import { useData } from "../lib/data-context";
 
 interface Message {
   id: string;
@@ -40,8 +41,10 @@ export function ClientChatbotInline({ clientName }: ClientChatbotInlineProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const isInitialMount = useRef(true);
 
-  // Get client data from mock data
-  const client = mockClients.find(c => c.name === clientName);
+  const { clients } = useData();
+  const availableClients = clients.length ? clients : mockClients;
+  // Get client data from provider (fallback to mock)
+  const client = availableClients.find(c => c.name === clientName);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "nearest" });

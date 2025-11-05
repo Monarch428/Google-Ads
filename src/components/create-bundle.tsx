@@ -18,6 +18,7 @@ import {
   Calendar,
 } from "lucide-react";
 import { mockClients, mockRecommendations } from "../lib/mock-data";
+import { useData } from "../lib/data-context";
 
 interface CreateBundleProps {
   onBack: () => void;
@@ -29,6 +30,8 @@ export function CreateBundle({ onBack, onSave, preSelectedClientId }: CreateBund
   const [selectedClient, setSelectedClient] = useState<string>(preSelectedClientId || "");
   const [selectedRecommendations, setSelectedRecommendations] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const { clients } = useData();
+  const availableClients = clients.length ? clients : mockClients;
 
   const handleRecommendationToggle = (recId: string) => {
     setSelectedRecommendations(prev =>
@@ -113,7 +116,7 @@ export function CreateBundle({ onBack, onSave, preSelectedClientId }: CreateBund
                   <SelectValue placeholder="Choose a client..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {mockClients.map((client) => (
+                  {availableClients.map((client) => (
                     <SelectItem key={client.id} value={client.id}>
                       {client.name}
                     </SelectItem>

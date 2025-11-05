@@ -16,6 +16,7 @@ import {
   Activity
 } from "lucide-react";
 import { Alert as AlertType, mockClients } from "../lib/mock-data";
+import { useData } from "../lib/data-context";
 
 interface AlertDetailsProps {
   alert: AlertType;
@@ -23,8 +24,10 @@ interface AlertDetailsProps {
 }
 
 export function AlertDetails({ alert, onClose }: AlertDetailsProps) {
+  const { clients } = useData();
+  const availableClients = clients.length ? clients : mockClients;
   // Find the client related to this alert
-  const client = mockClients.find(c => c.name === alert.clientName);
+  const client = availableClients.find(c => c.name === alert.clientName);
 
   const getAlertIcon = (type: string) => {
     switch (type) {

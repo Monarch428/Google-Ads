@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Search } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Input } from "./ui/input";
@@ -10,7 +10,7 @@ import {
   TableHeader,
   TableRow,
 } from "./ui/table";
-import { mockClients } from "../lib/mock-data";
+import { useData } from "../lib/data-context";
 import { AccountsChatbot } from "./accounts-chatbot";
 
 interface AccountsProps {
@@ -19,12 +19,14 @@ interface AccountsProps {
 
 export function Accounts({ onClientClick }: AccountsProps) {
   const [searchQuery, setSearchQuery] = useState("");
+  const { clients, clientsLoading } = useData();
 
-  // Filter clients based on search
-  const filteredClients = mockClients.filter((client) =>
-    client.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (client.industry && client.industry.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
+  const filteredClients = useMemo(() => {
+    return clients.filter((client) =>
+      client.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (client.industry && client.industry.toLowerCase().includes(searchQuery.toLowerCase()))
+    );
+  }, [clients, searchQuery]);
 
   return (
     <div className="space-y-6">
@@ -68,7 +70,14 @@ export function Accounts({ onClientClick }: AccountsProps) {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredClients.map((client) => (
+                {clientsLoading && (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center py-6 text-slate-500">
+                      Loading clients...
+                    </TableCell>
+                  </TableRow>
+                )}
+                {!clientsLoading && filteredClients.map((client) => (
                   <TableRow
                     key={client.id}
                     className="hover:bg-slate-50"
@@ -113,7 +122,7 @@ export function Accounts({ onClientClick }: AccountsProps) {
             </Table>
           </div>
 
-          {filteredClients.length === 0 && (
+          {!clientsLoading && filteredClients.length === 0 && (
             <div className="text-center py-12">
               <p className="text-slate-500">No clients found matching your search</p>
             </div>
