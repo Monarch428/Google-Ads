@@ -1,3 +1,5 @@
+# main.py
+
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
@@ -38,15 +40,34 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Register all routes
+# ✅ Register all routes - VERIFY THIS SECTION
+print("Registering routes...")
+
 app.include_router(auth_routes.router, prefix="/auth", tags=["Authentication"])
+print(" /auth routes registered")
+
 app.include_router(client_routes.router, prefix="/clients", tags=["Clients"])
+print(" /clients routes registered")
+
 app.include_router(google_ads_routes.router, prefix="/google-ads", tags=["Google Ads"])
+print(" /google-ads routes registered")
+
 app.include_router(analytics_routes.router, prefix="/analytics", tags=["AI Optimization & Predictions"])
+print(" /analytics routes registered")
+
 app.include_router(insights_routes.router, prefix="/insights", tags=["AI Insights & Reports"])
+print(" /insights routes registered")
+
 app.include_router(chatbot_routes.router, prefix="/chatbot", tags=["AI Chatbot"])
+print(" /chatbot routes registered")
+
 app.include_router(user_routes.router, prefix="/users", tags=["Users"])
+print(" /users routes registered")
+
 app.include_router(campaign_routes.router, prefix="/campaigns", tags=["Campaigns"])
+print("/campaigns routes registered")
+
+print("All routes registered successfully!\n")
 
 # Health check endpoint
 @app.get("/")
@@ -62,6 +83,22 @@ def health_check(db: Session = Depends(get_db)):
         }
     except Exception as e:
         return {"status": "Database connection failed", "error": str(e)}
+
+
+# ✅ Debug endpoint to list all routes
+@app.get("/debug/routes")
+def list_routes():
+    """List all registered routes for debugging"""
+    routes = []
+    for route in app.routes:
+        if hasattr(route, "methods"):
+            routes.append({
+                "path": route.path,
+                "methods": list(route.methods),
+                "name": route.name
+            })
+    return {"total_routes": len(routes), "routes": routes}
+
 
 # Background Scheduler
 scheduler = BackgroundScheduler()
@@ -99,6 +136,6 @@ def on_shutdown():
         print("Shutdown complete.")
 
 # Run command (for local debug)
-# if __name__ == "__main__":
-#     import uvicorn
-#     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

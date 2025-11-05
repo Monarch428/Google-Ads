@@ -11,6 +11,7 @@ GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
 
 def build_oauth_consent_url(redirect_uri: str, state: Optional[str] = None) -> str:
     client_id = os.getenv("GOOGLE_CLIENT_ID")
+    redirect_uri= os.getenv("GOOGLE_OAUTH_REDIRECT_URI", 'http://localhost:8000/google-ads/callback')
     scope = os.getenv("GOOGLE_ADS_SCOPE", "https://www.googleapis.com/auth/adwords")
     params = {
         "client_id": client_id,

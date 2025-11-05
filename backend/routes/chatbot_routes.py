@@ -1,25 +1,30 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
-from services.chatbot_service import generate_chatbot_reply
+from sqlalchemy.orm import Session
+from database import get_db
+from services.chatbot_service import chatbot_response
 
-router = APIRouter()
+router = APIRouter(
+    prefix="/chatbot",
+    tags=["Chatbot"]
+)
 
-# Request schema
+# ✅ Request schema
 class ChatbotRequest(BaseModel):
     message: str
 
-# Response schema
+# ✅ Response schema
 class ChatbotResponse(BaseModel):
     status: str
     reply: str
 
 @router.post("/message", response_model=ChatbotResponse)
-def chatbot_reply(request: ChatbotRequest):
+def chatbot_reply(request: ChatbotRequest, db: Session = Depends(get_db)):
     """
     💬 Chatbot endpoint — handles AI assistant conversations.
     """
     try:
-        reply_text = generate_chatbot_reply(request.message)
+        reply_text = chatbot_response(db, request.message)
         return {"status": "success", "reply": reply_text}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Chatbot failed: {str(e)}")
