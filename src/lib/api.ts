@@ -48,14 +48,37 @@ export interface BackendUser {
   is_active: boolean;
 }
 
-export function fetchClients() {
-  return apiFetch<BackendClient[]>("/clients/all");
+export interface AuthResponse {
+  access_token: string;
+  token_type: string;
+  user: BackendUser;
 }
 
-export function fetchCampaigns() {
-  return apiFetch<BackendCampaign[]>("/campaigns");
+export function login(credentials: { email: string; password: string }) {
+  return apiFetch<AuthResponse>("/auth/login", {
+    method: "POST",
+    body: JSON.stringify(credentials),
+  });
 }
 
-export function fetchUsers() {
-  return apiFetch<BackendUser[]>("/users");
+export function requestGoogleOAuthUrl() {
+  return apiFetch<{ auth_url: string }>("/auth/google-connect");
+}
+
+export function fetchClients(token?: string) {
+  return apiFetch<BackendClient[]>("/clients/all", token
+    ? { headers: { Authorization: `Bearer ${token}` } }
+    : undefined);
+}
+
+export function fetchCampaigns(token?: string) {
+  return apiFetch<BackendCampaign[]>("/campaigns", token
+    ? { headers: { Authorization: `Bearer ${token}` } }
+    : undefined);
+}
+
+export function fetchUsers(token?: string) {
+  return apiFetch<BackendUser[]>("/users", token
+    ? { headers: { Authorization: `Bearer ${token}` } }
+    : undefined);
 }
