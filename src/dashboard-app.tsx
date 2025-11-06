@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { SidebarProvider } from "./components/ui/sidebar";
 import { AppSidebar } from "./components/app-sidebar";
 import { DashboardOverview } from "./components/dashboard-overview";
@@ -22,6 +22,31 @@ import { ReportPreview } from "./components/report-preview";
 import { AlertDetails } from "./components/alert-details";
 import { Alert as AlertType, Manager } from "./lib/mock-data";
 import { BackendUser } from "./lib/api";
+import { useRouter } from "./lib/router";
+
+const VIEW_ROUTES = {
+  dashboard: "/dashboard",
+  accounts: "/accounts",
+  recommendations: "/recommendations",
+  reports: "/reports",
+  users: "/users",
+  checklist: "/checklist",
+  settings: "/settings",
+} as const;
+
+const VALID_PATHS = new Set<string>(Object.values(VIEW_ROUTES));
+const FALLBACK_ROUTE = VIEW_ROUTES.dashboard;
+
+type ViewKey = keyof typeof VIEW_ROUTES;
+
+function mapPathToView(path: string): ViewKey {
+  for (const [view, route] of Object.entries(VIEW_ROUTES)) {
+    if (route === path) {
+      return view as ViewKey;
+    }
+  }
+  return "dashboard";
+}
 
 type DashboardAppProps = {
   user: BackendUser;
@@ -29,7 +54,8 @@ type DashboardAppProps = {
 };
 
 export function DashboardApp({ user, onLogout }: DashboardAppProps) {
-  const [currentView, setCurrentView] = useState<string>("dashboard");
+  const { path, navigate } = useRouter();
+  const currentView = useMemo<ViewKey>(() => mapPathToView(path), [path]);
   const [selectedClient, setSelectedClient] = useState<string | null>(null);
 
   // Global side panel state
@@ -38,10 +64,26 @@ export function DashboardApp({ user, onLogout }: DashboardAppProps) {
   const [selectedBundle, setSelectedBundle] = useState<string | null>(null);
   const [selectedReport, setSelectedReport] = useState<string | null>(null);
 
+  useEffect(() => {
+    if (!VALID_PATHS.has(path)) {
+      navigate(FALLBACK_ROUTE, { replace: true });
+    }
+  }, [path, navigate]);
+
+  useEffect(() => {
+    setSelectedClient(null);
+    setSelectedAlert(null);
+    setSelectedManager(null);
+    setSelectedBundle(null);
+    setSelectedReport(null);
+  }, [path]);
+
   // Handle view change and clear any detail views
   const handleViewChange = (view: string) => {
-    setCurrentView(view);
-    setSelectedClient(null); // Clear client details when navigating
+    const targetRoute = (VIEW_ROUTES as Record<string, string>)[view] ?? FALLBACK_ROUTE;
+    if (targetRoute !== path) {
+      navigate(targetRoute);
+    }
   };
 
   const renderContent = () => {
