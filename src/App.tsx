@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { DashboardApp } from "./dashboard-app";
 import { DataProvider } from "./lib/data-context";
 import { LoginPage } from "./components/auth/login-page";
 import { AuthResponse, BackendUser } from "./lib/api";
 import { Toaster } from "./components/ui/sonner";
+import { useRouter } from "./lib/router";
 
 const AUTH_TOKEN_KEY = "aaa_auth_token";
 const AUTH_USER_KEY = "aaa_auth_user";
@@ -24,6 +25,7 @@ function parseStoredUser(value: string | null): BackendUser | null {
 }
 
 export default function App() {
+  const { path, navigate } = useRouter();
   const [authState, setAuthState] = useState<AuthState | null>(() => {
     const storedToken = localStorage.getItem(AUTH_TOKEN_KEY);
     const storedUser = parseStoredUser(localStorage.getItem(AUTH_USER_KEY));
@@ -35,22 +37,40 @@ export default function App() {
     return null;
   });
 
-  const handleAuthenticated = (response: AuthResponse) => {
-    const nextState: AuthState = {
-      token: response.access_token,
-      user: response.user,
-    };
+  useEffect(() => {
+    if (!authState) {
+      if (path !== "/login") {
+        navigate("/login", { replace: true });
+      }
+      return;
+    }
 
-    setAuthState(nextState);
-    localStorage.setItem(AUTH_TOKEN_KEY, nextState.token);
-    localStorage.setItem(AUTH_USER_KEY, JSON.stringify(nextState.user));
-  };
+    if (path === "/" || path === "/login") {
+      navigate("/dashboard", { replace: true });
+    }
+  }, [authState, path, navigate]);
 
-  const handleLogout = () => {
+  const handleAuthenticated = useCallback(
+    (response: AuthResponse) => {
+      const nextState: AuthState = {
+        token: response.access_token,
+        user: response.user,
+      };
+
+      setAuthState(nextState);
+      localStorage.setItem(AUTH_TOKEN_KEY, nextState.token);
+      localStorage.setItem(AUTH_USER_KEY, JSON.stringify(nextState.user));
+      navigate("/dashboard", { replace: true });
+    },
+    [navigate],
+  );
+
+  const handleLogout = useCallback(() => {
     setAuthState(null);
     localStorage.removeItem(AUTH_TOKEN_KEY);
     localStorage.removeItem(AUTH_USER_KEY);
-  };
+    navigate("/login", { replace: true });
+  }, [navigate]);
 
   const content = authState ? (
     <DataProvider authToken={authState.token}>
