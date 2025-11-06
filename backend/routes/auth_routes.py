@@ -1,14 +1,14 @@
 # routes/auth_routes.py
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request, Response
 from fastapi.responses import RedirectResponse, JSONResponse
 from sqlalchemy.orm import Session
 from database import get_db
 from schemas.user_schema import UserCreate, UserLogin, UserResponse
-from services.auth_service import register_user, login_user
+from services.auth_service import register_user, login_user, create_access_token, create_refresh_token, decode_token
 import requests
 import urllib.parse
-import os  
+import os, secrets
 
 # ✅ IMPORTANT: Remove prefix from router if it's added in main.py
 router = APIRouter(
@@ -19,13 +19,28 @@ router = APIRouter(
 CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
 CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
 REDIRECT_URI = os.getenv("GOOGLE_REDIRECT_URI")
-SCOPE = "https://www.googleapis.com/auth/adwords"
+SCOPE = "openid email profile https://www.googleapis.com/auth/adwords"
+FRONTEND_DASHBOARD_URL = os.getenv("FRONTEND_DASHBOARD_URL", "http://localhost:3000/")
+FRONTEND_BASE = os.getenv("FRONTEND_BASE_URL", "http://localhost:3000")
+TOKEN_URL = "https://oauth2.googleapis.com/token"
+USERINFO_URL = "https://openidconnect.googleapis.com/v1/userinfo"
 
 print(f"🔍 OAuth Config Loaded:")
 print(f"   CLIENT_ID: {CLIENT_ID[:20] if CLIENT_ID else 'NOT SET'}...")
 print(f"   CLIENT_SECRET: {'SET' if CLIENT_SECRET else 'NOT SET'}")
 print(f"   REDIRECT_URI: {REDIRECT_URI}")
 
+def _set_session_cookies(resp: Response, access_token: str, refresh_token: str):
+    is_local = ("localhost" in (os.getenv("FRONTEND_BASE_URL","") + os.getenv("GOOGLE_REDIRECT_URI",""))) \
+               or ("127.0.0.1" in (os.getenv("FRONTEND_BASE_URL","") + os.getenv("GOOGLE_REDIRECT_URI","")))
+    cookie_args = dict(
+        httponly=True,
+        secure=not is_local,     # ✅ Secure=False for localhost, True in prod
+        samesite="none" if not is_local else "lax",  # Lax works locally without HTTPS
+        path="/",
+    )
+    resp.set_cookie("access_token", access_token, max_age=60*60*24, **cookie_args)
+    resp.set_cookie("refresh_token", refresh_token, max_age=60*60*24*30, **cookie_args)
 
 @router.post("/register", response_model=UserResponse)
 def register(user_data: UserCreate, db: Session = Depends(get_db)):
@@ -64,103 +79,202 @@ async def google_connect():
                 }
             }
         )
-    
-    try:
-        params = {
+    state = secrets.token_urlsafe(24)
+    # response.set_cookie("oauth_state", state, httponly=True, secure=True, samesite="none", max_age=600, path="/")
+    params = {
             "client_id": CLIENT_ID,
             "redirect_uri": REDIRECT_URI,
             "response_type": "code",
             "scope": SCOPE,
             "access_type": "offline",
             "prompt": "consent",
-            "include_granted_scopes": "true"
-        }
-        auth_url = "https://accounts.google.com/o/oauth2/v2/auth?" + urllib.parse.urlencode(params)
+            "include_granted_scopes": "true",
+            "state": state,
+    }
+    auth_url = "https://accounts.google.com/o/oauth2/v2/auth?" + urllib.parse.urlencode(params)
+    # return RedirectResponse(url=auth_url)
+    #     print(f"✅ Redirecting to: {auth_url[:100]}...")
+    #     return RedirectResponse(url=auth_url)
         
-        print(f"✅ Redirecting to: {auth_url[:100]}...")
-        return RedirectResponse(url=auth_url)
-        
-    except Exception as e:
-        print(f"❌ Error in google_connect: {str(e)}")
-        raise HTTPException(
-            status_code=500, 
-            detail=f"Failed to generate Google Auth URL: {str(e)}"
-        )
+    # except Exception as e:
+    #     print(f"❌ Error in google_connect: {str(e)}")
+    #     raise HTTPException(
+    #         status_code=500, 
+    #         detail=f"Failed to generate Google Auth URL: {str(e)}"
+    #     )
+    resp = RedirectResponse(url=auth_url, status_code=302)
 
+    is_local = "localhost" in (REDIRECT_URI or "") or "127.0.0.1" in (REDIRECT_URI or "")
+    cookie_args = dict(
+        httponly=True,
+        secure=not is_local,                 # False on localhost
+        samesite="none" if not is_local else "lax",  # lax for localhost http
+        path="/",
+        max_age=600,
+    )
+    resp.set_cookie("oauth_state", state, **cookie_args)
+    return resp
 
 # ✅ Step 2: Google Callback — Exchange code for refresh token
 @router.get("/google-callback")
-async def google_callback(code: str = None, error: str = None):
+async def google_callback(
+    request: Request, 
+    # response: Response,   
+    code: str | None = None, 
+    state: str | None = None, 
+    db: Session = Depends(get_db)
+    ):
     """
     Handle callback from Google OAuth.
     Exchanges authorization code for access_token and refresh_token.
     """
-    print(f"🔄 /google-callback hit! Code: {code[:20] if code else 'None'}... Error: {error}")
+    print(f"🔄 /google-callback hit! Code: {code[:20] if code else 'None'}")
     
-    if error:
-        raise HTTPException(
-            status_code=400, 
-            detail=f"Google OAuth error: {error}"
-        )
+    # if error:
+    #     raise HTTPException(
+    #         status_code=400, 
+    #         detail=f"Google OAuth error: {error}"
+    #     )
     
     if not code:
-        raise HTTPException(
-            status_code=400, 
-            detail="Authorization code not provided"
-        )
+        return RedirectResponse(f"{FRONTEND_BASE}/login?error=missing_code")
+    
+    if not state or request.cookies.get("oauth_state") != state:
+        return RedirectResponse(f"{FRONTEND_BASE}/login?error=state_mismatch")
     
     try:
-        token_url = "https://oauth2.googleapis.com/token"
-        data = {
+        token_res = requests.post(
+            TOKEN_URL,
+            data = {
             "client_id": CLIENT_ID,
             "client_secret": CLIENT_SECRET,
             "code": code,
             "grant_type": "authorization_code",
             "redirect_uri": REDIRECT_URI
-        }
+        },
+        timeout=10,
+        )
+    except requests.RequestException:
+        return RedirectResponse(f"{FRONTEND_BASE}/login?error=token_exchange_failed")
+    
+    if token_res.status_code != 200:
+        return RedirectResponse(f"{FRONTEND_BASE}/login?error=token_exchange_bad_status")
+    
+    tokens = token_res.json()
+    access_token_google = tokens.get("access_token")
+    if not access_token_google:
+        return RedirectResponse(f"{FRONTEND_BASE}/login?error=no_google_access_token")
+    
+    # Get userinfo to read verified email
+    ui_res = requests.get(USERINFO_URL, headers={"Authorization": f"Bearer {access_token_google}"}, timeout=10)
+    if ui_res.status_code != 200:
+        return RedirectResponse(f"{FRONTEND_BASE}/login?error=userinfo_failed")
+    info = ui_res.json()
+    email = info.get("email")
+    email_verified = info.get("email_verified", False)
+    if not email or not email_verified:
+        return RedirectResponse(f"{FRONTEND_BASE}/login?error=email_unverified")
 
-        print(f"📤 Exchanging code for tokens...")
-        response = requests.post(token_url, data=data, timeout=10)
-        
-        if response.status_code == 200:
-            tokens = response.json()
-            print(f"✅ Tokens received! Refresh token present: {bool(tokens.get('refresh_token'))}")
-            
-            if not tokens.get("refresh_token"):
-                return {
-                    "warning": "⚠️ No refresh token received",
-                    "message": "Revoke access at https://myaccount.google.com/permissions and try again",
-                    "access_token": tokens.get("access_token"),
-                    "expires_in": tokens.get("expires_in")
-                }
-            
-            return {
-                "message": "✅ Google Ads connected successfully",
-                "refresh_token": tokens.get("refresh_token"),
-                "access_token": tokens.get("access_token"),
-                "expires_in": tokens.get("expires_in"),
-                "scope": tokens.get("scope")
-            }
-        else:
-            error_data = response.json()
-            print(f"❌ Token exchange failed: {error_data}")
-            raise HTTPException(
-                status_code=400, 
-                detail=f"Token exchange failed: {error_data.get('error_description', response.text)}"
-            )
-            
-    except requests.RequestException as e:
-        print(f"❌ Network error: {str(e)}")
-        raise HTTPException(
-            status_code=500, 
-            detail=f"Network error: {str(e)}"
-        )
-    except Exception as e:
-        print(f"❌ Unexpected error: {str(e)}")
-        raise HTTPException(
-            status_code=500, 
-            detail=f"Unexpected error: {str(e)}"
-        )
+    # Validate email exists in DB
+    from models import user_model
+    user = db.query(user_model.UserModel).filter(user_model.UserModel.email == email).first()
+    if not user:
+        return RedirectResponse(f"{FRONTEND_BASE}/login?error=not_registered")
+
+    # Mint our app tokens (same as password login)
+    app_access = create_access_token(sub=user.email, extra={
+        "google": {
+            "sub": info.get("sub"),
+            "name": info.get("name"),
+            "picture": info.get("picture"),
+            "hd": info.get("hd"),
+        }
+    })
+    app_refresh = create_refresh_token(sub=user.email)
+    resp = RedirectResponse(url=FRONTEND_DASHBOARD_URL, status_code=302)
+
+    is_local = "localhost" in (REDIRECT_URI or "") or "127.0.0.1" in (REDIRECT_URI or "")
+    cookie_args = dict(
+        httponly=True,
+        secure=not is_local,
+        samesite="none" if not is_local else "lax",
+        path="/",
+    )
+    resp.set_cookie("access_token", app_access, max_age=60*60*24, **cookie_args)
+    resp.set_cookie("refresh_token", app_refresh, max_age=60*60*24*30, **cookie_args)
+
+    # clear one-time state cookie
+    resp.delete_cookie("oauth_state", path="/")
+    return resp
+
+    # # Set HttpOnly cookies so frontend can just call /auth/me
+    # _set_session_cookies(response, app_access, app_refresh)
+    # response.delete_cookie("oauth_state", path="/")
+
+    # # Redirect to dashboard
+    # response.status_code = 302
+    # response.headers["Location"] = FRONTEND_DASHBOARD_URL
+    # return response
+
+# ---------- Who am I (reads access_token cookie or Authorization header) ----------
+@router.get("/me")
+def me(request: Request, db: Session = Depends(get_db)):
+    token = request.cookies.get("access_token")
+    if not token:
+        # allow Authorization: Bearer
+        auth = request.headers.get("authorization") or request.headers.get("Authorization")
+        if not auth or not auth.lower().startswith("bearer "):
+            raise HTTPException(status_code=401, detail="Not authenticated")
+        token = auth.split(" ", 1)[1]
+
+    try:
+        data = decode_token(token)
+    except Exception:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    email = data.get("sub")
+    from models import user_model
+    user = db.query(user_model.UserModel).filter(user_model.UserModel.email == email).first()
+    if not user:
+        raise HTTPException(status_code=401, detail="User not found")
+
+    return {
+        "id": user.id,
+        "email": user.email,
+        "name": getattr(user, "name", None),
+        "role": getattr(user, "role", None),
+        "google": data.get("google"),
+    }
+
+# ---------- Refresh access token using refresh_token cookie or body ----------
+@router.post("/refresh")
+def refresh(request: Request):
+    token = request.cookies.get("refresh_token")
+    if not token:
+        # optional: accept JSON body { "refresh_token": "..." }
+        try:
+            body = request.json()
+        except Exception:
+            body = None
+        if body and isinstance(body, dict):
+            token = body.get("refresh_token")
+    if not token:
+        raise HTTPException(status_code=401, detail="Missing refresh token")
+
+    try:
+        data = decode_token(token)
+    except Exception:
+        raise HTTPException(status_code=401, detail="Invalid refresh token")
+
+    if data.get("typ") != "refresh":
+        raise HTTPException(status_code=401, detail="Wrong token type")
+
+    email = data.get("sub")
+    new_access = create_access_token(sub=email)
+    resp = JSONResponse({"access_token": new_access, "token_type": "bearer"})
+    # also rotate access cookie for cookie-based auth
+    resp.set_cookie("access_token", new_access, httponly=True, secure=True, samesite="none", path="/", max_age=60*60*24)
+    return resp
 
 
 # ✅ Test endpoint

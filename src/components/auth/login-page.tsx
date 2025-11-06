@@ -1,5 +1,6 @@
 import { FormEvent, useState } from "react";
-import { Apple, Chrome, Github, LockKeyhole, Mail } from "lucide-react";
+import { Apple, Github, LockKeyhole, Mail } from "lucide-react";
+import { FaGoogle } from "react-icons/fa";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
@@ -12,7 +13,7 @@ import {
   CardTitle,
 } from "../ui/card";
 import { Separator } from "../ui/separator";
-import { login, AuthResponse, requestGoogleOAuthUrl } from "../../lib/api";
+import { login, AuthResponse, startGoogleOAuth } from "../../lib/api";
 import { toast } from "sonner@2.0.3";
 
 type LoginPageProps = {
@@ -60,33 +61,40 @@ export function LoginPage({ onAuthenticated }: LoginPageProps) {
     }
   };
 
-  const handleSocialLogin = async (provider: SocialProvider) => {
-    if (provider !== "Google") {
-      toast.info(`${provider} login is coming soon.`);
-      return;
-    }
+const handleSocialLogin = (provider: SocialProvider) => {
+  if (provider !== "Google") {
+    toast.info(`${provider} login is coming soon.`);
+    return;
+  }
+  startGoogleOAuth();
+  // try {
+  //   const base = "http://localhost:8000"; // e.g. "https://api.example.com"
+  //   window.location.assign(`${base}/auth/google-connect`);
+  // } catch (err) {
+  //   const message = err instanceof Error ? err.message : "Unable to start Google login";
+  //   toast.error("Google login failed", { description: message });
+  // }
+};
 
-    try {
-      const { auth_url } = await requestGoogleOAuthUrl();
-      window.location.href = auth_url;
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Unable to start Google login";
-      toast.error("Google login failed", {
-        description: message,
-      });
-    }
-  };
 
   return (
     <div
-      className="min-h-screen flex items-center justify-center p-4"
+      className="min-h-screen flex items-center justify-center p-4 "
       style={{ background: "linear-gradient(to bottom right, #271650, #3F2974)" }}
     >
-      <Card className="w-full max-w-md shadow-lg">
-        <CardHeader className="space-y-1 text-center">
-          <div className="flex justify-center mb-4">
-            <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
-              <LockKeyhole className="h-6 w-6 text-primary" />
+      <Card className="w-full max-w-[720px] sm:max-w-[600px] md:max-w-[720px] rounded-xl shadow-xl">
+        <CardHeader className="text-center pt-8 pb-4">
+          <div className="flex justify-center mb-6">
+            <div className="relative mt-6"> {/* slight push down */}
+              {/* Inner circle (padding + bg) */}
+              <div className="h-12 w-12 rounded-full bg-red-50 flex items-center justify-center
+                    border border-red-100 shadow-[0_4px_12px_rgba(244,63,94,0.15)]">
+                <LockKeyhole className="h-6 w-6 text-red-600" />
+              </div>
+
+              {/* Soft outer halo */}
+              <div className="pointer-events-none absolute inset-0 rounded-full
+                    shadow-[0_0_0_6px_rgba(244,63,94,0.08)]" />
             </div>
           </div>
           <CardTitle>Welcome back</CardTitle>
@@ -142,9 +150,13 @@ export function LoginPage({ onAuthenticated }: LoginPageProps) {
             {error && <p className="text-sm text-destructive">{error}</p>}
           </CardContent>
           <CardFooter className="flex flex-col space-y-4">
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? "Signing in..." : "Sign in"}
-            </Button>
+            <Button
+  type="submit"
+  className="w-full bg-red-500 hover:bg-red-600 text-white"
+  disabled={isLoading}
+>
+  {isLoading ? "Signing in..." : "Sign in"}
+</Button>
 
             <div className="relative w-full">
               <div className="absolute inset-0 flex items-center">
@@ -162,7 +174,7 @@ export function LoginPage({ onAuthenticated }: LoginPageProps) {
                 onClick={() => handleSocialLogin("Google")}
                 disabled={isLoading}
               >
-                <Chrome className="h-5 w-5" />
+                <FaGoogle className="h-5 w-5" />
               </Button>
               <Button
                 type="button"

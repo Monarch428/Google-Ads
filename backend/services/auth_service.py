@@ -16,19 +16,29 @@ UserModel = user_model.UserModel
 SECRET_KEY = settings.SECRET_KEY
 ALGORITHM = "HS256"
 
+ACCESS_EXPIRES = timedelta(hours=24)
+REFRESH_EXPIRES = timedelta(days=30)
+
 # -------------------------------------------------------
 # 🔐 Helper — Create JWT Access Token
 # -------------------------------------------------------
-def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
-    """
-    Generates a signed JWT access token for a user.
-    """
-    to_encode = data.copy()
-    expire = datetime.utcnow() + (expires_delta or timedelta(hours=24))
-    to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-    return encoded_jwt
 
+def _create_token(data: dict, expires_delta: timedelta):
+    to_encode = data.copy()
+    to_encode.update({"exp": datetime.utcnow() + expires_delta})
+    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+
+def create_access_token(sub: str, extra: dict | None = None):
+    payload = {"sub": sub, "typ": "access"}
+    if extra:
+        payload.update(extra)
+    return _create_token(payload, ACCESS_EXPIRES)
+
+def create_refresh_token(sub: str):
+    return _create_token({"sub": sub, "typ": "refresh"}, REFRESH_EXPIRES)
+
+def decode_token(token: str) -> dict:
+    return jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
 
 # -------------------------------------------------------
 # 👤 Register New User
@@ -77,13 +87,12 @@ def login_user(db: Session, credentials: UserLogin) -> dict:
         raise HTTPException(status_code=400, detail="Invalid email or password")
 
     # ✅ Token expires in 24 hours
-    access_token_expires = timedelta(hours=24)
-    token = create_access_token(
-        data={"sub": user.email}, expires_delta=access_token_expires
-    )
+    access_token = create_access_token(sub=user.email)
+    refresh_token = create_refresh_token(sub=user.email)
 
     return {
-        "access_token": token,
+        "access_token": access_token,
+        "refresh_token": refresh_token,
         "token_type": "bearer",
         "user": {
             "id": user.id,
