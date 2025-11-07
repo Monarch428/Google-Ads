@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
@@ -62,6 +62,18 @@ interface Task {
 }
 
 // Month configuration
+const numberFormatter = new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 });
+const currencyFormatterWithCents = new Intl.NumberFormat("en-US", {
+  style: "currency",
+  currency: "USD",
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+const percentFormatter = new Intl.NumberFormat("en-US", {
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 2,
+});
+
 const monthConfigs = {
   "2025-10": { name: "October 2025", days: 31, startDay: 3, currentDay: 30 },
   "2025-09": { name: "September 2025", days: 30, startDay: 1, currentDay: 30 },
@@ -255,7 +267,7 @@ const mockActivityLogs: ActivityLog[] = [
 ];
 
 export function ClientDetails({ clientId, onBack }: ClientDetailsProps) {
-  const { clients } = useData();
+  const { clients, campaigns } = useData();
   const availableClients = clients.length ? clients : mockClients;
   const client = availableClients.find(c => c.id === clientId);
   const [selectedMonth, setSelectedMonth] = useState<string>("2025-10");
@@ -340,6 +352,57 @@ export function ClientDetails({ clientId, onBack }: ClientDetailsProps) {
   if (!client) {
     return <div>Client not found</div>;
   }
+
+  const campaignsForClient = useMemo(
+    () => campaigns.filter((campaign) => campaign.clientId === client.id),
+    [campaigns, client.id]
+  );
+
+  const { totals: campaignTotals, topCampaigns } = useMemo(() => {
+    const totals = campaignsForClient.reduce(
+      (acc, campaign) => {
+        acc.impressions += campaign.impressions;
+        acc.clicks += campaign.clicks;
+        acc.conversions += campaign.conversions;
+        acc.cost += campaign.cost;
+        return acc;
+      },
+      { impressions: 0, clicks: 0, conversions: 0, cost: 0 }
+    );
+
+    const sortedByCost = [...campaignsForClient].sort((a, b) => {
+      if (b.cost === a.cost) {
+        return b.conversions - a.conversions;
+      }
+      return b.cost - a.cost;
+    });
+
+    return {
+      totals,
+      topCampaigns: sortedByCost.slice(0, 3),
+    };
+  }, [campaignsForClient]);
+
+  const totalImpressions = campaignTotals.impressions || client.impressions;
+  const totalClicks = campaignTotals.clicks || client.clicks;
+  const totalConversions = campaignTotals.conversions || client.conversions;
+  const totalCost = campaignTotals.cost || client.adSpend;
+
+  const ctr = totalImpressions > 0 ? (totalClicks / totalImpressions) * 100 : client.ctr;
+  const conversionRate = totalClicks > 0 ? (totalConversions / totalClicks) * 100 : client.conversionRate;
+  const averageCpc = totalClicks > 0
+    ? totalCost / totalClicks
+    : client.clicks > 0 && client.adSpend > 0
+      ? client.adSpend / client.clicks
+      : 0;
+  const averageCpa = totalConversions > 0 ? totalCost / totalConversions : client.cpa;
+  const roas = totalCost > 0 ? client.revenue / totalCost : client.roas;
+
+  const safeAverageCpc = Number.isFinite(averageCpc) ? averageCpc : 0;
+  const safeAverageCpa = Number.isFinite(averageCpa) ? averageCpa : 0;
+  const safeRoas = Number.isFinite(roas) ? roas : 0;
+  const safeCtr = Number.isFinite(ctr) ? ctr : 0;
+  const safeConversionRate = Number.isFinite(conversionRate) ? conversionRate : 0;
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -1047,57 +1110,48 @@ export function ClientDetails({ clientId, onBack }: ClientDetailsProps) {
                 <div className="p-2 bg-blue-50 rounded-lg">
                   <Target className="w-4 h-4 text-blue-600" />
                 </div>
-                <h3 className="text-sm text-slate-900">Active Campaigns</h3>
+                <h3 className="text-sm text-slate-900">Campaign Performance</h3>
               </div>
               <div className="space-y-3">
-                <div className="p-3 bg-slate-50 rounded-lg">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm text-slate-900">Search Campaigns</span>
-                    <Badge variant="outline" className="text-xs">Active</Badge>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2 text-xs">
-                    <div>
-                      <p className="text-slate-500">Impressions</p>
-                      <p className="text-slate-900">125,430</p>
+                {topCampaigns.length > 0 ? (
+                  topCampaigns.map((campaign) => (
+                    <div key={campaign.id} className="p-3 bg-slate-50 rounded-lg">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm text-slate-900">{campaign.name}</span>
+                        <Badge variant="outline" className="text-xs">
+                          {numberFormatter.format(campaign.conversions)} conversions
+                        </Badge>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        <div>
+                          <p className="text-slate-500">Impressions</p>
+                          <p className="text-slate-900">{numberFormatter.format(campaign.impressions)}</p>
+                        </div>
+                        <div>
+                          <p className="text-slate-500">CTR</p>
+                          <p className="text-green-600">{percentFormatter.format(campaign.ctr)}%</p>
+                        </div>
+                        <div>
+                          <p className="text-slate-500">Spend</p>
+                          <p className="text-slate-900">{currencyFormatterWithCents.format(campaign.cost)}</p>
+                        </div>
+                        <div>
+                          <p className="text-slate-500">CPA</p>
+                          <p className="text-slate-900">{currencyFormatterWithCents.format(campaign.cpa)}</p>
+                        </div>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-slate-500">CTR</p>
-                      <p className="text-green-600">5.8%</p>
-                    </div>
+                  ))
+                ) : (
+                  <div className="p-3 bg-slate-50 rounded-lg text-sm text-slate-600">
+                    Campaign level analytics will appear once data is available for this account.
                   </div>
-                </div>
-                <div className="p-3 bg-slate-50 rounded-lg">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm text-slate-900">Display Network</span>
-                    <Badge variant="outline" className="text-xs">Active</Badge>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2 text-xs">
-                    <div>
-                      <p className="text-slate-500">Impressions</p>
-                      <p className="text-slate-900">342,100</p>
-                    </div>
-                    <div>
-                      <p className="text-slate-500">CTR</p>
-                      <p className="text-green-600">2.3%</p>
-                    </div>
-                  </div>
-                </div>
-                <div className="p-3 bg-slate-50 rounded-lg">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm text-slate-900">Shopping Ads</span>
-                    <Badge variant="outline" className="text-xs">Active</Badge>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2 text-xs">
-                    <div>
-                      <p className="text-slate-500">Impressions</p>
-                      <p className="text-slate-900">89,250</p>
-                    </div>
-                    <div>
-                      <p className="text-slate-500">CTR</p>
-                      <p className="text-green-600">4.2%</p>
-                    </div>
-                  </div>
-                </div>
+                )}
+                {campaignsForClient.length > topCampaigns.length && (
+                  <p className="text-xs text-slate-500">
+                    Showing top {topCampaigns.length} of {campaignsForClient.length} campaigns by spend.
+                  </p>
+                )}
               </div>
             </div>
 
@@ -1110,84 +1164,86 @@ export function ClientDetails({ clientId, onBack }: ClientDetailsProps) {
                 <h3 className="text-sm text-slate-900">Financial Performance</h3>
               </div>
               <div className="space-y-3">
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="p-3 border rounded-lg">
-                    <p className="text-xs text-slate-500 mb-1">Monthly Budget</p>
-                    <p className="text-lg text-slate-900">$45,000</p>
-                  </div>
-                  <div className="p-3 border rounded-lg">
-                    <p className="text-xs text-slate-500 mb-1">Monthly Spend</p>
-                    <p className="text-lg text-slate-900">$30,600</p>
-                    <div className="mt-2 w-full bg-slate-200 rounded-full h-1.5">
-                      <div className="bg-blue-600 h-1.5 rounded-full" style={{ width: "68%" }}></div>
-                    </div>
-                    <p className="text-xs text-slate-500 mt-1">68% of budget</p>
-                  </div>
+                <div className="p-3 border rounded-lg">
+                  <p className="text-xs text-slate-500 mb-1">Total Spend</p>
+                  <p className="text-lg text-slate-900">{currencyFormatterWithCents.format(totalCost)}</p>
+                  {campaignsForClient.length > 0 && (
+                    <p className="text-xs text-slate-500 mt-1">
+                      Aggregated from {campaignsForClient.length} campaign{campaignsForClient.length === 1 ? "" : "s"}
+                    </p>
+                  )}
                 </div>
                 <div className="p-3 border rounded-lg">
-                  <p className="text-xs text-slate-500 mb-1">Cost Per Click</p>
-                  <p className="text-lg text-slate-900">$2.34</p>
+                  <p className="text-xs text-slate-500 mb-1">Revenue</p>
+                  <p className="text-lg text-slate-900">{currencyFormatterWithCents.format(client.revenue)}</p>
                   <p className="text-xs text-green-600 flex items-center gap-1 mt-1">
                     <TrendingUp className="w-3 h-3" />
-                    12% better than industry avg
+                    ROAS {safeRoas.toFixed(2)}x
                   </p>
                 </div>
                 <div className="p-3 border rounded-lg">
-                  <p className="text-xs text-slate-500 mb-1">Cost Per Acquisition</p>
-                  <p className="text-lg text-slate-900">$24.50</p>
-                  <p className="text-xs text-green-600 flex items-center gap-1 mt-1">
-                    <TrendingUp className="w-3 h-3" />
-                    8% improvement from last month
-                  </p>
+                  <p className="text-xs text-slate-500 mb-1">Average CPC</p>
+                  <p className="text-lg text-slate-900">{currencyFormatterWithCents.format(safeAverageCpc)}</p>
+                  <p className="text-xs text-slate-500 mt-1">{numberFormatter.format(totalClicks)} clicks</p>
                 </div>
                 <div className="p-3 border rounded-lg">
-                  <p className="text-xs text-slate-500 mb-1">Return on Ad Spend</p>
-                  <p className="text-lg text-green-600">5.2x</p>
-                  <p className="text-xs text-slate-500 mt-1">Target: 4.0x</p>
+                  <p className="text-xs text-slate-500 mb-1">Cost per Acquisition</p>
+                  <p className="text-lg text-slate-900">{currencyFormatterWithCents.format(safeAverageCpa)}</p>
+                  <p className="text-xs text-slate-500 mt-1">{numberFormatter.format(totalConversions)} conversions</p>
                 </div>
               </div>
             </div>
 
-            {/* Conversion Metrics */}
+            {/* Engagement & Conversion Metrics */}
             <div className="space-y-4">
               <div className="flex items-center gap-2 mb-4">
                 <div className="p-2 bg-purple-50 rounded-lg">
                   <TrendingUp className="w-4 h-4 text-purple-600" />
                 </div>
-                <h3 className="text-sm text-slate-900">Conversion Tracking</h3>
+                <h3 className="text-sm text-slate-900">Engagement & Conversions</h3>
               </div>
               <div className="space-y-3">
                 <div className="p-3 bg-purple-50 rounded-lg">
                   <p className="text-xs text-purple-700 mb-1">Total Conversions</p>
-                  <p className="text-2xl text-purple-900">1,245</p>
-                  <p className="text-xs text-purple-600 mt-1">This month</p>
+                  <p className="text-2xl text-purple-900">{numberFormatter.format(totalConversions)}</p>
+                  <p className="text-xs text-purple-600 mt-1">Conversion Rate {percentFormatter.format(safeConversionRate)}%</p>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="p-3 border rounded-lg">
-                    <p className="text-xs text-slate-500 mb-1">Purchases</p>
-                    <p className="text-lg text-slate-900">856</p>
+                    <p className="text-xs text-slate-500 mb-1">Impressions</p>
+                    <p className="text-lg text-slate-900">{numberFormatter.format(totalImpressions)}</p>
                   </div>
                   <div className="p-3 border rounded-lg">
-                    <p className="text-xs text-slate-500 mb-1">Sign-ups</p>
-                    <p className="text-lg text-slate-900">245</p>
+                    <p className="text-xs text-slate-500 mb-1">Clicks</p>
+                    <p className="text-lg text-slate-900">{numberFormatter.format(totalClicks)}</p>
                   </div>
                   <div className="p-3 border rounded-lg">
-                    <p className="text-xs text-slate-500 mb-1">Leads</p>
-                    <p className="text-lg text-slate-900">98</p>
+                    <p className="text-xs text-slate-500 mb-1">CTR</p>
+                    <p className="text-lg text-slate-900">{percentFormatter.format(safeCtr)}%</p>
                   </div>
                   <div className="p-3 border rounded-lg">
-                    <p className="text-xs text-slate-500 mb-1">Phone Calls</p>
-                    <p className="text-lg text-slate-900">46</p>
+                    <p className="text-xs text-slate-500 mb-1">Conversion Rate</p>
+                    <p className="text-lg text-slate-900">{percentFormatter.format(safeConversionRate)}%</p>
                   </div>
                 </div>
                 <div className="p-3 border rounded-lg">
-                  <p className="text-xs text-slate-500 mb-1">Conversion Rate</p>
-                  <p className="text-lg text-slate-900">3.8%</p>
-                  <div className="mt-2 flex items-center gap-2">
-                    <div className="flex-1 bg-slate-200 rounded-full h-1.5">
-                      <div className="bg-purple-600 h-1.5 rounded-full" style={{ width: "76%" }}></div>
-                    </div>
-                    <span className="text-xs text-slate-600">76% to goal</span>
+                  <p className="text-xs text-slate-500 mb-1">Account Health</p>
+                  <div className="flex items-center gap-2">
+                    <Badge
+                      variant="outline"
+                      className={`text-xs capitalize ${
+                        client.status === "healthy"
+                          ? "text-green-600 border-green-200"
+                          : client.status === "warning"
+                          ? "text-yellow-600 border-yellow-200"
+                          : "text-red-600 border-red-200"
+                      }`}
+                    >
+                      {client.status}
+                    </Badge>
+                    <span className="text-xs text-slate-500">
+                      Based on current CTR and conversion trends
+                    </span>
                   </div>
                 </div>
               </div>
