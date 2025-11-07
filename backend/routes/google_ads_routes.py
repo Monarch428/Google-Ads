@@ -7,7 +7,9 @@ import os
 from database import get_db
 from services.google_oauth_service import build_oauth_consent_url, exchange_code_for_tokens, save_google_account
 
-router = APIRouter(prefix="/google-ads", tags=["Google Ads"])
+router = APIRouter(
+    # prefix="/google-ads", 
+    tags=["Google Ads"])
 
 # Step 1: Redirect user to Google consent screen
 @router.get("/connect")

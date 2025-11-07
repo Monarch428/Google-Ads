@@ -5,7 +5,9 @@ from pydantic import BaseModel
 from database import get_db
 from models.recommendation_model import Recommendation, Comment, ExecutionLog
 
-router = APIRouter(prefix="/recommendations", tags=["Recommendations"])
+router = APIRouter(
+    # prefix="/recommendations", 
+    tags=["Recommendations"])
 
 
 # 🧾 1. List all recommendations (Inbox)

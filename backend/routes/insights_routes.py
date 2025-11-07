@@ -4,7 +4,7 @@ from database import get_db
 from services.ai_insight_service import generate_insights_from_campaign
 
 router = APIRouter(
-    prefix="/insights",
+    # prefix="/insights",
     tags=["AI Insights"]
 )
 

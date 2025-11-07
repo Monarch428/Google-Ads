@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import Optional
 
 # ✅ Request schema (for creating or updating campaigns)
@@ -20,5 +20,4 @@ class CampaignResponse(BaseModel):
     conversions: int
     client_id: int
 
-    class Config:
-        orm_mode = True  # ✅ Converts SQLAlchemy object → JSON automatically
+    model_config = ConfigDict(from_attributes=True)

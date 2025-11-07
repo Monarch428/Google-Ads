@@ -3,7 +3,9 @@ from sqlalchemy.orm import Session
 from database import get_db
 from models.campaign_model import Campaign
 
-router = APIRouter(prefix="/campaigns", tags=["Campaigns"])
+router = APIRouter(
+    # prefix="/campaigns", 
+    tags=["Campaigns"])
 
 # Get all campaigns
 @router.get("/")

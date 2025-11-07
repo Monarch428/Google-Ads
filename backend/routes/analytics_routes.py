@@ -5,7 +5,7 @@ from services.ai_optimizer_service import generate_optimization_suggestions
 from schemas.analytics_schema import CampaignAnalyticsRequest, CampaignAnalyticsResponse
 
 router = APIRouter(
-    prefix="/analytics",
+    # prefix="/analytics",
     tags=["Analytics"]
 )
 

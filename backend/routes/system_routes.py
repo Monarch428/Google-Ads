@@ -5,7 +5,9 @@ from database import engine
 from apscheduler.schedulers.background import BackgroundScheduler
 import os, time, json, psutil
 
-router = APIRouter(prefix="/system", tags=["System Monitoring"])
+router = APIRouter(
+    # prefix="/system", 
+    tags=["System Monitoring"])
 
 # store last sync timestamp
 LAST_SYNC_FILE = "logs/last_sync.json"

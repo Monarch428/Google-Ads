@@ -5,7 +5,7 @@ from database import get_db
 from services.chatbot_service import chatbot_response
 
 router = APIRouter(
-    prefix="/chatbot",
+    # prefix="/chatbot",
     tags=["Chatbot"]
 )
 

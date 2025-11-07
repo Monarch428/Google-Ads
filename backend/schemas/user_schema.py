@@ -1,6 +1,6 @@
 # Add this to the bottom of schemas/user_schema.py
 
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, ConfigDict, field_validator
 from typing import Optional
 from datetime import datetime
 
@@ -29,6 +29,12 @@ class UserUpdate(BaseModel):
     company_website: Optional[str] = None
     company_address: Optional[str] = None
 
+    @field_validator("company_email", mode="before")
+    @classmethod
+    def _empty_email_to_none(cls, value: Optional[str]):
+        if isinstance(value, str) and not value.strip():
+            return None
+        return value
 
 class UserResponse(BaseModel):
     id: int
@@ -44,5 +50,25 @@ class UserResponse(BaseModel):
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
+
+    @field_validator("company_email", mode="before")
+    @classmethod
+    def _coerce_company_email(cls, value: Optional[str]):
+        if value in (None, ""):
+            return None
+
+        if isinstance(value, EmailStr):
+            return value
+
+        if isinstance(value, str):
+            stripped = value.strip()
+            if not stripped:
+                return None
+
+            try:
+                return EmailStr(stripped)
+            except Exception:
+                return None
+
+        return value

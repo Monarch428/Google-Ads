@@ -10,7 +10,9 @@ from reportlab.pdfgen import canvas
 import pandas as pd
 from fastapi.responses import FileResponse
 
-router = APIRouter(prefix="/reports", tags=["Client Reports"])
+router = APIRouter(
+    # prefix="/reports", 
+    tags=["Client Reports"])
 
 
 # 📊 1. Generate client performance report (PDF or CSV)
