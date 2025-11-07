@@ -1,7 +1,6 @@
 from datetime import timedelta, datetime
-from typing import Optional
 from sqlalchemy.orm import Session
-from passlib.context import CryptContext
+import bcrypt
 from fastapi import HTTPException, status
 from jose import jwt
 from models import user_model
@@ -9,7 +8,7 @@ from schemas.user_schema import UserCreate, UserLogin, UserResponse
 from config import settings
 
 # ✅ Password hashing setup
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+BCRYPT_MAX_BYTES = 72
 UserModel = user_model.UserModel
 
 # ✅ JWT Config
@@ -51,9 +50,9 @@ def register_user(db: Session, user: UserCreate) -> UserResponse:
             detail="Email already registered",
         )
 
-    # bcrypt accepts only first 72 characters of a password
-    password_to_hash = user.password[:72]
-    hashed_password = pwd_context.hash(password_to_hash)
+    # bcrypt accepts only the first 72 bytes of a password
+    password_bytes = user.password.encode("utf-8")[:BCRYPT_MAX_BYTES]
+    hashed_password = bcrypt.hashpw(password_bytes, bcrypt.gensalt()).decode("utf-8")
 
     new_user = UserModel(
         name=user.name,
@@ -86,7 +85,9 @@ def login_user(db: Session, credentials: UserLogin) -> dict:
     if not user:
         raise HTTPException(status_code=400, detail="Invalid email or password")
 
-    if not pwd_context.verify(credentials.password, user.password_hash):
+    password_bytes = credentials.password.encode("utf-8")[:BCRYPT_MAX_BYTES]
+    stored_hash = (user.password_hash or "").encode("utf-8")
+    if not stored_hash or not bcrypt.checkpw(password_bytes, stored_hash):
         raise HTTPException(status_code=400, detail="Invalid email or password")
 
     # ✅ Token expires in 24 hours
