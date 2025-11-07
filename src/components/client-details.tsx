@@ -358,7 +358,7 @@ export function ClientDetails({ clientId, onBack }: ClientDetailsProps) {
     [campaigns, client.id]
   );
 
-  const { totals: campaignTotals, topCampaigns } = useMemo(() => {
+  const { totals: campaignTotals, topCampaigns, hasMetrics } = useMemo(() => {
     const totals = campaignsForClient.reduce(
       (acc, campaign) => {
         acc.impressions += campaign.impressions;
@@ -380,26 +380,31 @@ export function ClientDetails({ clientId, onBack }: ClientDetailsProps) {
     return {
       totals,
       topCampaigns: sortedByCost.slice(0, 3),
+      hasMetrics: campaignsForClient.some(
+        (campaign) => campaign.impressions > 0 || campaign.clicks > 0 || campaign.conversions > 0 || campaign.cost > 0
+      ),
     };
   }, [campaignsForClient]);
 
-  const totalImpressions = campaignTotals.impressions || client.impressions;
-  const totalClicks = campaignTotals.clicks || client.clicks;
-  const totalConversions = campaignTotals.conversions || client.conversions;
-  const totalCost = campaignTotals.cost || client.adSpend;
+  const totalImpressions = campaignTotals.impressions || client.impressions || 0;
+  const totalClicks = campaignTotals.clicks || client.clicks || 0;
+  const totalConversions = campaignTotals.conversions || client.conversions || 0;
+  const totalCost = campaignTotals.cost || client.adSpend || 0;
 
-  const ctr = totalImpressions > 0 ? (totalClicks / totalImpressions) * 100 : client.ctr;
-  const conversionRate = totalClicks > 0 ? (totalConversions / totalClicks) * 100 : client.conversionRate;
+  const ctr = totalImpressions > 0 ? (totalClicks / totalImpressions) * 100 : client.ctr || 0;
+  const conversionRate = totalClicks > 0 ? (totalConversions / totalClicks) * 100 : client.conversionRate || 0;
   const averageCpc = totalClicks > 0
     ? totalCost / totalClicks
     : client.clicks > 0 && client.adSpend > 0
       ? client.adSpend / client.clicks
       : 0;
-  const averageCpa = totalConversions > 0 ? totalCost / totalConversions : client.cpa;
-  const roas = totalCost > 0 ? client.revenue / totalCost : client.roas;
+  const averageCpa = totalConversions > 0 ? totalCost / totalConversions : client.cpa || 0;
+  const totalRevenue = Number.isFinite(client.revenue) ? client.revenue : totalConversions * 120;
+  const roas = totalCost > 0 && totalRevenue > 0 ? totalRevenue / totalCost : 0;
 
   const safeAverageCpc = Number.isFinite(averageCpc) ? averageCpc : 0;
   const safeAverageCpa = Number.isFinite(averageCpa) ? averageCpa : 0;
+  const safeRevenue = Number.isFinite(totalRevenue) ? totalRevenue : 0;
   const safeRoas = Number.isFinite(roas) ? roas : 0;
   const safeCtr = Number.isFinite(ctr) ? ctr : 0;
   const safeConversionRate = Number.isFinite(conversionRate) ? conversionRate : 0;
@@ -1164,6 +1169,11 @@ export function ClientDetails({ clientId, onBack }: ClientDetailsProps) {
                 <h3 className="text-sm text-slate-900">Financial Performance</h3>
               </div>
               <div className="space-y-3">
+                {!hasMetrics && (
+                  <div className="p-3 bg-slate-50 rounded-lg text-sm text-slate-600">
+                    No campaign performance data is available for this account yet. Values shown below reflect the latest synced totals.
+                  </div>
+                )}
                 <div className="p-3 border rounded-lg">
                   <p className="text-xs text-slate-500 mb-1">Total Spend</p>
                   <p className="text-lg text-slate-900">{currencyFormatterWithCents.format(totalCost)}</p>
@@ -1175,7 +1185,7 @@ export function ClientDetails({ clientId, onBack }: ClientDetailsProps) {
                 </div>
                 <div className="p-3 border rounded-lg">
                   <p className="text-xs text-slate-500 mb-1">Revenue</p>
-                  <p className="text-lg text-slate-900">{currencyFormatterWithCents.format(client.revenue)}</p>
+                  <p className="text-lg text-slate-900">{currencyFormatterWithCents.format(safeRevenue)}</p>
                   <p className="text-xs text-green-600 flex items-center gap-1 mt-1">
                     <TrendingUp className="w-3 h-3" />
                     ROAS {safeRoas.toFixed(2)}x
@@ -1203,6 +1213,11 @@ export function ClientDetails({ clientId, onBack }: ClientDetailsProps) {
                 <h3 className="text-sm text-slate-900">Engagement & Conversions</h3>
               </div>
               <div className="space-y-3">
+                {!hasMetrics && (
+                  <div className="p-3 bg-slate-50 rounded-lg text-sm text-slate-600">
+                    No engagement data has been recorded for this account yet. Once campaigns start receiving traffic, metrics will appear here.
+                  </div>
+                )}
                 <div className="p-3 bg-purple-50 rounded-lg">
                   <p className="text-xs text-purple-700 mb-1">Total Conversions</p>
                   <p className="text-2xl text-purple-900">{numberFormatter.format(totalConversions)}</p>
