@@ -73,6 +73,19 @@ export interface BackendUser {
   is_active: boolean;
 }
 
+export type CreateClientPayload = Omit<
+  BackendClient,
+  "id" | "created_at" | "updated_at"
+>;
+
+export type UpdateUserPayload = {
+  name?: string;
+  email?: string;
+  role?: string;
+  is_active?: boolean;
+  password?: string;
+};
+
 export interface AuthResponse {
   access_token: string;
   refresh_token: string; // ✅ now included
@@ -116,6 +129,16 @@ export function fetchClients(token?: string) {
     : undefined);
 }
 
+export function createClient(payload: CreateClientPayload, token?: string) {
+  return apiFetch<BackendClient>("/clients/add", {
+    method: "POST",
+    body: JSON.stringify(payload),
+    ...(token
+      ? { headers: { Authorization: `Bearer ${token}` } }
+      : undefined),
+  });
+}
+
 export function fetchCampaigns(token?: string) {
   return apiFetch<BackendCampaign[]>("/campaigns", token
     ? { headers: { Authorization: `Bearer ${token}` } }
@@ -126,4 +149,18 @@ export function fetchUsers(token?: string) {
   return apiFetch<BackendUser[]>("/users", token
     ? { headers: { Authorization: `Bearer ${token}` } }
     : undefined);
+}
+
+export function updateUser(
+  userId: number | string,
+  payload: UpdateUserPayload,
+  token?: string,
+) {
+  return apiFetch<BackendUser>(`/users/${userId}`, {
+    method: "PUT",
+    body: JSON.stringify(payload),
+    ...(token
+      ? { headers: { Authorization: `Bearer ${token}` } }
+      : undefined),
+  });
 }

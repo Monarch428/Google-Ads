@@ -27,6 +27,7 @@ type DataContextValue = {
   campaigns: CampaignSummary[];
   refreshClients: () => Promise<void>;
   refreshManagers: () => Promise<void>;
+  authToken?: string;
 };
 
 const DataContext = createContext<DataContextValue | undefined>(undefined);
@@ -259,7 +260,19 @@ export function DataProvider({ children, authToken }: { children: React.ReactNod
     campaigns,
     refreshClients: loadClients,
     refreshManagers: loadManagers,
-  }), [clients, clientsLoading, clientsError, managers, managersLoading, managersError, campaigns, loadClients, loadManagers]);
+    authToken,
+  }), [
+    clients,
+    clientsLoading,
+    clientsError,
+    managers,
+    managersLoading,
+    managersError,
+    campaigns,
+    loadClients,
+    loadManagers,
+    authToken,
+  ]);
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
 }
