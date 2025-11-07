@@ -60,6 +60,8 @@ def register_user(db: Session, user: UserCreate) -> UserResponse:
         email=user.email,
         password_hash=hashed_password,
         role=user.role,
+        is_active=user.is_active if user.is_active is not None else True,
+        refresh_token=None,
     )
 
     db.add(new_user)
@@ -72,6 +74,7 @@ def register_user(db: Session, user: UserCreate) -> UserResponse:
         email=new_user.email,
         role=new_user.role,
         is_active=new_user.is_active,
+        refresh_token=new_user.refresh_token,
     )
 
 
@@ -90,6 +93,10 @@ def login_user(db: Session, credentials: UserLogin) -> dict:
     access_token = create_access_token(sub=user.email)
     refresh_token = create_refresh_token(sub=user.email)
 
+    # Persist the latest refresh token for the logged in user so it can be reused in the UI
+    user.refresh_token = refresh_token
+    db.commit()
+
     return {
         "access_token": access_token,
         "refresh_token": refresh_token,
@@ -99,5 +106,7 @@ def login_user(db: Session, credentials: UserLogin) -> dict:
             "name": user.name,
             "email": user.email,
             "role": user.role,
+            "is_active": user.is_active,
+            "refresh_token": user.refresh_token,
         },
     }

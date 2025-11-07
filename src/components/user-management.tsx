@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { ChangeEvent, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
@@ -50,6 +50,7 @@ import {
 } from "lucide-react";
 import { mockManagers, mockClients, Manager } from "../lib/mock-data";
 import { useData } from "../lib/data-context";
+import { createUser } from "../lib/api";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -57,6 +58,32 @@ import {
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
 import { toast } from "sonner@2.0.3";
+
+function parseApiErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    try {
+      const parsed = JSON.parse(error.message);
+      if (parsed && typeof parsed === "object") {
+        if (typeof parsed.detail === "string") {
+          return parsed.detail;
+        }
+        if (Array.isArray(parsed.detail) && parsed.detail.length > 0) {
+          const firstDetail = parsed.detail[0];
+          if (typeof firstDetail === "string") {
+            return firstDetail;
+          }
+          if (firstDetail && typeof firstDetail === "object" && "msg" in firstDetail) {
+            return String(firstDetail.msg);
+          }
+        }
+      }
+    } catch {
+      // ignore and fall back to the raw error message
+    }
+    return error.message;
+  }
+  return "Unexpected error";
+}
 
 interface UserManagementProps {
   onManagerClick?: (manager: Manager) => void;
@@ -70,7 +97,16 @@ export function UserManagement({ onManagerClick }: UserManagementProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [selectedClients, setSelectedClients] = useState<string[]>([]);
-  const { managers, managersLoading, clients } = useData();
+  const { managers, managersLoading, clients, refreshManagers, authToken } = useData();
+  const [newUserForm, setNewUserForm] = useState({
+    name: "",
+    email: "",
+    role: "manager",
+    status: "active" as "active" | "inactive",
+    password: "",
+    confirmPassword: "",
+  });
+  const [isCreatingUser, setIsCreatingUser] = useState(false);
 
   const displayManagers = managers.length ? managers : mockManagers;
   const displayClients = clients.length ? clients : mockClients;
@@ -109,6 +145,93 @@ export function UserManagement({ onManagerClick }: UserManagementProps) {
     );
   };
 
+  const resetNewUserForm = () => {
+    setNewUserForm({
+      name: "",
+      email: "",
+      role: "manager",
+      status: "active",
+      password: "",
+      confirmPassword: "",
+    });
+    setSelectedClients([]);
+  };
+
+  const handleAddDialogOpenChange = (open: boolean) => {
+    setIsAddDialogOpen(open);
+    if (!open) {
+      resetNewUserForm();
+    }
+  };
+
+  const handleNewUserInputChange = (
+    field: "name" | "email" | "password" | "confirmPassword",
+  ) =>
+    (event: ChangeEvent<HTMLInputElement>) => {
+      const value = event.target.value;
+      setNewUserForm((prev) => ({ ...prev, [field]: value }));
+    };
+
+  const handleRoleChange = (value: string) => {
+    setNewUserForm((prev) => ({ ...prev, role: value }));
+  };
+
+  const handleStatusChange = (value: string) => {
+    setNewUserForm((prev) => ({ ...prev, status: value as "active" | "inactive" }));
+  };
+
+  const handleCreateNewManager = async () => {
+    if (!newUserForm.name.trim()) {
+      toast.error("Name is required", { description: "Please provide a name for the new manager." });
+      return;
+    }
+
+    if (!newUserForm.email.trim()) {
+      toast.error("Email is required", { description: "A valid email address is required." });
+      return;
+    }
+
+    if (!newUserForm.password.trim()) {
+      toast.error("Password is required", { description: "Please enter a temporary password." });
+      return;
+    }
+
+    if (newUserForm.password !== newUserForm.confirmPassword) {
+      toast.error("Passwords do not match", { description: "Confirm password must match the password." });
+      return;
+    }
+
+    if (!authToken) {
+      toast.error("Authentication required", { description: "Please sign in again to add a user." });
+      return;
+    }
+
+    setIsCreatingUser(true);
+    try {
+      await createUser(
+        {
+          name: newUserForm.name.trim(),
+          email: newUserForm.email.trim(),
+          password: newUserForm.password,
+          role: newUserForm.role,
+          is_active: newUserForm.status === "active",
+        },
+        authToken,
+      );
+      toast.success("New manager created", {
+        description: `${newUserForm.name.trim()} can now access the platform.`,
+      });
+      await refreshManagers();
+      setIsAddDialogOpen(false);
+      resetNewUserForm();
+    } catch (error) {
+      const message = parseApiErrorMessage(error);
+      toast.error("Failed to create manager", { description: message });
+    } finally {
+      setIsCreatingUser(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -117,7 +240,7 @@ export function UserManagement({ onManagerClick }: UserManagementProps) {
           <h1 className="text-slate-900">User Management</h1>
           <p className="text-slate-500">Manage Ad Managers and account assignments</p>
         </div>
-        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+        <Dialog open={isAddDialogOpen} onOpenChange={handleAddDialogOpenChange}>
           <DialogTrigger asChild>
             <Button>
               <UserPlus className="w-4 h-4 mr-2" />
@@ -135,17 +258,28 @@ export function UserManagement({ onManagerClick }: UserManagementProps) {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="add-name">Full Name *</Label>
-                  <Input id="add-name" placeholder="John Doe" />
+                  <Input
+                    id="add-name"
+                    placeholder="John Doe"
+                    value={newUserForm.name}
+                    onChange={handleNewUserInputChange("name")}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="add-email">Email *</Label>
-                  <Input id="add-email" type="email" placeholder="john@agency.com" />
+                  <Input
+                    id="add-email"
+                    type="email"
+                    placeholder="john@agency.com"
+                    value={newUserForm.email}
+                    onChange={handleNewUserInputChange("email")}
+                  />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="add-role">Role *</Label>
-                  <Select defaultValue="manager">
+                  <Select value={newUserForm.role} onValueChange={handleRoleChange}>
                     <SelectTrigger id="add-role">
                       <SelectValue />
                     </SelectTrigger>
@@ -158,7 +292,7 @@ export function UserManagement({ onManagerClick }: UserManagementProps) {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="add-status">Status *</Label>
-                  <Select defaultValue="active">
+                  <Select value={newUserForm.status} onValueChange={handleStatusChange}>
                     <SelectTrigger id="add-status">
                       <SelectValue />
                     </SelectTrigger>
@@ -167,6 +301,28 @@ export function UserManagement({ onManagerClick }: UserManagementProps) {
                       <SelectItem value="inactive">Inactive</SelectItem>
                     </SelectContent>
                   </Select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="add-password">Temporary Password *</Label>
+                  <Input
+                    id="add-password"
+                    type="password"
+                    placeholder="Create a password"
+                    value={newUserForm.password}
+                    onChange={handleNewUserInputChange("password")}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="add-confirm-password">Confirm Password *</Label>
+                  <Input
+                    id="add-confirm-password"
+                    type="password"
+                    placeholder="Re-enter password"
+                    value={newUserForm.confirmPassword}
+                    onChange={handleNewUserInputChange("confirmPassword")}
+                  />
                 </div>
               </div>
               <Separator />
@@ -196,18 +352,15 @@ export function UserManagement({ onManagerClick }: UserManagementProps) {
               </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => {
-                setIsAddDialogOpen(false);
-                setSelectedClients([]);
-              }}>
+              <Button
+                variant="outline"
+                onClick={() => handleAddDialogOpenChange(false)}
+                disabled={isCreatingUser}
+              >
                 Cancel
               </Button>
-              <Button onClick={() => {
-                toast.success("New Ad Manager created successfully");
-                setIsAddDialogOpen(false);
-                setSelectedClients([]);
-              }}>
-                Create Manager
+              <Button onClick={handleCreateNewManager} disabled={isCreatingUser}>
+                {isCreatingUser ? "Creating..." : "Create Manager"}
               </Button>
             </DialogFooter>
           </DialogContent>

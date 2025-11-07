@@ -71,6 +71,7 @@ export interface BackendUser {
   email: string;
   role: string;
   is_active: boolean;
+  refresh_token?: string | null;
 }
 
 export type CreateClientPayload = Omit<
@@ -84,6 +85,35 @@ export type UpdateUserPayload = {
   role?: string;
   is_active?: boolean;
   password?: string;
+  refresh_token?: string;
+};
+
+export type CreateUserPayload = {
+  name: string;
+  email: string;
+  password: string;
+  role?: string;
+  is_active?: boolean;
+};
+
+export interface CompanyProfile {
+  id: number;
+  user_id: number;
+  company_name: string | null;
+  company_email: string | null;
+  company_phone: string | null;
+  company_website: string | null;
+  company_address: string | null;
+  default_manager_role: string | null;
+}
+
+export type UpsertCompanyProfilePayload = {
+  company_name?: string;
+  company_email?: string;
+  company_phone?: string;
+  company_website?: string;
+  company_address?: string;
+  default_manager_role?: string;
 };
 
 export interface AuthResponse {
@@ -151,12 +181,42 @@ export function fetchUsers(token?: string) {
     : undefined);
 }
 
+export function createUser(payload: CreateUserPayload, token?: string) {
+  return apiFetch<BackendUser>("/users", {
+    method: "POST",
+    body: JSON.stringify(payload),
+    ...(token
+      ? { headers: { Authorization: `Bearer ${token}` } }
+      : undefined),
+  });
+}
+
 export function updateUser(
   userId: number | string,
   payload: UpdateUserPayload,
   token?: string,
 ) {
   return apiFetch<BackendUser>(`/users/${userId}`, {
+    method: "PUT",
+    body: JSON.stringify(payload),
+    ...(token
+      ? { headers: { Authorization: `Bearer ${token}` } }
+      : undefined),
+  });
+}
+
+export function fetchCompanyProfile(userId: number | string, token?: string) {
+  return apiFetch<CompanyProfile>(`/company/user/${userId}`, token
+    ? { headers: { Authorization: `Bearer ${token}` } }
+    : undefined);
+}
+
+export function updateCompanyProfile(
+  userId: number | string,
+  payload: UpsertCompanyProfilePayload,
+  token?: string,
+) {
+  return apiFetch<CompanyProfile>(`/company/user/${userId}`, {
     method: "PUT",
     body: JSON.stringify(payload),
     ...(token

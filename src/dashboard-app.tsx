@@ -51,11 +51,12 @@ function mapPathToView(path: string): ViewKey {
 type DashboardAppProps = {
   user: BackendUser;
   token?: string;
+  refreshToken?: string;
   onLogout: () => void;
   onUserUpdated?: (user: BackendUser) => void;
 };
 
-export function DashboardApp({ user, token, onLogout, onUserUpdated }: DashboardAppProps) {
+export function DashboardApp({ user, token, refreshToken, onLogout, onUserUpdated }: DashboardAppProps) {
   const { path, navigate } = useRouter();
   const currentView = useMemo<ViewKey>(() => mapPathToView(path), [path]);
   const [selectedClient, setSelectedClient] = useState<string | null>(null);
@@ -103,6 +104,7 @@ export function DashboardApp({ user, token, onLogout, onUserUpdated }: Dashboard
             onManagerClick={setSelectedManager}
             onBundleClick={setSelectedBundle}
             onReportClick={setSelectedReport}
+            userRefreshToken={refreshToken ?? user.refresh_token ?? undefined}
           />
         );
       case "accounts":
@@ -126,6 +128,7 @@ export function DashboardApp({ user, token, onLogout, onUserUpdated }: Dashboard
             onManagerClick={setSelectedManager}
             onBundleClick={setSelectedBundle}
             onReportClick={setSelectedReport}
+            userRefreshToken={refreshToken ?? user.refresh_token ?? undefined}
           />
         );
     }
