@@ -8,7 +8,7 @@ from schemas.user_schema import UserCreate, UserLogin, UserResponse
 from services.auth_service import register_user, login_user, create_access_token, create_refresh_token, decode_token
 import requests
 import urllib.parse
-import os, secrets
+import os, secrets, json
 
 # ✅ IMPORTANT: Remove prefix from router if it's added in main.py
 router = APIRouter(
@@ -191,7 +191,26 @@ async def google_callback(
         }
     })
     app_refresh = create_refresh_token(sub=user.email)
-    resp = RedirectResponse(url=FRONTEND_DASHBOARD_URL, status_code=302)
+
+    user_payload = {
+        "id": user.id,
+        "name": getattr(user, "name", None),
+        "email": user.email,
+        "role": getattr(user, "role", None),
+        "is_active": getattr(user, "is_active", True),
+    }
+
+    auth_payload = {
+        "access_token": app_access,
+        "refresh_token": app_refresh,
+        "token_type": "bearer",
+        "user": user_payload,
+    }
+
+    encoded_payload = urllib.parse.quote(json.dumps(auth_payload))
+    redirect_target = f"{FRONTEND_BASE}/auth/google/callback?auth={encoded_payload}"
+
+    resp = RedirectResponse(url=redirect_target, status_code=302)
 
     is_local = "localhost" in (REDIRECT_URI or "") or "127.0.0.1" in (REDIRECT_URI or "")
     cookie_args = dict(
