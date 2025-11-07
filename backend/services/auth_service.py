@@ -99,5 +99,10 @@ def login_user(db: Session, credentials: UserLogin) -> dict:
             "name": user.name,
             "email": user.email,
             "role": user.role,
+            "company_name": getattr(user, "company_name", None),
+            "company_email": getattr(user, "company_email", None),
+            "company_phone": getattr(user, "company_phone", None),
+            "company_website": getattr(user, "company_website", None),
+            "company_address": getattr(user, "company_address", None),
         },
     }

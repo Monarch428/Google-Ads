@@ -36,6 +36,14 @@ type ProfileFormState = {
   confirmPassword: string;
 };
 
+type CompanyFormState = {
+  name: string;
+  email: string;
+  phone: string;
+  website: string;
+  address: string;
+};
+
 interface SettingsProps {
   user: BackendUser;
   authToken?: string;
@@ -45,6 +53,7 @@ interface SettingsProps {
 export function Settings({ user, authToken, onUserUpdated }: SettingsProps) {
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [isSavingCompany, setIsSavingCompany] = useState(false);
   const [profileForm, setProfileForm] = useState<ProfileFormState>(() => ({
     firstName: "",
     lastName: "",
@@ -53,6 +62,13 @@ export function Settings({ user, authToken, onUserUpdated }: SettingsProps) {
     currentPassword: "",
     newPassword: "",
     confirmPassword: "",
+  }));
+  const [companyForm, setCompanyForm] = useState<CompanyFormState>(() => ({
+    name: user.company_name ?? "",
+    email: user.company_email ?? "",
+    phone: user.company_phone ?? "",
+    website: user.company_website ?? "",
+    address: user.company_address ?? "",
   }));
 
   const handleSave = () => {
@@ -78,12 +94,25 @@ export function Settings({ user, authToken, onUserUpdated }: SettingsProps) {
       lastName: parts.slice(1).join(" "),
       email: user.email ?? prev.email,
     }));
+    setCompanyForm({
+      name: user.company_name ?? "",
+      email: user.company_email ?? "",
+      phone: user.company_phone ?? "",
+      website: user.company_website ?? "",
+      address: user.company_address ?? "",
+    });
   }, [user]);
 
   const handleProfileInputChange = (field: keyof ProfileFormState) =>
     (event: ChangeEvent<HTMLInputElement>) => {
       const value = event.target.value;
       setProfileForm((prev) => ({ ...prev, [field]: value }));
+    };
+
+  const handleCompanyInputChange = (field: keyof CompanyFormState) =>
+    (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+      const value = event.target.value;
+      setCompanyForm((prev) => ({ ...prev, [field]: value }));
     };
 
   const handleProfileSave = async () => {
@@ -134,6 +163,46 @@ export function Settings({ user, authToken, onUserUpdated }: SettingsProps) {
       toast.error("Profile update failed", { description: message });
     } finally {
       setIsSavingProfile(false);
+    }
+  };
+
+  const handleCompanySave = async () => {
+    if (!companyForm.name.trim()) {
+      toast.error("Company name is required", {
+        description: "Please provide a company name before saving.",
+      });
+      return;
+    }
+
+    setIsSavingCompany(true);
+    try {
+      const payload = {
+        company_name: companyForm.name.trim(),
+        company_email: companyForm.email.trim() || null,
+        company_phone: companyForm.phone.trim() || null,
+        company_website: companyForm.website.trim() || null,
+        company_address: companyForm.address.trim() || null,
+      };
+
+      const updatedUser = await updateUser(user.id, payload, effectiveToken);
+      onUserUpdated?.(updatedUser);
+      setCompanyForm({
+        name: updatedUser.company_name ?? "",
+        email: updatedUser.company_email ?? "",
+        phone: updatedUser.company_phone ?? "",
+        website: updatedUser.company_website ?? "",
+        address: updatedUser.company_address ?? "",
+      });
+      setSaveSuccess(true);
+      toast.success("Company profile updated", {
+        description: "Your company details were saved successfully.",
+      });
+      setTimeout(() => setSaveSuccess(false), 3000);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to update company";
+      toast.error("Company update failed", { description: message });
+    } finally {
+      setIsSavingCompany(false);
     }
   };
 
@@ -314,30 +383,50 @@ export function Settings({ user, authToken, onUserUpdated }: SettingsProps) {
             <CardContent className="space-y-6">
               <div className="space-y-2">
                 <Label htmlFor="companyName">Company Name</Label>
-                <Input id="companyName" defaultValue="Beez Marketing Agency" />
+                <Input
+                  id="companyName"
+                  value={companyForm.name}
+                  onChange={handleCompanyInputChange("name")}
+                />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="companyEmail">Company Email</Label>
-                  <Input id="companyEmail" type="email" defaultValue="contact@beezmarketing.com" />
+                  <Input
+                    id="companyEmail"
+                    type="email"
+                    value={companyForm.email}
+                    onChange={handleCompanyInputChange("email")}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="companyPhone">Company Phone</Label>
-                  <Input id="companyPhone" type="tel" defaultValue="+1 (555) 987-6543" />
+                  <Input
+                    id="companyPhone"
+                    type="tel"
+                    value={companyForm.phone}
+                    onChange={handleCompanyInputChange("phone")}
+                  />
                 </div>
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="companyWebsite">Website</Label>
-                <Input id="companyWebsite" type="url" defaultValue="https://beezmarketing.com" />
+                <Input
+                  id="companyWebsite"
+                  type="url"
+                  value={companyForm.website}
+                  onChange={handleCompanyInputChange("website")}
+                />
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="companyAddress">Address</Label>
-                <Textarea 
-                  id="companyAddress" 
-                  defaultValue="123 Marketing Blvd, Suite 400&#10;San Francisco, CA 94102&#10;United States"
+                <Textarea
+                  id="companyAddress"
+                  value={companyForm.address}
+                  onChange={handleCompanyInputChange("address")}
                   rows={3}
                 />
               </div>
@@ -381,9 +470,15 @@ export function Settings({ user, authToken, onUserUpdated }: SettingsProps) {
                 </div>
               </div>
 
-              <Button onClick={handleSave}>
-                <Save className="w-4 h-4 mr-2" />
-                Save Changes
+              <Button onClick={handleCompanySave} disabled={isSavingCompany}>
+                {isSavingCompany ? (
+                  "Saving..."
+                ) : (
+                  <>
+                    <Save className="w-4 h-4 mr-2" />
+                    Save Changes
+                  </>
+                )}
               </Button>
             </CardContent>
           </Card>

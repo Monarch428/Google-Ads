@@ -251,6 +251,11 @@ CREATE TABLE `users` (
   `password_hash` varchar(255) NOT NULL,
   `role` varchar(50) DEFAULT NULL,
   `is_active` tinyint(1) DEFAULT NULL,
+  `company_name` varchar(255) DEFAULT NULL,
+  `company_email` varchar(255) DEFAULT NULL,
+  `company_phone` varchar(50) DEFAULT NULL,
+  `company_website` varchar(255) DEFAULT NULL,
+  `company_address` varchar(500) DEFAULT NULL,
   `created_at` datetime DEFAULT (now()),
   `updated_at` datetime DEFAULT NULL,
   PRIMARY KEY (`id`),
@@ -265,7 +270,7 @@ CREATE TABLE `users` (
 
 LOCK TABLES `users` WRITE;
 /*!40000 ALTER TABLE `users` DISABLE KEYS */;
-INSERT INTO `users` VALUES (1,'BrandingBeez','youdesign2020@gmail.com','$2b$12$pEQlRZ8FPEo8QEHwZ9Ct5eHBWUuvvvylY8gFy8p/drd92Vl34g9W.','Admin',1,'2025-10-31 15:25:24',NULL);
+INSERT INTO `users` VALUES (1,'BrandingBeez','youdesign2020@gmail.com','$2b$12$pEQlRZ8FPEo8QEHwZ9Ct5eHBWUuvvvylY8gFy8p/drd92Vl34g9W.','Admin',1,NULL,NULL,NULL,NULL,NULL,'2025-10-31 15:25:24',NULL);
 /*!40000 ALTER TABLE `users` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
