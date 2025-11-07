@@ -24,7 +24,56 @@ import {
   CheckCircle,
 } from "lucide-react";
 import { toast } from "sonner@2.0.3";
-import { BackendUser, updateUser } from "../lib/api";
+import {
+  BackendUser,
+  updateUser,
+  fetchCompanyProfile,
+  updateCompanyProfile,
+} from "../lib/api";
+
+type CompanyFormState = {
+  companyName: string;
+  companyEmail: string;
+  companyPhone: string;
+  companyWebsite: string;
+  companyAddress: string;
+  defaultRole: string;
+};
+
+const buildEmptyCompanyForm = (): CompanyFormState => ({
+  companyName: "",
+  companyEmail: "",
+  companyPhone: "",
+  companyWebsite: "",
+  companyAddress: "",
+  defaultRole: "manager",
+});
+
+function parseErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    try {
+      const parsed = JSON.parse(error.message);
+      if (parsed && typeof parsed === "object") {
+        if (typeof parsed.detail === "string") {
+          return parsed.detail;
+        }
+        if (Array.isArray(parsed.detail) && parsed.detail.length > 0) {
+          const firstDetail = parsed.detail[0];
+          if (typeof firstDetail === "string") {
+            return firstDetail;
+          }
+          if (firstDetail && typeof firstDetail === "object" && "msg" in firstDetail) {
+            return String(firstDetail.msg);
+          }
+        }
+      }
+    } catch {
+      // Ignore JSON parsing errors and fall back to the original message
+    }
+    return error.message;
+  }
+  return "Unexpected error";
+}
 
 type ProfileFormState = {
   firstName: string;
@@ -54,6 +103,9 @@ export function Settings({ user, authToken, onUserUpdated }: SettingsProps) {
     newPassword: "",
     confirmPassword: "",
   }));
+  const [companyForm, setCompanyForm] = useState<CompanyFormState>(() => buildEmptyCompanyForm());
+  const [isLoadingCompany, setIsLoadingCompany] = useState(true);
+  const [isSavingCompany, setIsSavingCompany] = useState(false);
 
   const handleSave = () => {
     setSaveSuccess(true);
@@ -80,11 +132,59 @@ export function Settings({ user, authToken, onUserUpdated }: SettingsProps) {
     }));
   }, [user]);
 
+  useEffect(() => {
+    const loadCompanyProfile = async () => {
+      if (!user?.id || !effectiveToken) {
+        setCompanyForm(buildEmptyCompanyForm());
+        setIsLoadingCompany(false);
+        return;
+      }
+
+      setIsLoadingCompany(true);
+      try {
+        const profile = await fetchCompanyProfile(user.id, effectiveToken);
+        setCompanyForm({
+          companyName: profile.company_name ?? "",
+          companyEmail: profile.company_email ?? "",
+          companyPhone: profile.company_phone ?? "",
+          companyWebsite: profile.company_website ?? "",
+          companyAddress: profile.company_address ?? "",
+          defaultRole: profile.default_manager_role ?? "manager",
+        });
+      } catch (error) {
+        const message = parseErrorMessage(error);
+        if (!message.toLowerCase().includes("not found")) {
+          toast.error("Unable to load company details", { description: message });
+        } else {
+          setCompanyForm(buildEmptyCompanyForm());
+        }
+      } finally {
+        setIsLoadingCompany(false);
+      }
+    };
+
+    loadCompanyProfile();
+  }, [user?.id, effectiveToken]);
+
   const handleProfileInputChange = (field: keyof ProfileFormState) =>
     (event: ChangeEvent<HTMLInputElement>) => {
       const value = event.target.value;
       setProfileForm((prev) => ({ ...prev, [field]: value }));
     };
+
+  const handleCompanyInputChange = (
+    field: keyof CompanyFormState,
+  ) =>
+    (
+      event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+    ) => {
+      const value = event.target.value;
+      setCompanyForm((prev) => ({ ...prev, [field]: value }));
+    };
+
+  const handleCompanyRoleChange = (value: string) => {
+    setCompanyForm((prev) => ({ ...prev, defaultRole: value }));
+  };
 
   const handleProfileSave = async () => {
     if (!profileForm.firstName.trim()) {
@@ -130,10 +230,56 @@ export function Settings({ user, authToken, onUserUpdated }: SettingsProps) {
         confirmPassword: "",
       }));
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Unable to update profile";
+      const message = parseErrorMessage(error);
       toast.error("Profile update failed", { description: message });
     } finally {
       setIsSavingProfile(false);
+    }
+  };
+
+  const handleCompanySave = async () => {
+    if (!user?.id) {
+      toast.error("Unable to update company", {
+        description: "We couldn't determine which user is updating the company profile.",
+      });
+      return;
+    }
+
+    if (!effectiveToken) {
+      toast.error("Authentication required", {
+        description: "Please sign in again before saving company details.",
+      });
+      return;
+    }
+
+    const payload = {
+      company_name: companyForm.companyName.trim() || null,
+      company_email: companyForm.companyEmail.trim() || null,
+      company_phone: companyForm.companyPhone.trim() || null,
+      company_website: companyForm.companyWebsite.trim() || null,
+      company_address: companyForm.companyAddress.trim() || null,
+      default_manager_role: companyForm.defaultRole || null,
+    };
+
+    setIsSavingCompany(true);
+    try {
+      const updated = await updateCompanyProfile(user.id, payload, effectiveToken);
+      setCompanyForm({
+        companyName: updated.company_name ?? "",
+        companyEmail: updated.company_email ?? "",
+        companyPhone: updated.company_phone ?? "",
+        companyWebsite: updated.company_website ?? "",
+        companyAddress: updated.company_address ?? "",
+        defaultRole: updated.default_manager_role ?? "manager",
+      });
+      toast.success("Company details saved", {
+        description: "Your organization profile has been updated successfully.",
+      });
+    } catch (error) {
+      const message = parseErrorMessage(error);
+      toast.error("Failed to update company details", { description: message });
+    } finally {
+      setIsSavingCompany(false);
     }
   };
 
@@ -312,33 +458,67 @@ export function Settings({ user, authToken, onUserUpdated }: SettingsProps) {
               <CardDescription>Manage your agency details and branding</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
+              {isLoadingCompany && (
+                <div className="text-sm text-slate-500">Loading company profile...</div>
+              )}
+
               <div className="space-y-2">
                 <Label htmlFor="companyName">Company Name</Label>
-                <Input id="companyName" defaultValue="Beez Marketing Agency" />
+                <Input
+                  id="companyName"
+                  value={companyForm.companyName}
+                  onChange={handleCompanyInputChange("companyName")}
+                  disabled={isLoadingCompany || isSavingCompany}
+                  placeholder="Your company name"
+                />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="companyEmail">Company Email</Label>
-                  <Input id="companyEmail" type="email" defaultValue="contact@beezmarketing.com" />
+                  <Input
+                    id="companyEmail"
+                    type="email"
+                    value={companyForm.companyEmail}
+                    onChange={handleCompanyInputChange("companyEmail")}
+                    disabled={isLoadingCompany || isSavingCompany}
+                    placeholder="contact@agency.com"
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="companyPhone">Company Phone</Label>
-                  <Input id="companyPhone" type="tel" defaultValue="+1 (555) 987-6543" />
+                  <Input
+                    id="companyPhone"
+                    type="tel"
+                    value={companyForm.companyPhone}
+                    onChange={handleCompanyInputChange("companyPhone")}
+                    disabled={isLoadingCompany || isSavingCompany}
+                    placeholder="+1 (555) 000-0000"
+                  />
                 </div>
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="companyWebsite">Website</Label>
-                <Input id="companyWebsite" type="url" defaultValue="https://beezmarketing.com" />
+                <Input
+                  id="companyWebsite"
+                  type="url"
+                  value={companyForm.companyWebsite}
+                  onChange={handleCompanyInputChange("companyWebsite")}
+                  disabled={isLoadingCompany || isSavingCompany}
+                  placeholder="https://youragency.com"
+                />
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="companyAddress">Address</Label>
-                <Textarea 
-                  id="companyAddress" 
-                  defaultValue="123 Marketing Blvd, Suite 400&#10;San Francisco, CA 94102&#10;United States"
+                <Textarea
+                  id="companyAddress"
+                  value={companyForm.companyAddress}
+                  onChange={handleCompanyInputChange("companyAddress")}
+                  disabled={isLoadingCompany || isSavingCompany}
                   rows={3}
+                  placeholder="Street, City, State, ZIP"
                 />
               </div>
 
@@ -367,7 +547,11 @@ export function Settings({ user, authToken, onUserUpdated }: SettingsProps) {
                       <Label>Default Manager Role</Label>
                       <p className="text-xs text-slate-500">New managers will be assigned this role by default</p>
                     </div>
-                    <Select defaultValue="manager">
+                    <Select
+                      value={companyForm.defaultRole}
+                      onValueChange={handleCompanyRoleChange}
+                      disabled={isLoadingCompany || isSavingCompany}
+                    >
                       <SelectTrigger className="w-48">
                         <SelectValue />
                       </SelectTrigger>
@@ -381,9 +565,15 @@ export function Settings({ user, authToken, onUserUpdated }: SettingsProps) {
                 </div>
               </div>
 
-              <Button onClick={handleSave}>
-                <Save className="w-4 h-4 mr-2" />
-                Save Changes
+              <Button onClick={handleCompanySave} disabled={isSavingCompany || isLoadingCompany}>
+                {isSavingCompany ? (
+                  "Saving..."
+                ) : (
+                  <>
+                    <Save className="w-4 h-4 mr-2" />
+                    Save Changes
+                  </>
+                )}
               </Button>
             </CardContent>
           </Card>

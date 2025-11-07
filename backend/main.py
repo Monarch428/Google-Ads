@@ -8,7 +8,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 
 # Internal imports
 from database import get_db, Base, engine
-from models import user_model, client_model, campaign_model
+from models import user_model, client_model, campaign_model, company_model
 from routes import (
     auth_routes,
     client_routes,
@@ -18,6 +18,7 @@ from routes import (
     chatbot_routes,
     user_routes,
     campaign_routes,
+    company_routes,
 )
 from services.google_ads_service import fetch_campaign_metrics_for_client
 
@@ -66,6 +67,9 @@ print(" /users routes registered")
 
 app.include_router(campaign_routes.router, prefix="/campaigns", tags=["Campaigns"])
 print("/campaigns routes registered")
+
+app.include_router(company_routes.router, prefix="/company", tags=["Company"])
+print("/company routes registered")
 
 print("All routes registered successfully!\n")
 

@@ -8,10 +8,12 @@ import { useRouter } from "./lib/router";
 import { toast } from "sonner@2.0.3";
 
 const AUTH_TOKEN_KEY = "aaa_auth_token";
+const AUTH_REFRESH_TOKEN_KEY = "aaa_auth_refresh_token";
 const AUTH_USER_KEY = "aaa_auth_user";
 
 type AuthState = {
   token: string;
+  refreshToken: string;
   user: BackendUser;
 };
 
@@ -29,10 +31,11 @@ export default function App() {
   const { path, navigate } = useRouter();
   const [authState, setAuthState] = useState<AuthState | null>(() => {
     const storedToken = localStorage.getItem(AUTH_TOKEN_KEY);
+    const storedRefreshToken = localStorage.getItem(AUTH_REFRESH_TOKEN_KEY);
     const storedUser = parseStoredUser(localStorage.getItem(AUTH_USER_KEY));
 
-    if (storedToken && storedUser) {
-      return { token: storedToken, user: storedUser };
+    if (storedToken && storedUser && storedRefreshToken) {
+      return { token: storedToken, refreshToken: storedRefreshToken, user: storedUser };
     }
 
     return null;
@@ -42,11 +45,13 @@ export default function App() {
     (response: AuthResponse) => {
       const nextState: AuthState = {
         token: response.access_token,
+        refreshToken: response.refresh_token,
         user: response.user,
       };
 
       setAuthState(nextState);
       localStorage.setItem(AUTH_TOKEN_KEY, nextState.token);
+      localStorage.setItem(AUTH_REFRESH_TOKEN_KEY, nextState.refreshToken);
       localStorage.setItem(AUTH_USER_KEY, JSON.stringify(nextState.user));
       navigate("/dashboard", { replace: true });
     },
@@ -140,6 +145,7 @@ export default function App() {
   const handleLogout = useCallback(() => {
     setAuthState(null);
     localStorage.removeItem(AUTH_TOKEN_KEY);
+    localStorage.removeItem(AUTH_REFRESH_TOKEN_KEY);
     localStorage.removeItem(AUTH_USER_KEY);
     navigate("/login", { replace: true });
   }, [navigate]);
@@ -163,6 +169,7 @@ export default function App() {
         <DashboardApp
           user={authState.user}
           token={authState.token}
+          refreshToken={authState.refreshToken}
           onLogout={handleLogout}
           onUserUpdated={handleUserUpdated}
         />

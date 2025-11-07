@@ -1,6 +1,6 @@
 from typing import List
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
 from database import get_db
@@ -28,5 +28,20 @@ def create_user(user_data: UserCreate, db: Session = Depends(get_db)):
 
 
 @router.put("/{user_id}", response_model=UserResponse)
-def update_user(user_id: int, update_data: UserUpdate, db: Session = Depends(get_db)):
+async def update_user(user_id: int, request: Request, db: Session = Depends(get_db)):
+    try:
+        payload = await request.json()
+    except Exception as exc:  # pragma: no cover - defensive guard
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid JSON payload",
+        ) from exc
+
+    if not isinstance(payload, dict):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Payload must be a JSON object",
+        )
+
+    update_data = UserUpdate.model_validate(payload)
     return user_service.update_user(db, user_id, update_data)

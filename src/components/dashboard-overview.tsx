@@ -1,4 +1,4 @@
-import { ChangeEvent, useMemo, useState } from "react";
+import { ChangeEvent, useEffect, useMemo, useState } from "react";
 import { TrendingUp, DollarSign, Target, Users, AlertTriangle, CheckCircle, Plus } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
@@ -36,6 +36,7 @@ interface DashboardOverviewProps {
   onManagerClick?: (manager: Manager) => void;
   onBundleClick?: (bundleId: string) => void;
   onReportClick?: (reportId: string) => void;
+  userRefreshToken?: string;
 }
 
 export function DashboardOverview({
@@ -44,7 +45,8 @@ export function DashboardOverview({
   onAlertClick,
   onManagerClick,
   onBundleClick,
-  onReportClick
+  onReportClick,
+  userRefreshToken,
 }: DashboardOverviewProps) {
   const [isAddClientDialogOpen, setIsAddClientDialogOpen] = useState(false);
   const [showCreateReport, setShowCreateReport] = useState(false);
@@ -58,13 +60,22 @@ export function DashboardOverview({
       developer_token: "",
       client_id: "",
       client_secret: "",
-      refresh_token: "",
+      refresh_token: userRefreshToken ?? "",
       login_customer_id: "",
     }),
-    [],
+    [userRefreshToken],
   );
   const [clientForm, setClientForm] = useState(() => ({ ...initialClientForm }));
   const [isSubmittingClient, setIsSubmittingClient] = useState(false);
+
+  useEffect(() => {
+    setClientForm((prev) => {
+      if (prev.refresh_token?.trim()) {
+        return prev;
+      }
+      return { ...prev, refresh_token: initialClientForm.refresh_token };
+    });
+  }, [initialClientForm]);
 
   const handleClientDialogChange = (open: boolean) => {
     setIsAddClientDialogOpen(open);
