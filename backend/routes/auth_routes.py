@@ -198,6 +198,11 @@ async def google_callback(
         "email": user.email,
         "role": getattr(user, "role", None),
         "is_active": getattr(user, "is_active", True),
+        "company_name": getattr(user, "company_name", None),
+        "company_email": getattr(user, "company_email", None),
+        "company_phone": getattr(user, "company_phone", None),
+        "company_website": getattr(user, "company_website", None),
+        "company_address": getattr(user, "company_address", None),
     }
 
     auth_payload = {
@@ -262,6 +267,11 @@ def me(request: Request, db: Session = Depends(get_db)):
         "email": user.email,
         "name": getattr(user, "name", None),
         "role": getattr(user, "role", None),
+        "company_name": getattr(user, "company_name", None),
+        "company_email": getattr(user, "company_email", None),
+        "company_phone": getattr(user, "company_phone", None),
+        "company_website": getattr(user, "company_website", None),
+        "company_address": getattr(user, "company_address", None),
         "google": data.get("google"),
     }
 

@@ -23,6 +23,11 @@ class UserUpdate(BaseModel):
     role: Optional[str] = None
     is_active: Optional[bool] = None
     password: Optional[str] = None
+    company_name: Optional[str] = None
+    company_email: Optional[EmailStr] = None
+    company_phone: Optional[str] = None
+    company_website: Optional[str] = None
+    company_address: Optional[str] = None
 
 
 class UserResponse(BaseModel):
@@ -31,6 +36,11 @@ class UserResponse(BaseModel):
     email: EmailStr
     role: Optional[str] = None
     is_active: Optional[bool] = True
+    company_name: Optional[str] = None
+    company_email: Optional[EmailStr] = None
+    company_phone: Optional[str] = None
+    company_website: Optional[str] = None
+    company_address: Optional[str] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 

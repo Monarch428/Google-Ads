@@ -1,19 +1,37 @@
 // lib/api.ts
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
 
+function normalizeHeaders(headers?: HeadersInit): Record<string, string> {
+  if (!headers) {
+    return {};
+  }
+
+  if (headers instanceof Headers) {
+    return Object.fromEntries(headers.entries());
+  }
+
+  if (Array.isArray(headers)) {
+    return Object.fromEntries(headers);
+  }
+
+  return { ...headers };
+}
+
 // --- Core fetch with cookie support + 401 -> refresh retry once ---
 async function apiFetch<T>(
   path: string,
   options: RequestInit = {},
   _triedRefresh = false
 ): Promise<T> {
+  const mergedHeaders = {
+    "Content-Type": "application/json",
+    ...normalizeHeaders(options.headers),
+  };
+
   const res = await fetch(`${API_BASE_URL}${path}`, {
-    credentials: "include", // ✅ send cookies for /auth/me, /auth/refresh, etc.
-    headers: {
-      "Content-Type": "application/json",
-      ...(options.headers || {}),
-    },
     ...options,
+    credentials: "include", // ✅ send cookies for /auth/me, /auth/refresh, etc.
+    headers: mergedHeaders,
   });
 
   if (res.ok) {
@@ -71,6 +89,11 @@ export interface BackendUser {
   email: string;
   role: string;
   is_active: boolean;
+  company_name?: string | null;
+  company_email?: string | null;
+  company_phone?: string | null;
+  company_website?: string | null;
+  company_address?: string | null;
 }
 
 export type CreateClientPayload = Omit<
@@ -84,6 +107,11 @@ export type UpdateUserPayload = {
   role?: string;
   is_active?: boolean;
   password?: string;
+  company_name?: string;
+  company_email?: string | null;
+  company_phone?: string | null;
+  company_website?: string | null;
+  company_address?: string | null;
 };
 
 export interface AuthResponse {
