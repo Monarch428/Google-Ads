@@ -1,5 +1,5 @@
 #database.py
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine, text, inspect
 from sqlalchemy.orm import sessionmaker, declarative_base
 from config import settings
  
@@ -16,6 +16,48 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 # Base class for ORM models
 Base = declarative_base()
+
+# Optional columns that might not exist in legacy databases. We'll ensure
+# they're present at startup so newer parts of the codebase (like company
+# profile management) don't fail when selecting from the "users" table.
+_USER_OPTIONAL_COLUMNS = {
+    "company_name": "VARCHAR(255)",
+    "company_email": "VARCHAR(255)",
+    "company_phone": "VARCHAR(50)",
+    "company_website": "VARCHAR(255)",
+    "company_address": "VARCHAR(500)",
+}
+
+
+def ensure_user_optional_columns() -> None:
+    """Ensure optional company columns exist on the users table.
+
+    Older databases may have been created before these fields were added to
+    the ORM model. When the ORM attempts to select the columns SQLAlchemy will
+    ask MySQL for them which raises "Unknown column" errors. We defensively
+    inspect the schema and add any missing columns so authentication and other
+    flows keep working without requiring a manual migration.
+    """
+
+    inspector = inspect(engine)
+    if not inspector.has_table("users"):
+        return
+
+    existing_columns = {col["name"] for col in inspector.get_columns("users")}
+    missing_columns = [
+        column_name
+        for column_name in _USER_OPTIONAL_COLUMNS
+        if column_name not in existing_columns
+    ]
+
+    if not missing_columns:
+        return
+
+    with engine.begin() as connection:
+        for column_name in missing_columns:
+            ddl = f"ALTER TABLE users ADD COLUMN {column_name} {_USER_OPTIONAL_COLUMNS[column_name]} NULL"
+            connection.execute(text(ddl))
+
 
 # FastAPI Dependency for DB session
 def get_db():
