@@ -96,6 +96,69 @@ export interface BackendUser {
   company_address?: string | null;
 }
 
+export type BackendRecommendationStatus =
+  | "PENDING"
+  | "APPROVED"
+  | "MODIFIED"
+  | "DISMISSED"
+  | "EXECUTED";
+
+export type BackendRecommendationPriority = "HIGH" | "MEDIUM" | "LOW";
+
+export interface BackendRecommendation {
+  id: number;
+  client_id: number | null;
+  campaign_name: string | null;
+  suggestion: string | null;
+  data_snapshot: string | null;
+  predicted_impact: number | null;
+  action_proposal: string | null;
+  priority: BackendRecommendationPriority | null;
+  status: BackendRecommendationStatus | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
+export interface ChatbotReply {
+  status: string;
+  reply: string;
+}
+
+export interface OptimizationRequest {
+  campaign_name: string;
+  clicks: number;
+  impressions: number;
+  ctr: number;
+  cpc: number;
+  conversions: number;
+  budget: number;
+}
+
+export interface OptimizationResponse {
+  status: string;
+  campaign_name: string;
+  suggestions: string;
+}
+
+export interface InsightResponse {
+  summary: string;
+  recommendations?: string[];
+  [key: string]: unknown;
+}
+
+export interface SystemStatusResponse {
+  database: string;
+  last_sync: string;
+  scheduler_jobs: string[];
+  system_uptime: string;
+  cpu_usage: string;
+  memory_usage: string;
+  log_files: string[];
+  error_logs: string[];
+  server_time: string;
+  status: string;
+}
+
 export type CreateClientPayload = Omit<
   BackendClient,
   "id" | "created_at" | "updated_at"
@@ -191,4 +254,116 @@ export function updateUser(
       ? { headers: { Authorization: `Bearer ${token}` } }
       : undefined),
   });
+}
+
+// ---------- Recommendations ----------
+export function fetchRecommendations(token?: string) {
+  return apiFetch<BackendRecommendation[]>("/recommendations", token
+    ? { headers: { Authorization: `Bearer ${token}` } }
+    : undefined);
+}
+
+export function approveRecommendation(recId: number | string, token?: string) {
+  return apiFetch<{ message: string }>(`/recommendations/${recId}/approve`, {
+    method: "POST",
+    ...(token
+      ? { headers: { Authorization: `Bearer ${token}` } }
+      : undefined),
+  });
+}
+
+export function dismissRecommendation(recId: number | string, token?: string) {
+  return apiFetch<{ message: string }>(`/recommendations/${recId}/dismiss`, {
+    method: "POST",
+    ...(token
+      ? { headers: { Authorization: `Bearer ${token}` } }
+      : undefined),
+  });
+}
+
+export function modifyRecommendation(
+  recId: number | string,
+  newAction: string,
+  token?: string,
+) {
+  return apiFetch<{ message: string; new_action: string }>(`/recommendations/${recId}/modify`, {
+    method: "POST",
+    body: JSON.stringify({ new_action: newAction }),
+    ...(token
+      ? { headers: { Authorization: `Bearer ${token}` } }
+      : undefined),
+  });
+}
+
+export function fetchRecommendationBundle(recId: number | string, token?: string) {
+  return apiFetch<{ bundle: Record<string, unknown> }>(`/recommendations/${recId}/bundle`, token
+    ? { headers: { Authorization: `Bearer ${token}` } }
+    : undefined);
+}
+
+export function markRecommendationExecuted(
+  recId: number | string,
+  payload: { before_metric: number; after_metric: number },
+  token?: string,
+) {
+  return apiFetch<{ message: string; improvement_percent: number }>(`/recommendations/${recId}/executed`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+    ...(token
+      ? { headers: { Authorization: `Bearer ${token}` } }
+      : undefined),
+  });
+}
+
+export function addRecommendationComment(
+  recId: number | string,
+  text: string,
+  token?: string,
+) {
+  return apiFetch<{ message: string; comment_id: number }>(`/recommendations/${recId}/comment`, {
+    method: "POST",
+    body: JSON.stringify({ text }),
+    ...(token
+      ? { headers: { Authorization: `Bearer ${token}` } }
+      : undefined),
+  });
+}
+
+// ---------- Chatbot ----------
+export function sendChatbotMessage(message: string, token?: string) {
+  return apiFetch<ChatbotReply>("/chatbot/message", {
+    method: "POST",
+    body: JSON.stringify({ message }),
+    ...(token
+      ? { headers: { Authorization: `Bearer ${token}` } }
+      : undefined),
+  });
+}
+
+// ---------- Analytics & Insights ----------
+export function optimizeCampaign(payload: OptimizationRequest, token?: string) {
+  return apiFetch<OptimizationResponse>("/analytics/optimize", {
+    method: "POST",
+    body: JSON.stringify(payload),
+    ...(token
+      ? { headers: { Authorization: `Bearer ${token}` } }
+      : undefined),
+  });
+}
+
+export function generateInsights(payload: Record<string, unknown>, token?: string) {
+  return apiFetch<InsightResponse>("/insights/generate", {
+    method: "POST",
+    body: JSON.stringify(payload),
+    ...(token
+      ? { headers: { Authorization: `Bearer ${token}` } }
+      : undefined),
+  });
+}
+
+// ---------- System Monitoring ----------
+export function fetchSystemStatus(token?: string) {
+  return apiFetch<SystemStatusResponse>("/system/status", token
+    ? { headers: { Authorization: `Bearer ${token}` } }
+    : undefined);
 }

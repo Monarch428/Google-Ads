@@ -15,7 +15,7 @@ import {
 } from "./ui/dialog";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
-import { mockClients, mockManagers, mockRecommendations, mockAlerts, Manager } from "../lib/mock-data";
+import { mockClients, mockManagers, mockAlerts, Manager } from "../lib/mock-data";
 import { useData } from "../lib/data-context";
 import { KPICard } from "./kpi-card";
 import { ClientCard } from "./client-card";
@@ -48,7 +48,15 @@ export function DashboardOverview({
 }: DashboardOverviewProps) {
   const [isAddClientDialogOpen, setIsAddClientDialogOpen] = useState(false);
   const [showCreateReport, setShowCreateReport] = useState(false);
-  const { clients, clientsLoading, managers, refreshClients, authToken } = useData();
+  const {
+    clients,
+    clientsLoading,
+    managers,
+    recommendations,
+    recommendationsLoading,
+    refreshClients,
+    authToken,
+  } = useData();
   const displayClients = clients.length ? clients : mockClients;
   const displayManagers = managers.length ? managers : mockManagers;
   const initialClientForm = useMemo(
@@ -317,8 +325,9 @@ export function DashboardOverview({
       <AlertsPanel alerts={mockAlerts} onAlertClick={onAlertClick} />
 
       {/* AI Recommendations Overview */}
-      <AIRecommendationOverview 
-        recommendations={mockRecommendations} 
+      <AIRecommendationOverview
+        recommendations={recommendations}
+        loading={recommendationsLoading}
         onViewAll={() => onNavigate?.("recommendations")}
       />
 
