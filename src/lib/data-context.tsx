@@ -128,27 +128,30 @@ function mapClients(
       cost: 0,
     };
 
-    const { impressions, clicks, conversions, cost } = metrics;
-    const ctr = impressions > 0 ? (clicks / impressions) * 100 : fallback.ctr;
-    const conversionRate = clicks > 0 ? (conversions / clicks) * 100 : fallback.conversionRate;
-    const cpa = conversions > 0 ? cost / conversions : fallback.cpa;
+    const impressions = Number(metrics.impressions ?? 0);
+    const clicks = Number(metrics.clicks ?? 0);
+    const conversions = Number(metrics.conversions ?? 0);
+    const cost = Number(metrics.cost ?? 0);
 
-    const revenue = conversions > 0 ? conversions * 120 : fallback.revenue;
-    const roas = cost > 0 ? revenue / cost : fallback.roas;
+    const ctr = impressions > 0 ? (clicks / impressions) * 100 : 0;
+    const conversionRate = clicks > 0 ? (conversions / clicks) * 100 : 0;
+    const cpa = conversions > 0 ? cost / conversions : 0;
+
+    const estimatedRevenue = conversions > 0 ? conversions * 120 : 0;
+    const roas = cost > 0 && estimatedRevenue > 0 ? estimatedRevenue / cost : 0;
 
     return {
       ...fallback,
       id: String(client.id),
       name: client.name || fallback.name,
-      industry: fallback.industry,
-      adSpend: cost > 0 ? Number(cost.toFixed(2)) : fallback.adSpend,
-      conversions: conversions > 0 ? conversions : fallback.conversions,
+      adSpend: Number(cost.toFixed(2)),
+      conversions,
       ctr: Number(ctr.toFixed(2)),
       cpa: Number(cpa.toFixed(2)),
       conversionRate: Number(conversionRate.toFixed(2)),
-      revenue: Number(revenue.toFixed(2)),
-      impressions: impressions > 0 ? impressions : fallback.impressions,
-      clicks: clicks > 0 ? clicks : fallback.clicks,
+      revenue: Number(estimatedRevenue.toFixed(2)),
+      impressions,
+      clicks,
       roas: Number(roas.toFixed(2)),
       status: deriveStatus(conversionRate, ctr, conversions, fallback.status),
     };
