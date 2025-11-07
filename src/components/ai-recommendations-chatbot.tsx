@@ -5,6 +5,9 @@ import { Input } from "./ui/input";
 import { Button } from "./ui/button";
 import { ScrollArea } from "./ui/scroll-area";
 import { Avatar, AvatarFallback } from "./ui/avatar";
+import { sendChatbotMessage } from "../lib/api";
+import { useData } from "../lib/data-context";
+import { toast } from "sonner@2.0.3";
 
 interface Message {
   id: string;
@@ -24,6 +27,7 @@ export function AIRecommendationsChatbot() {
   ]);
   const [inputValue, setInputValue] = useState("");
   const [isTyping, setIsTyping] = useState(false);
+  const { authToken } = useData();
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const isInitialMount = useRef(true);
@@ -41,38 +45,7 @@ export function AIRecommendationsChatbot() {
     scrollToBottom();
   }, [messages]);
 
-  const generateResponse = (userMessage: string): string => {
-    const lowerMessage = userMessage.toLowerCase();
-
-    // Response logic based on keywords
-    if (lowerMessage.includes("priority") || lowerMessage.includes("urgent") || lowerMessage.includes("critical")) {
-      return "Currently, you have 8 high-priority recommendations requiring immediate action. The most critical ones are: 1) Pause underperforming keywords for FitLife Gym (projected to save $3,200/month), 2) Increase budget for TechCorp's top campaigns ($4,500 potential revenue increase), and 3) Implement responsive search ads for EcoGreen Products (15-25% CTR improvement expected).";
-    } else if (lowerMessage.includes("budget") || lowerMessage.includes("increase") || lowerMessage.includes("decrease")) {
-      return "I've identified 5 budget optimization recommendations. For high-performing campaigns like TechCorp Solutions, increasing budget by 15-20% could drive an additional $4,500 in monthly revenue. Conversely, reducing spend on underperforming keywords in FitLife Gym's campaigns could save $3,200/month with minimal impact.";
-    } else if (lowerMessage.includes("keyword") || lowerMessage.includes("pause")) {
-      return "There are 12 recommendations to pause underperforming keywords across your accounts. FitLife Gym has 8 keywords with CTR below 1.5% and high CPA that should be paused immediately. EcoGreen Products has 4 similar keywords. Pausing these could reduce wasted spend by up to $4,800/month.";
-    } else if (lowerMessage.includes("ctr") || lowerMessage.includes("click-through") || lowerMessage.includes("responsive")) {
-      return "Implementing responsive search ads is recommended for 6 accounts. Based on historical data, this could improve CTR by 15-25%. EcoGreen Products and FitLife Gym would benefit most, potentially increasing their CTR from 2.1% to 2.8-3.2%, leading to better Quality Scores and lower CPAs.";
-    } else if (lowerMessage.includes("bundle") || lowerMessage.includes("action bundle") || lowerMessage.includes("create")) {
-      return "You can create action bundles by grouping related recommendations. I suggest creating: 1) 'FitLife Optimization Bundle' (pause keywords + adjust bids), 2) 'Budget Reallocation Bundle' (increase high performers, decrease low performers), and 3) 'Ad Format Update Bundle' (implement RSAs across multiple accounts). Would you like help creating any of these?";
-    } else if (lowerMessage.includes("revenue") || lowerMessage.includes("impact") || lowerMessage.includes("potential")) {
-      return "The projected impact of implementing all recommendations is significant: Potential revenue increase of $12,800/month and cost savings of $6,500/month. The highest-impact recommendations are budget increases for TechCorp (+$4,500/month) and StyleHub (+$3,200/month), combined with keyword optimizations across underperforming accounts.";
-    } else if (lowerMessage.includes("techcorp") || lowerMessage.includes("tech corp")) {
-      return "TechCorp Solutions has 3 active recommendations: 1) Increase budget for top-performing campaigns (High Priority - $4,500 potential revenue), 2) Add negative keywords to reduce wasted spend (Medium Priority - $800 savings), and 3) Test new ad copy variations (Medium Priority - 10-15% CTR improvement). The budget increase should be implemented first.";
-    } else if (lowerMessage.includes("fitlife") || lowerMessage.includes("fit life")) {
-      return "FitLife Gym has 4 critical recommendations requiring immediate attention: 1) Pause 8 underperforming keywords ($3,200 monthly savings), 2) Implement responsive search ads (15-25% CTR improvement), 3) Adjust bidding strategy to Target CPA ($1,800 cost reduction), and 4) Improve landing page quality score. Start with pausing underperforming keywords for immediate impact.";
-    } else if (lowerMessage.includes("implement") || lowerMessage.includes("apply") || lowerMessage.includes("execute")) {
-      return "To implement recommendations: 1) Review and approve each recommendation in the dashboard, 2) Create action bundles for related changes, 3) Schedule implementation during low-traffic hours to minimize disruption, 4) Monitor performance for 7-14 days post-implementation, and 5) Adjust based on results. I recommend starting with high-priority items and implementing in batches.";
-    } else if (lowerMessage.includes("how many") || lowerMessage.includes("count") || lowerMessage.includes("total")) {
-      return "You currently have 24 active AI recommendations across all clients: 8 High Priority, 11 Medium Priority, and 5 Low Priority. These span multiple optimization types including budget adjustments (5), keyword optimizations (12), ad format updates (6), and bidding strategy changes (4).";
-    } else if (lowerMessage.includes("help") || lowerMessage.includes("what can you")) {
-      return "I can help you with: \n• Understanding recommendation priorities\n• Analyzing potential impact and ROI\n• Creating and managing action bundles\n• Identifying quick wins and high-impact changes\n• Account-specific recommendation details\n• Implementation strategies and timing\n• Performance predictions and projections\n\nJust ask me anything about your AI recommendations!";
-    } else {
-      return "That's a great question! I can provide insights on recommendation priorities, potential revenue impact, implementation strategies, and help you create action bundles. Could you be more specific? For example, you could ask about high-priority recommendations, potential revenue impact, or specific client recommendations.";
-    }
-  };
-
-  const handleSendMessage = () => {
+  const handleSendMessage = async () => {
     if (!inputValue.trim()) return;
 
     const userMessage: Message = {
@@ -85,18 +58,21 @@ export function AIRecommendationsChatbot() {
     setMessages((prev) => [...prev, userMessage]);
     setInputValue("");
     setIsTyping(true);
-
-    // Simulate AI response delay
-    setTimeout(() => {
+    try {
+      const response = await sendChatbotMessage(userMessage.content, authToken);
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: "assistant",
-        content: generateResponse(inputValue),
+        content: response.reply,
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, assistantMessage]);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Chatbot request failed";
+      toast.error("Chatbot unavailable", { description: message });
+    } finally {
       setIsTyping(false);
-    }, 1000);
+    }
   };
 
   const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {

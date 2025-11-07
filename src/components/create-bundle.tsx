@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -17,8 +17,10 @@ import {
   TrendingUp,
   Calendar,
 } from "lucide-react";
-import { mockClients, mockRecommendations } from "../lib/mock-data";
+import { mockClients } from "../lib/mock-data";
 import { useData } from "../lib/data-context";
+import { fetchRecommendationBundle } from "../lib/api";
+import { toast } from "sonner@2.0.3";
 
 interface CreateBundleProps {
   onBack: () => void;
@@ -30,7 +32,7 @@ export function CreateBundle({ onBack, onSave, preSelectedClientId }: CreateBund
   const [selectedClient, setSelectedClient] = useState<string>(preSelectedClientId || "");
   const [selectedRecommendations, setSelectedRecommendations] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
-  const { clients } = useData();
+  const { clients, recommendations, recommendationsLoading, recommendationsError, authToken } = useData();
   const availableClients = clients.length ? clients : mockClients;
 
   const handleRecommendationToggle = (recId: string) => {
@@ -41,14 +43,49 @@ export function CreateBundle({ onBack, onSave, preSelectedClientId }: CreateBund
     );
   };
 
-  const availableRecommendations = selectedClient
-    ? mockRecommendations.filter(rec => rec.clientId === selectedClient && rec.status === "pending")
-    : [];
+  const availableRecommendations = useMemo(() => {
+    if (!selectedClient) return [];
+    return recommendations.filter(
+      (rec) => rec.clientId === selectedClient && rec.status === "pending"
+    );
+  }, [recommendations, selectedClient]);
 
-  const filteredRecommendations = availableRecommendations.filter(rec =>
-    rec.recommendation.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    rec.campaignName.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredRecommendations = useMemo(
+    () =>
+      availableRecommendations.filter(rec =>
+        rec.recommendation.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        rec.campaignName.toLowerCase().includes(searchQuery.toLowerCase())
+      ),
+    [availableRecommendations, searchQuery]
   );
+
+  const handleCreateBundle = useCallback(async () => {
+    if (!selectedRecommendations.length) {
+      onSave();
+      return;
+    }
+
+    if (!authToken) {
+      toast.info("Sign in required", {
+        description: "Connect to the backend to generate action bundles.",
+      });
+      onSave();
+      return;
+    }
+
+    try {
+      await Promise.all(
+        selectedRecommendations.map((recId) => fetchRecommendationBundle(recId, authToken))
+      );
+      toast.success("Action bundle generated", {
+        description: `${selectedRecommendations.length} recommendation${selectedRecommendations.length === 1 ? "" : "s"} prepared for bundling.`,
+      });
+      onSave();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to generate bundle";
+      toast.error("Bundle generation failed", { description: message });
+    }
+  }, [selectedRecommendations, authToken, onSave]);
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
@@ -86,14 +123,14 @@ export function CreateBundle({ onBack, onSave, preSelectedClientId }: CreateBund
             <p className="text-slate-500">Group recommendations for coordinated execution</p>
           </div>
         </div>
-        <div className="flex items-center gap-3">
-          <Button variant="outline" onClick={onBack}>Cancel</Button>
-          <Button onClick={onSave} disabled={selectedRecommendations.length === 0}>
-            <Package className="w-4 h-4 mr-2" />
-            Create Bundle
-          </Button>
+          <div className="flex items-center gap-3">
+            <Button variant="outline" onClick={onBack}>Cancel</Button>
+            <Button onClick={handleCreateBundle} disabled={selectedRecommendations.length === 0}>
+              <Package className="w-4 h-4 mr-2" />
+              Create Bundle
+            </Button>
+          </div>
         </div>
-      </div>
 
       {/* Bundle Information */}
       <Card>
@@ -191,7 +228,13 @@ export function CreateBundle({ onBack, onSave, preSelectedClientId }: CreateBund
               {/* Recommendations List */}
               {filteredRecommendations.length === 0 ? (
                 <div className="text-center py-8 text-slate-500">
-                  <p>No pending recommendations found for this client</p>
+                  {recommendationsLoading ? (
+                    <p>Loading recommendations...</p>
+                  ) : recommendationsError ? (
+                    <p>{recommendationsError}</p>
+                  ) : (
+                    <p>No pending recommendations found for this client</p>
+                  )}
                 </div>
               ) : (
                 <div className="space-y-3 max-h-96 overflow-y-auto">
@@ -232,7 +275,7 @@ export function CreateBundle({ onBack, onSave, preSelectedClientId }: CreateBund
                           <div className="flex items-center gap-4 text-xs text-slate-600">
                             <div className="flex items-center gap-1">
                               <TrendingUp className="w-3 h-3" />
-                              <span>Impact: {rec.expectedImpact}</span>
+                              <span>Impact: {rec.impact}</span>
                             </div>
                             <div className="flex items-center gap-1">
                               <Calendar className="w-3 h-3" />

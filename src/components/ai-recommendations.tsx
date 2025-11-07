@@ -1,12 +1,13 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Input } from "./ui/input";
-import { Lightbulb, Search, Filter, CheckCircle, XCircle, Edit } from "lucide-react";
-import { mockRecommendations } from "../lib/mock-data";
+import { Lightbulb, Search, CheckCircle, XCircle, Edit } from "lucide-react";
 import { AIRecommendationsChatbot } from "./ai-recommendations-chatbot";
+import { useData } from "../lib/data-context";
+import { toast } from "sonner@2.0.3";
 
 interface AIRecommendationsProps {
   onBundleClick?: (bundleId: string) => void;
@@ -15,12 +16,81 @@ interface AIRecommendationsProps {
 export function AIRecommendations({ onBundleClick }: AIRecommendationsProps) {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [processingId, setProcessingId] = useState<string | null>(null);
+  const {
+    recommendations,
+    recommendationsLoading,
+    recommendationsError,
+    approveRecommendation,
+    dismissRecommendation,
+    authToken,
+  } = useData();
 
-  const filteredRecommendations = mockRecommendations.filter(rec => {
-    const matchesStatus = statusFilter === "all" || rec.status === statusFilter;
-    const matchesPriority = priorityFilter === "all" || rec.priority === priorityFilter;
-    return matchesStatus && matchesPriority;
-  });
+  const displayRecommendations = useMemo(() => {
+    return recommendations;
+  }, [recommendations]);
+
+  const filteredRecommendations = useMemo(() => {
+    return displayRecommendations.filter((rec) => {
+      const matchesStatus = statusFilter === "all" || rec.status === statusFilter;
+      const matchesPriority = priorityFilter === "all" || rec.priority === priorityFilter;
+      const query = searchQuery.trim().toLowerCase();
+      const matchesQuery =
+        !query ||
+        rec.clientName.toLowerCase().includes(query) ||
+        rec.campaignName.toLowerCase().includes(query) ||
+        rec.recommendation.toLowerCase().includes(query);
+      return matchesStatus && matchesPriority && matchesQuery;
+    });
+  }, [displayRecommendations, statusFilter, priorityFilter, searchQuery]);
+
+  const pendingCount = useMemo(
+    () => displayRecommendations.filter((r) => r.status === "pending").length,
+    [displayRecommendations],
+  );
+  const approvedCount = useMemo(
+    () => displayRecommendations.filter((r) => r.status === "approved").length,
+    [displayRecommendations],
+  );
+  const highPriorityCount = useMemo(
+    () => displayRecommendations.filter((r) => r.priority === "high").length,
+    [displayRecommendations],
+  );
+
+  const handleApprove = async (id: string) => {
+    if (!authToken) {
+      toast.info("Sign in to approve recommendations", { description: "Connect to the backend to sync updates." });
+      return;
+    }
+    setProcessingId(id);
+    try {
+      await approveRecommendation(id);
+      toast.success("Recommendation approved");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to approve recommendation";
+      toast.error("Approval failed", { description: message });
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  const handleDismiss = async (id: string) => {
+    if (!authToken) {
+      toast.info("Sign in to update recommendations", { description: "Connect to the backend to sync updates." });
+      return;
+    }
+    setProcessingId(id);
+    try {
+      await dismissRecommendation(id);
+      toast.success("Recommendation dismissed");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to dismiss recommendation";
+      toast.error("Dismissal failed", { description: message });
+    } finally {
+      setProcessingId(null);
+    }
+  };
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -79,7 +149,12 @@ export function AIRecommendations({ onBundleClick }: AIRecommendationsProps) {
             <div className="flex-1 min-w-64">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <Input placeholder="Search recommendations..." className="pl-10" />
+                <Input
+                  placeholder="Search recommendations..."
+                  className="pl-10"
+                  value={searchQuery}
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                />
               </div>
             </div>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
@@ -114,32 +189,48 @@ export function AIRecommendations({ onBundleClick }: AIRecommendationsProps) {
         <Card>
           <CardContent className="pt-6">
             <p className="text-sm text-slate-500 mb-1">Total Recommendations</p>
-            <p className="text-slate-900">{mockRecommendations.length}</p>
+            <p className="text-slate-900">{displayRecommendations.length}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-6">
             <p className="text-sm text-slate-500 mb-1">Pending Review</p>
-            <p className="text-slate-900 text-yellow-600">{mockRecommendations.filter(r => r.status === "pending").length}</p>
+            <p className="text-slate-900 text-yellow-600">{pendingCount}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-6">
             <p className="text-sm text-slate-500 mb-1">Approved</p>
-            <p className="text-slate-900 text-green-600">{mockRecommendations.filter(r => r.status === "approved").length}</p>
+            <p className="text-slate-900 text-green-600">{approvedCount}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-6">
             <p className="text-sm text-slate-500 mb-1">High Priority</p>
-            <p className="text-slate-900 text-red-600">{mockRecommendations.filter(r => r.priority === "high").length}</p>
+            <p className="text-slate-900 text-red-600">{highPriorityCount}</p>
           </CardContent>
         </Card>
       </div>
 
       {/* Recommendations List */}
       <div className="space-y-4">
-        {filteredRecommendations.map((rec) => {
+        {recommendationsError && (
+          <Card>
+            <CardContent className="pt-6 text-sm text-red-600">
+              {recommendationsError}
+            </CardContent>
+          </Card>
+        )}
+
+        {recommendationsLoading ? (
+          <Card>
+            <CardContent className="pt-6 text-sm text-slate-500">Loading AI recommendations...</CardContent>
+          </Card>
+        ) : filteredRecommendations.length === 0 ? (
+          <Card>
+            <CardContent className="pt-6 text-sm text-slate-500">No recommendations found for the selected filters.</CardContent>
+          </Card>
+        ) : filteredRecommendations.map((rec) => {
           const statusBadge = getStatusBadge(rec.status);
           return (
             <Card key={rec.id}>
@@ -183,11 +274,20 @@ export function AIRecommendations({ onBundleClick }: AIRecommendationsProps) {
                       </div>
                       {rec.status === "pending" && (
                         <div className="flex gap-2">
-                          <Button variant="outline" size="sm">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleDismiss(rec.id)}
+                            disabled={processingId === rec.id}
+                          >
                             <XCircle className="w-4 h-4 mr-1" />
                             Reject
                           </Button>
-                          <Button size="sm">
+                          <Button
+                            size="sm"
+                            onClick={() => handleApprove(rec.id)}
+                            disabled={processingId === rec.id}
+                          >
                             <CheckCircle className="w-4 h-4 mr-1" />
                             Approve
                           </Button>

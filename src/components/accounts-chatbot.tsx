@@ -5,6 +5,9 @@ import { Input } from "./ui/input";
 import { Button } from "./ui/button";
 import { ScrollArea } from "./ui/scroll-area";
 import { Avatar, AvatarFallback } from "./ui/avatar";
+import { sendChatbotMessage } from "../lib/api";
+import { useData } from "../lib/data-context";
+import { toast } from "sonner@2.0.3";
 
 interface Message {
   id: string;
@@ -24,6 +27,7 @@ export function AccountsChatbot() {
   ]);
   const [inputValue, setInputValue] = useState("");
   const [isTyping, setIsTyping] = useState(false);
+  const { authToken } = useData();
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const isInitialMount = useRef(true);
@@ -41,36 +45,7 @@ export function AccountsChatbot() {
     scrollToBottom();
   }, [messages]);
 
-  const generateResponse = (userMessage: string): string => {
-    const lowerMessage = userMessage.toLowerCase();
-
-    // Response logic based on keywords
-    if (lowerMessage.includes("roas") || lowerMessage.includes("return on ad spend")) {
-      return "Based on the current data, your average ROAS across all clients is performing well. TechCorp Solutions has the highest ROAS at 5.2x, while FitLife Gym needs attention at 1.8x. I recommend focusing on optimizing FitLife's ad targeting and creative strategy to improve their return.";
-    } else if (lowerMessage.includes("critical") || lowerMessage.includes("warning")) {
-      return "You currently have 3 clients in critical status and 2 in warning status. The critical accounts are: FitLife Gym (high CPA), EcoGreen Products (low CTR), and another requiring immediate attention. I can help you create action bundles to address these issues. Would you like me to suggest specific optimizations?";
-    } else if (lowerMessage.includes("budget") || lowerMessage.includes("spend") || lowerMessage.includes("ad spend")) {
-      return "Your total ad spend across all clients is $127,500. The highest spenders are TechCorp Solutions ($45,000) and StyleHub Boutique ($28,000). Based on performance, I recommend redistributing budget from underperforming campaigns to those with ROAS above 3.5x.";
-    } else if (lowerMessage.includes("conversion") || lowerMessage.includes("conversions")) {
-      return "Conversion performance varies across accounts. HomeChef Delivery shows a +23% increase in conversions, while FitLife Gym has a -15% decline. I suggest implementing conversion tracking optimizations and testing new ad copy for underperforming accounts.";
-    } else if (lowerMessage.includes("best") || lowerMessage.includes("top") || lowerMessage.includes("performing")) {
-      return "Your top performing clients are: 1) TechCorp Solutions (5.2x ROAS, 245 conversions), 2) HomeChef Delivery (4.8x ROAS, strong growth trend), and 3) StyleHub Boutique (4.1x ROAS, consistent performance). These accounts demonstrate excellent targeting and creative strategies worth replicating.";
-    } else if (lowerMessage.includes("recommend") || lowerMessage.includes("suggestion") || lowerMessage.includes("improve")) {
-      return "Here are my top recommendations: 1) Pause underperforming keywords with CTR below 2% for FitLife Gym and EcoGreen Products. 2) Increase budget for TechCorp's top-performing campaigns by 20%. 3) Implement responsive search ads for all accounts lacking them. 4) Set up automated bidding strategies for accounts still using manual CPC. Would you like detailed action steps for any of these?";
-    } else if (lowerMessage.includes("manager") || lowerMessage.includes("strategist")) {
-      return "Your ad managers are handling multiple accounts. Sarah Chen manages the most clients and has the highest average ROAS at 4.2x. Mike Rodriguez has 2 clients in warning status and may need support. Consider redistributing workload or providing additional training resources.";
-    } else if (lowerMessage.includes("ctr") || lowerMessage.includes("click-through rate") || lowerMessage.includes("click through")) {
-      return "Click-through rates vary significantly. The highest CTR is 6.8% (TechCorp Solutions) and lowest is 2.1% (EcoGreen Products). Industry benchmarks suggest aiming for 4-6% CTR. I recommend A/B testing ad copy and using more compelling calls-to-action for accounts below 3%.";
-    } else if (lowerMessage.includes("cpa") || lowerMessage.includes("cost per")) {
-      return "Cost per acquisition ranges from $18 (TechCorp) to $95 (FitLife Gym). The high CPAs are concerning for FitLife and EcoGreen. I suggest improving landing page quality scores, refining audience targeting, and testing different bidding strategies to reduce acquisition costs.";
-    } else if (lowerMessage.includes("help") || lowerMessage.includes("what can you")) {
-      return "I can help you with: \n• Performance analysis and insights\n• Budget and spend optimization\n• ROAS and conversion tracking\n• Identifying critical issues\n• Account health monitoring\n• Manager workload analysis\n• Competitive recommendations\n• Custom reporting suggestions\n\nJust ask me anything about your client accounts!";
-    } else {
-      return "That's a great question! Based on your current account data, I can provide insights on performance metrics, budget optimization, conversion trends, and strategic recommendations. Could you be more specific about which aspect you'd like to explore? For example, you could ask about ROAS performance, critical accounts, or budget allocation.";
-    }
-  };
-
-  const handleSendMessage = () => {
+  const handleSendMessage = async () => {
     if (!inputValue.trim()) return;
 
     const userMessage: Message = {
@@ -83,18 +58,21 @@ export function AccountsChatbot() {
     setMessages((prev) => [...prev, userMessage]);
     setInputValue("");
     setIsTyping(true);
-
-    // Simulate AI response delay
-    setTimeout(() => {
+    try {
+      const response = await sendChatbotMessage(userMessage.content, authToken);
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: "assistant",
-        content: generateResponse(inputValue),
+        content: response.reply,
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, assistantMessage]);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Chatbot request failed";
+      toast.error("Chatbot unavailable", { description: message });
+    } finally {
       setIsTyping(false);
-    }, 1000);
+    }
   };
 
   const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {

@@ -1,6 +1,17 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { Client, Manager, mockClients, mockManagers } from "./mock-data";
-import { fetchCampaigns, fetchClients, fetchUsers, BackendCampaign, BackendClient, BackendUser } from "./api";
+import { Client, Manager, mockClients, mockManagers, mockRecommendations, AIRecommendation } from "./mock-data";
+import {
+  fetchCampaigns,
+  fetchClients,
+  fetchUsers,
+  fetchRecommendations,
+  approveRecommendation,
+  dismissRecommendation,
+  BackendCampaign,
+  BackendClient,
+  BackendUser,
+  BackendRecommendation,
+} from "./api";
 
 type ClientStatus = Client["status"];
 
@@ -27,6 +38,12 @@ type DataContextValue = {
   campaigns: CampaignSummary[];
   refreshClients: () => Promise<void>;
   refreshManagers: () => Promise<void>;
+  recommendations: AIRecommendation[];
+  recommendationsLoading: boolean;
+  recommendationsError: string | null;
+  refreshRecommendations: () => Promise<void>;
+  approveRecommendation: (recId: string) => Promise<void>;
+  dismissRecommendation: (recId: string) => Promise<void>;
   authToken?: string;
 };
 
@@ -138,6 +155,90 @@ function mapClients(
   });
 }
 
+function normalizePriority(priority: BackendRecommendation["priority"], fallback: AIRecommendation["priority"]): AIRecommendation["priority"] {
+  if (!priority) return fallback;
+  const lowered = priority.toLowerCase();
+  if (lowered === "high" || lowered === "medium" || lowered === "low") {
+    return lowered;
+  }
+  return fallback;
+}
+
+function normalizeStatus(status: BackendRecommendation["status"], fallback: AIRecommendation["status"]): AIRecommendation["status"] {
+  if (!status) return fallback;
+  const lowered = status.toLowerCase();
+  if (
+    lowered === "pending" ||
+    lowered === "approved" ||
+    lowered === "modified" ||
+    lowered === "rejected" ||
+    lowered === "dismissed" ||
+    lowered === "executed"
+  ) {
+    return lowered;
+  }
+  return fallback;
+}
+
+function formatRelativeTime(value: string | null | undefined, fallback: string): string {
+  if (!value) return fallback;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return fallback;
+
+  const diffSeconds = Math.max(0, Math.floor((Date.now() - date.getTime()) / 1000));
+  if (diffSeconds < 60) {
+    return `${diffSeconds}s ago`;
+  }
+  const diffMinutes = Math.floor(diffSeconds / 60);
+  if (diffMinutes < 60) {
+    return `${diffMinutes} minute${diffMinutes === 1 ? "" : "s"} ago`;
+  }
+  const diffHours = Math.floor(diffMinutes / 60);
+  if (diffHours < 24) {
+    return `${diffHours} hour${diffHours === 1 ? "" : "s"} ago`;
+  }
+  const diffDays = Math.floor(diffHours / 24);
+  if (diffDays < 7) {
+    return `${diffDays} day${diffDays === 1 ? "" : "s"} ago`;
+  }
+  return date.toLocaleDateString();
+}
+
+function mapRecommendations(
+  backendRecommendations: BackendRecommendation[],
+  clients: Client[],
+): AIRecommendation[] {
+  if (!backendRecommendations.length) {
+    return mockRecommendations;
+  }
+
+  return backendRecommendations.map((rec, index) => {
+    const fallback = mockRecommendations[index % mockRecommendations.length];
+    const client = clients.find((c) => Number(c.id) === Number(rec.client_id));
+
+    const predictedImpact = rec.predicted_impact ?? fallback.predictedImpact ?? null;
+    const impactText =
+      predictedImpact !== null
+        ? `${predictedImpact >= 0 ? "+" : ""}${predictedImpact.toFixed(1)}% predicted impact`
+        : fallback.impact;
+
+    return {
+      ...fallback,
+      id: String(rec.id),
+      clientId: client?.id ?? (rec.client_id != null ? String(rec.client_id) : fallback.clientId),
+      clientName: client?.name ?? fallback.clientName,
+      campaignName: rec.campaign_name ?? fallback.campaignName,
+      priority: normalizePriority(rec.priority, fallback.priority),
+      status: normalizeStatus(rec.status, fallback.status),
+      recommendation: rec.suggestion ?? fallback.recommendation,
+      impact: impactText,
+      actionProposal: rec.action_proposal ?? fallback.actionProposal ?? fallback.recommendation,
+      predictedImpact: predictedImpact ?? undefined,
+      createdAt: formatRelativeTime(rec.created_at, fallback.createdAt),
+    };
+  });
+}
+
 function formatRole(role: string | undefined, fallbackRole: string): string {
   if (!role) return fallbackRole;
   switch (role.toLowerCase()) {
@@ -186,6 +287,9 @@ export function DataProvider({ children, authToken }: { children: React.ReactNod
   const [managers, setManagers] = useState<Manager[]>([]);
   const [managersLoading, setManagersLoading] = useState(true);
   const [managersError, setManagersError] = useState<string | null>(null);
+  const [recommendations, setRecommendations] = useState<AIRecommendation[]>([]);
+  const [recommendationsLoading, setRecommendationsLoading] = useState(true);
+  const [recommendationsError, setRecommendationsError] = useState<string | null>(null);
 
   const loadClients = useCallback(async () => {
     if (!authToken) {
@@ -242,6 +346,51 @@ export function DataProvider({ children, authToken }: { children: React.ReactNod
     }
   }, [authToken, clients]);
 
+  const loadRecommendations = useCallback(async () => {
+    if (!authToken) {
+      setRecommendations(mockRecommendations);
+      setRecommendationsError(null);
+      setRecommendationsLoading(false);
+      return;
+    }
+
+    setRecommendationsLoading(true);
+    try {
+      const backendRecs = await fetchRecommendations(authToken);
+      const mapped = mapRecommendations(backendRecs, clients.length ? clients : mockClients);
+      setRecommendations(mapped);
+      setRecommendationsError(null);
+    } catch (error) {
+      console.error("Failed to load recommendations", error);
+      setRecommendations(mockRecommendations);
+      setRecommendationsError(error instanceof Error ? error.message : "Failed to load recommendations");
+    } finally {
+      setRecommendationsLoading(false);
+    }
+  }, [authToken, clients]);
+
+  const handleApproveRecommendation = useCallback(async (recId: string) => {
+    if (!authToken) return;
+    try {
+      await approveRecommendation(recId, authToken);
+      await loadRecommendations();
+    } catch (error) {
+      console.error("Failed to approve recommendation", error);
+      throw error;
+    }
+  }, [authToken, loadRecommendations]);
+
+  const handleDismissRecommendation = useCallback(async (recId: string) => {
+    if (!authToken) return;
+    try {
+      await dismissRecommendation(recId, authToken);
+      await loadRecommendations();
+    } catch (error) {
+      console.error("Failed to dismiss recommendation", error);
+      throw error;
+    }
+  }, [authToken, loadRecommendations]);
+
   useEffect(() => {
     loadClients();
   }, [loadClients]);
@@ -249,6 +398,10 @@ export function DataProvider({ children, authToken }: { children: React.ReactNod
   useEffect(() => {
     loadManagers();
   }, [loadManagers]);
+
+  useEffect(() => {
+    loadRecommendations();
+  }, [loadRecommendations]);
 
   const value = useMemo<DataContextValue>(() => ({
     clients,
@@ -260,6 +413,12 @@ export function DataProvider({ children, authToken }: { children: React.ReactNod
     campaigns,
     refreshClients: loadClients,
     refreshManagers: loadManagers,
+    recommendations,
+    recommendationsLoading,
+    recommendationsError,
+    refreshRecommendations: loadRecommendations,
+    approveRecommendation: handleApproveRecommendation,
+    dismissRecommendation: handleDismissRecommendation,
     authToken,
   }), [
     clients,
@@ -271,6 +430,12 @@ export function DataProvider({ children, authToken }: { children: React.ReactNod
     campaigns,
     loadClients,
     loadManagers,
+    recommendations,
+    recommendationsLoading,
+    recommendationsError,
+    loadRecommendations,
+    handleApproveRecommendation,
+    handleDismissRecommendation,
     authToken,
   ]);
 

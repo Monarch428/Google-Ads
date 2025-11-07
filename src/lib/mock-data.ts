@@ -31,15 +31,18 @@ export interface Manager {
 
 export interface AIRecommendation {
   id: string;
+  clientId?: string;
   clientName: string;
   campaignName: string;
   type: string;
   priority: "high" | "medium" | "low";
-  status: "pending" | "approved" | "modified" | "rejected";
+  status: "pending" | "approved" | "modified" | "rejected" | "dismissed" | "executed";
   recommendation: string;
   impact: string;
   manager: string;
   createdAt: string;
+  actionProposal?: string;
+  predictedImpact?: number;
 }
 
 export interface ActionBundle {
@@ -209,6 +212,7 @@ export const mockManagers: Manager[] = [
 export const mockRecommendations: AIRecommendation[] = [
   {
     id: "1",
+    clientId: "1",
     clientName: "TechStart Inc",
     campaignName: "Q4 Product Launch",
     type: "Keyword Optimization",
@@ -221,6 +225,7 @@ export const mockRecommendations: AIRecommendation[] = [
   },
   {
     id: "2",
+    clientId: "2",
     clientName: "Fashion Forward",
     campaignName: "Winter Collection",
     type: "Budget Reallocation",
@@ -233,6 +238,7 @@ export const mockRecommendations: AIRecommendation[] = [
   },
   {
     id: "3",
+    clientId: "3",
     clientName: "EcoLife Solutions",
     campaignName: "Sustainability Drive",
     type: "Ad Copy Update",
@@ -245,6 +251,7 @@ export const mockRecommendations: AIRecommendation[] = [
   },
   {
     id: "4",
+    clientId: "4",
     clientName: "Global Fitness",
     campaignName: "New Year Promo",
     type: "Audience Targeting",
@@ -257,6 +264,7 @@ export const mockRecommendations: AIRecommendation[] = [
   },
   {
     id: "5",
+    clientId: "5",
     clientName: "HomeDecor Pro",
     campaignName: "Spring Sale",
     type: "Negative Keywords",

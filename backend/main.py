@@ -18,6 +18,9 @@ from routes import (
     chatbot_routes,
     user_routes,
     campaign_routes,
+    recommendation_routes,
+    report_routes,
+    system_routes,
 )
 from services.google_ads_service import fetch_campaign_metrics_for_client
 
@@ -35,7 +38,10 @@ app = FastAPI(
 # CORS setup
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=[
+        "http://localhost:3000",
+        "http://localhost:5173",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -67,6 +73,15 @@ print(" /users routes registered")
 
 app.include_router(campaign_routes.router, prefix="/campaigns", tags=["Campaigns"])
 print("/campaigns routes registered")
+
+app.include_router(recommendation_routes.router, prefix="/recommendations", tags=["Recommendations"])
+print("/recommendations routes registered")
+
+app.include_router(report_routes.router, prefix="/reports", tags=["Reports"])
+print("/reports routes registered")
+
+app.include_router(system_routes.router, prefix="/system", tags=["System Monitoring"])
+print("/system routes registered")
 
 print("All routes registered successfully!\n")
 

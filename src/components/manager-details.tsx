@@ -19,7 +19,7 @@ import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
-import { Manager, mockRecommendations, mockActionBundles, mockClients } from "../lib/mock-data";
+import { Manager, mockActionBundles, mockClients } from "../lib/mock-data";
 import { useData } from "../lib/data-context";
 
 interface ManagerDetailsProps {
@@ -32,8 +32,10 @@ export function ManagerDetails({ manager, onBack }: ManagerDetailsProps) {
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "instant" });
   }, []);
+  const { recommendations, clients } = useData();
+
   // Get manager's recommendations
-  const managerRecommendations = mockRecommendations.filter(
+  const managerRecommendations = recommendations.filter(
     r => r.manager === manager.name
   );
 
@@ -42,7 +44,6 @@ export function ManagerDetails({ manager, onBack }: ManagerDetailsProps) {
     b => b.managerName === manager.name
   );
 
-  const { clients } = useData();
   const availableClients = clients.length ? clients : mockClients;
   const assignedClients = availableClients.slice(0, manager.clientsAssigned);
 
