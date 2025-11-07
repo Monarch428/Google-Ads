@@ -53,6 +53,15 @@ export default function App() {
     [navigate],
   );
 
+  const handleUserUpdated = useCallback((updatedUser: BackendUser) => {
+    setAuthState((prev) => {
+      if (!prev) return prev;
+      const nextState: AuthState = { ...prev, user: updatedUser };
+      localStorage.setItem(AUTH_USER_KEY, JSON.stringify(nextState.user));
+      return nextState;
+    });
+  }, []);
+
   const isOnGoogleCallback = path === "/auth/google/callback";
   const hasProcessedGoogleOAuthRef = useRef(false);
   const [isProcessingGoogleOAuth, setIsProcessingGoogleOAuth] = useState(false);
@@ -151,7 +160,12 @@ export default function App() {
   } else if (authState) {
     content = (
       <DataProvider authToken={authState.token}>
-        <DashboardApp user={authState.user} onLogout={handleLogout} />
+        <DashboardApp
+          user={authState.user}
+          token={authState.token}
+          onLogout={handleLogout}
+          onUserUpdated={handleUserUpdated}
+        />
       </DataProvider>
     );
   } else {

@@ -50,10 +50,12 @@ function mapPathToView(path: string): ViewKey {
 
 type DashboardAppProps = {
   user: BackendUser;
+  token?: string;
   onLogout: () => void;
+  onUserUpdated?: (user: BackendUser) => void;
 };
 
-export function DashboardApp({ user, onLogout }: DashboardAppProps) {
+export function DashboardApp({ user, token, onLogout, onUserUpdated }: DashboardAppProps) {
   const { path, navigate } = useRouter();
   const currentView = useMemo<ViewKey>(() => mapPathToView(path), [path]);
   const [selectedClient, setSelectedClient] = useState<string | null>(null);
@@ -114,7 +116,7 @@ export function DashboardApp({ user, onLogout }: DashboardAppProps) {
       case "checklist":
         return <SetupChecklist />;
       case "settings":
-        return <Settings />;
+        return <Settings user={user} authToken={token} onUserUpdated={onUserUpdated} />;
       default:
         return (
           <DashboardOverview

@@ -1,29 +1,32 @@
-from fastapi import APIRouter, Depends, HTTPException
+from typing import List
+
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
+
 from database import get_db
-from models.user_model import UserModel
+from schemas.user_schema import UserCreate, UserResponse, UserUpdate
+from services import user_service
+from services.auth_service import register_user
 
-router = APIRouter(prefix="/users", tags=["Users"])
 
-# Get all users
-@router.get("/")
+router = APIRouter(tags=["Users"])
+
+
+@router.get("/", response_model=List[UserResponse])
 def get_users(db: Session = Depends(get_db)):
-    users = db.query(UserModel).all()
-    return users
+    return user_service.get_all_users(db)
 
-# Get user by ID
-@router.get("/{user_id}")
+
+@router.get("/{user_id}", response_model=UserResponse)
 def get_user(user_id: int, db: Session = Depends(get_db)):
-    user = db.query(UserModel).filter(UserModel.id == user_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    return user
+    return user_service.get_user_by_id(db, user_id)
 
-# Create user
-@router.post("/")
-def create_user(name: str, email: str, password_hash: str, db: Session = Depends(get_db)):
-    user = UserModel(name=name, email=email, password_hash=password_hash)
-    db.add(user)
-    db.commit()
-    db.refresh(user)
-    return user
+
+@router.post("/", response_model=UserResponse, status_code=201)
+def create_user(user_data: UserCreate, db: Session = Depends(get_db)):
+    return register_user(db, user_data)
+
+
+@router.put("/{user_id}", response_model=UserResponse)
+def update_user(user_id: int, update_data: UserUpdate, db: Session = Depends(get_db)):
+    return user_service.update_user(db, user_id, update_data)

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { ChangeEvent, useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -24,14 +24,117 @@ import {
   CheckCircle,
 } from "lucide-react";
 import { toast } from "sonner@2.0.3";
+import { BackendUser, updateUser } from "../lib/api";
 
-export function Settings() {
+type ProfileFormState = {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  currentPassword: string;
+  newPassword: string;
+  confirmPassword: string;
+};
+
+interface SettingsProps {
+  user: BackendUser;
+  authToken?: string;
+  onUserUpdated?: (user: BackendUser) => void;
+}
+
+export function Settings({ user, authToken, onUserUpdated }: SettingsProps) {
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [profileForm, setProfileForm] = useState<ProfileFormState>(() => ({
+    firstName: "",
+    lastName: "",
+    email: user.email ?? "",
+    phone: "",
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: "",
+  }));
 
   const handleSave = () => {
     setSaveSuccess(true);
     toast.success("Settings saved successfully!");
     setTimeout(() => setSaveSuccess(false), 3000);
+  };
+
+  const effectiveToken = useMemo(() => {
+    if (authToken) return authToken;
+    if (typeof window !== "undefined") {
+      const stored = localStorage.getItem("aaa_auth_token");
+      return stored ?? undefined;
+    }
+    return undefined;
+  }, [authToken]);
+
+  useEffect(() => {
+    const parts = (user.name ?? "").trim().split(/\s+/).filter(Boolean);
+    setProfileForm((prev) => ({
+      ...prev,
+      firstName: parts[0] ?? "",
+      lastName: parts.slice(1).join(" "),
+      email: user.email ?? prev.email,
+    }));
+  }, [user]);
+
+  const handleProfileInputChange = (field: keyof ProfileFormState) =>
+    (event: ChangeEvent<HTMLInputElement>) => {
+      const value = event.target.value;
+      setProfileForm((prev) => ({ ...prev, [field]: value }));
+    };
+
+  const handleProfileSave = async () => {
+    if (!profileForm.firstName.trim()) {
+      toast.error("First name is required", {
+        description: "Please provide at least a first name before saving.",
+      });
+      return;
+    }
+
+    if (!profileForm.email.trim()) {
+      toast.error("Email is required", {
+        description: "A valid email address is needed to update your profile.",
+      });
+      return;
+    }
+
+    if (profileForm.newPassword && profileForm.newPassword !== profileForm.confirmPassword) {
+      toast.error("Passwords do not match", {
+        description: "Make sure the new password and confirmation match.",
+      });
+      return;
+    }
+
+    const payload = {
+      name: [profileForm.firstName.trim(), profileForm.lastName.trim()].filter(Boolean).join(" ") || user.name,
+      email: profileForm.email.trim(),
+      ...(profileForm.newPassword ? { password: profileForm.newPassword } : {}),
+    };
+
+    setIsSavingProfile(true);
+    try {
+      const updatedUser = await updateUser(user.id, payload, effectiveToken);
+      onUserUpdated?.(updatedUser);
+      setSaveSuccess(true);
+      toast.success("Profile updated", {
+        description: "Your personal details were saved successfully.",
+      });
+      setTimeout(() => setSaveSuccess(false), 3000);
+      setProfileForm((prev) => ({
+        ...prev,
+        currentPassword: "",
+        newPassword: "",
+        confirmPassword: "",
+      }));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to update profile";
+      toast.error("Profile update failed", { description: message });
+    } finally {
+      setIsSavingProfile(false);
+    }
   };
 
   return (
@@ -100,22 +203,40 @@ export function Settings() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="firstName">First Name</Label>
-                  <Input id="firstName" defaultValue="Admin" />
+                  <Input
+                    id="firstName"
+                    value={profileForm.firstName}
+                    onChange={handleProfileInputChange("firstName")}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="lastName">Last Name</Label>
-                  <Input id="lastName" defaultValue="Johnson" />
+                  <Input
+                    id="lastName"
+                    value={profileForm.lastName}
+                    onChange={handleProfileInputChange("lastName")}
+                  />
                 </div>
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="email">Email Address</Label>
-                <Input id="email" type="email" defaultValue="admin@beezmarketing.com" />
+                <Input
+                  id="email"
+                  type="email"
+                  value={profileForm.email}
+                  onChange={handleProfileInputChange("email")}
+                />
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="phone">Phone Number</Label>
-                <Input id="phone" type="tel" defaultValue="+1 (555) 123-4567" />
+                <Input
+                  id="phone"
+                  type="tel"
+                  value={profileForm.phone}
+                  onChange={handleProfileInputChange("phone")}
+                />
               </div>
 
               <div className="space-y-2">
@@ -137,23 +258,47 @@ export function Settings() {
 
               <div className="space-y-2">
                 <Label htmlFor="currentPassword">Current Password</Label>
-                <Input id="currentPassword" type="password" placeholder="Enter current password" />
+                <Input
+                  id="currentPassword"
+                  type="password"
+                  placeholder="Enter current password"
+                  value={profileForm.currentPassword}
+                  onChange={handleProfileInputChange("currentPassword")}
+                />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="newPassword">New Password</Label>
-                  <Input id="newPassword" type="password" placeholder="Enter new password" />
+                  <Input
+                    id="newPassword"
+                    type="password"
+                    placeholder="Enter new password"
+                    value={profileForm.newPassword}
+                    onChange={handleProfileInputChange("newPassword")}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="confirmPassword">Confirm Password</Label>
-                  <Input id="confirmPassword" type="password" placeholder="Confirm new password" />
+                  <Input
+                    id="confirmPassword"
+                    type="password"
+                    placeholder="Confirm new password"
+                    value={profileForm.confirmPassword}
+                    onChange={handleProfileInputChange("confirmPassword")}
+                  />
                 </div>
               </div>
 
-              <Button onClick={handleSave}>
-                <Save className="w-4 h-4 mr-2" />
-                Save Changes
+              <Button onClick={handleProfileSave} disabled={isSavingProfile}>
+                {isSavingProfile ? (
+                  "Saving..."
+                ) : (
+                  <>
+                    <Save className="w-4 h-4 mr-2" />
+                    Save Changes
+                  </>
+                )}
               </Button>
             </CardContent>
           </Card>

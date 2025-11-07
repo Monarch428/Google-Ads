@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { ChangeEvent, useMemo, useState } from "react";
 import { TrendingUp, DollarSign, Target, Users, AlertTriangle, CheckCircle, Plus } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
@@ -26,6 +26,8 @@ import { RecentActivityPanel } from "./recent-activity-panel";
 import { CreateReport } from "./create-report";
 import { ReportPreview } from "./report-preview";
 import { ManagerDetails } from "./manager-details";
+import { createClient } from "../lib/api";
+import { toast } from "sonner@2.0.3";
 
 interface DashboardOverviewProps {
   onClientClick: (clientId: string) => void;
@@ -46,9 +48,81 @@ export function DashboardOverview({
 }: DashboardOverviewProps) {
   const [isAddClientDialogOpen, setIsAddClientDialogOpen] = useState(false);
   const [showCreateReport, setShowCreateReport] = useState(false);
-  const { clients, clientsLoading, managers } = useData();
+  const { clients, clientsLoading, managers, refreshClients, authToken } = useData();
   const displayClients = clients.length ? clients : mockClients;
   const displayManagers = managers.length ? managers : mockManagers;
+  const initialClientForm = useMemo(
+    () => ({
+      name: "",
+      email: "",
+      developer_token: "",
+      client_id: "",
+      client_secret: "",
+      refresh_token: "",
+      login_customer_id: "",
+    }),
+    [],
+  );
+  const [clientForm, setClientForm] = useState(() => ({ ...initialClientForm }));
+  const [isSubmittingClient, setIsSubmittingClient] = useState(false);
+
+  const handleClientDialogChange = (open: boolean) => {
+    setIsAddClientDialogOpen(open);
+    if (!open) {
+      setClientForm({ ...initialClientForm });
+    }
+  };
+
+  const handleClientInputChange = (field: keyof typeof initialClientForm) =>
+    (event: ChangeEvent<HTMLInputElement>) => {
+      const value = event.target.value;
+      setClientForm((prev) => ({ ...prev, [field]: value }));
+    };
+
+  const handleCreateClient = async () => {
+    const requiredFields: (keyof typeof initialClientForm)[] = [
+      "name",
+      "email",
+      "developer_token",
+      "client_id",
+      "client_secret",
+      "refresh_token",
+    ];
+
+    const missingField = requiredFields.find((field) => !clientForm[field]?.trim());
+    if (missingField) {
+      toast.error("Missing information", {
+        description: "Please complete all required client credential fields.",
+      });
+      return;
+    }
+
+    setIsSubmittingClient(true);
+    try {
+      const payload = {
+        name: clientForm.name.trim(),
+        email: clientForm.email.trim(),
+        developer_token: clientForm.developer_token.trim(),
+        client_id: clientForm.client_id.trim(),
+        client_secret: clientForm.client_secret.trim(),
+        refresh_token: clientForm.refresh_token.trim(),
+        login_customer_id: clientForm.login_customer_id.trim() || null,
+      };
+
+      await createClient(payload, authToken);
+      await refreshClients();
+      toast.success("Client connected", {
+        description: `${clientForm.name} is now available in your workspace`,
+      });
+      setIsAddClientDialogOpen(false);
+      setClientForm({ ...initialClientForm });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to create client";
+      toast.error("Failed to add client", { description: message });
+    } finally {
+      setIsSubmittingClient(false);
+    }
+  };
 
   if (showCreateReport) {
     return (
@@ -81,7 +155,7 @@ export function DashboardOverview({
               <SelectItem value="90days">Last 90 Days</SelectItem>
             </SelectContent>
           </Select>
-          <Dialog open={isAddClientDialogOpen} onOpenChange={setIsAddClientDialogOpen}>
+          <Dialog open={isAddClientDialogOpen} onOpenChange={handleClientDialogChange}>
             <DialogTrigger asChild>
               <Button variant="outline">
                 <Plus className="w-4 h-4 mr-2" />
@@ -100,11 +174,22 @@ export function DashboardOverview({
                   {/* Left Column */}
                   <div className="space-y-2">
                     <Label htmlFor="client-name">Client Name</Label>
-                    <Input id="client-name" placeholder="e.g., TechStart Inc" />
+                    <Input
+                      id="client-name"
+                      placeholder="e.g., TechStart Inc"
+                      value={clientForm.name}
+                      onChange={handleClientInputChange("name")}
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="email">Email</Label>
-                    <Input id="email" type="email" placeholder="e.g., client@example.com" />
+                    <Input
+                      id="email"
+                      type="email"
+                      placeholder="e.g., client@example.com"
+                      value={clientForm.email}
+                      onChange={handleClientInputChange("email")}
+                    />
                   </div>
                   
                   {/* API Credentials Section */}
@@ -113,7 +198,12 @@ export function DashboardOverview({
                     <div className="grid grid-cols-2 gap-x-6 gap-y-4">
                       <div className="space-y-2">
                         <Label htmlFor="google-ads-id">Google Ads Customer ID</Label>
-                        <Input id="google-ads-id" placeholder="e.g., 123-456-7890" />
+                        <Input
+                          id="google-ads-id"
+                          placeholder="e.g., 123-456-7890"
+                          value={clientForm.login_customer_id}
+                          onChange={handleClientInputChange("login_customer_id")}
+                        />
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="login-customer-id">Login Customer ID</Label>
@@ -121,19 +211,42 @@ export function DashboardOverview({
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="developer-token">Developer Token</Label>
-                        <Input id="developer-token" type="password" placeholder="Enter developer token" />
+                        <Input
+                          id="developer-token"
+                          type="password"
+                          placeholder="Enter developer token"
+                          value={clientForm.developer_token}
+                          onChange={handleClientInputChange("developer_token")}
+                        />
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="client-id">Client ID</Label>
-                        <Input id="client-id" placeholder="Enter OAuth 2.0 client ID" />
+                        <Input
+                          id="client-id"
+                          placeholder="Enter OAuth 2.0 client ID"
+                          value={clientForm.client_id}
+                          onChange={handleClientInputChange("client_id")}
+                        />
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="client-secret">Client Secret</Label>
-                        <Input id="client-secret" type="password" placeholder="Enter OAuth 2.0 client secret" />
+                        <Input
+                          id="client-secret"
+                          type="password"
+                          placeholder="Enter OAuth 2.0 client secret"
+                          value={clientForm.client_secret}
+                          onChange={handleClientInputChange("client_secret")}
+                        />
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="refresh-token">Refresh Token</Label>
-                        <Input id="refresh-token" type="password" placeholder="Enter refresh token" />
+                        <Input
+                          id="refresh-token"
+                          type="password"
+                          placeholder="Enter refresh token"
+                          value={clientForm.refresh_token}
+                          onChange={handleClientInputChange("refresh_token")}
+                        />
                       </div>
                     </div>
                   </div>
@@ -183,11 +296,15 @@ export function DashboardOverview({
                 </div>
               </div>
               <DialogFooter>
-                <Button variant="outline" onClick={() => setIsAddClientDialogOpen(false)}>
+                <Button
+                  variant="outline"
+                  onClick={() => handleClientDialogChange(false)}
+                  disabled={isSubmittingClient}
+                >
                   Cancel
                 </Button>
-                <Button onClick={() => setIsAddClientDialogOpen(false)}>
-                  Connect Account
+                <Button onClick={handleCreateClient} disabled={isSubmittingClient}>
+                  {isSubmittingClient ? "Connecting..." : "Connect Account"}
                 </Button>
               </DialogFooter>
             </DialogContent>
