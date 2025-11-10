@@ -15,9 +15,13 @@ import {
 import { Separator } from "../ui/separator";
 import { login, AuthResponse, startGoogleOAuth } from "../../lib/api";
 import { toast } from "sonner@2.0.3";
+import type { AuthMethod } from "../../lib/auth-types";
 
 type LoginPageProps = {
-  onAuthenticated: (response: AuthResponse) => void;
+  onAuthenticated: (
+    response: AuthResponse,
+    metadata: { method: AuthMethod; request: Record<string, unknown> },
+  ) => void;
 };
 
 type SocialProvider = "Google" | "GitHub" | "Apple";
@@ -46,7 +50,19 @@ export function LoginPage({ onAuthenticated }: LoginPageProps) {
 
     try {
       const response = await login({ email, password });
-      onAuthenticated(response);
+      onAuthenticated(response, {
+        method: "password",
+        request: {
+          type: "credentials",
+          email,
+          password_present: password.length > 0,
+          password_length: password.length,
+          raw_payload: {
+            email,
+            password: password.length ? "***redacted***" : "",
+          },
+        },
+      });
       toast.success("Signed in successfully", {
         description: `Welcome back, ${response.user.name}!`,
       });

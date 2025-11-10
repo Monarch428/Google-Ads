@@ -12,6 +12,7 @@ import {
   BackendUser,
   BackendRecommendation,
 } from "./api";
+import type { AuthDetails } from "./auth-types";
 
 type ClientStatus = Client["status"];
 
@@ -48,6 +49,7 @@ type DataContextValue = {
   refreshToken?: string | null;
   viewerRole: string;
   currentUser?: BackendUser;
+  authDetails: AuthDetails | null;
 };
 
 const DataContext = createContext<DataContextValue | undefined>(undefined);
@@ -316,11 +318,13 @@ export function DataProvider({
   authToken,
   refreshToken,
   currentUser,
+  authDetails,
 }: {
   children: React.ReactNode;
   authToken?: string;
   refreshToken?: string | null;
   currentUser?: BackendUser | null;
+  authDetails?: AuthDetails | null;
 }) {
   const normalizedRole = (currentUser?.role ?? "").toLowerCase();
   const viewerRole = normalizedRole || "manager";
@@ -477,6 +481,7 @@ export function DataProvider({
     refreshToken: refreshToken ?? null,
     viewerRole,
     currentUser: currentUser ?? undefined,
+    authDetails: authDetails ?? null,
   }), [
     clients,
     clientsLoading,
@@ -497,6 +502,7 @@ export function DataProvider({
     refreshToken,
     viewerRole,
     currentUser,
+    authDetails,
   ]);
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
