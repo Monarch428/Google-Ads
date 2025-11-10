@@ -6,7 +6,6 @@ from sqlalchemy.orm import Session
 from database import get_db
 from schemas.user_schema import UserCreate, UserResponse, UserUpdate
 from services import user_service
-from services.auth_service import register_user
 from utils.auth_dependencies import get_current_user, require_admin_user
 
 
@@ -38,7 +37,7 @@ def create_user(
     _: None = Depends(require_admin_user),
     db: Session = Depends(get_db),
 ):
-    return register_user(db, user_data)
+    return user_service.create_user(db, user_data, can_assign_clients=True)
 
 
 @router.put("/{user_id}", response_model=UserResponse)
@@ -50,4 +49,10 @@ def update_user(
 ):
     if (current_user.role or "").lower() != "admin" and current_user.id != user_id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to update this user")
-    return user_service.update_user(db, user_id, update_data)
+    can_manage_assignments = (current_user.role or "").lower() == "admin"
+    return user_service.update_user(
+        db,
+        user_id,
+        update_data,
+        can_manage_assignments=can_manage_assignments,
+    )

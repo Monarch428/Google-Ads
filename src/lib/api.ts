@@ -96,6 +96,7 @@ export interface BackendUser {
   company_phone?: string | null;
   company_website?: string | null;
   company_address?: string | null;
+  assigned_client_ids?: number[] | null;
 }
 
 export type BackendRecommendationStatus =
@@ -182,6 +183,16 @@ export type UpdateUserPayload = {
   company_phone?: string | null;
   company_website?: string | null;
   company_address?: string | null;
+  assigned_client_ids?: number[];
+};
+
+export type CreateUserPayload = {
+  name: string;
+  email: string;
+  password: string;
+  role?: string;
+  is_active?: boolean;
+  assigned_client_ids?: number[];
 };
 
 export interface AuthResponse {
@@ -274,6 +285,16 @@ export function fetchUsers(token?: string) {
   return apiFetch<BackendUser[]>("/users", token
     ? { headers: { Authorization: `Bearer ${token}` } }
     : undefined);
+}
+
+export function createUser(payload: CreateUserPayload, token?: string) {
+  return apiFetch<BackendUser>("/users", {
+    method: "POST",
+    body: JSON.stringify(payload),
+    ...(token
+      ? { headers: { Authorization: `Bearer ${token}` } }
+      : undefined),
+  });
 }
 
 export function updateUser(

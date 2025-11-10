@@ -292,7 +292,11 @@ function mapManagers(
   return backendUsers.map((user, index) => {
     const fallback = mockManagers[index % mockManagers.length];
     const managerId = String(user.id);
-    const assignedClientIds = assignments.get(managerId) ?? [];
+    const assignedFromUser = Array.isArray(user.assigned_client_ids)
+      ? user.assigned_client_ids.map((id) => String(id))
+      : [];
+    const assignedFromClients = assignments.get(managerId) ?? [];
+    const assignedClientIds = assignedFromUser.length ? assignedFromUser : assignedFromClients;
 
     return {
       ...fallback,
