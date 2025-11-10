@@ -49,7 +49,7 @@ app.add_middleware(
         "http://localhost:3000",
         "http://localhost:5173",
         "https://google-ads-backend-ofxo.onrender.com",
-        "https://aaa-agent-frontend.vercel.app",
+        "https://google-ads-git-test-sathesh-projects.vercel.app",
     ],
     allow_credentials=True,
     allow_methods=["*"],
