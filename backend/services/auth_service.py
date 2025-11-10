@@ -55,11 +55,14 @@ def register_user(db: Session, user: UserCreate) -> UserResponse:
     password_to_hash = user.password[:72]
     hashed_password = pwd_context.hash(password_to_hash)
 
+    is_active = True if user.is_active is None else bool(user.is_active)
+
     new_user = UserModel(
         name=user.name,
         email=user.email,
         password_hash=hashed_password,
         role=user.role,
+        is_active=is_active,
     )
 
     db.add(new_user)

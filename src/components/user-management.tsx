@@ -50,7 +50,7 @@ import {
 } from "lucide-react";
 import { mockManagers, mockClients, Manager } from "../lib/mock-data";
 import { useData } from "../lib/data-context";
-import { updateUser, updateClientAssignments } from "../lib/api";
+import { createUser, updateUser } from "../lib/api";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -92,6 +92,14 @@ export function UserManagement({ onManagerClick }: UserManagementProps) {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [selectedAddClients, setSelectedAddClients] = useState<string[]>([]);
   const [selectedEditClients, setSelectedEditClients] = useState<string[]>([]);
+  const [addForm, setAddForm] = useState({
+    name: "",
+    email: "",
+    role: "manager",
+    status: "active",
+    password: "",
+    confirmPassword: "",
+  });
   const [editForm, setEditForm] = useState({
     name: "",
     email: "",
@@ -99,10 +107,30 @@ export function UserManagement({ onManagerClick }: UserManagementProps) {
     status: "active",
   });
   const [isSaving, setIsSaving] = useState(false);
-  const { managers, managersLoading, clients, refreshManagers, authToken } = useData();
+  const [isCreating, setIsCreating] = useState(false);
+  const { managers, managersLoading, clients, refreshManagers, refreshClients, authToken } = useData();
 
   const displayManagers = managers.length ? managers : mockManagers;
   const displayClients = clients.length ? clients : mockClients;
+
+  const resetAddForm = useCallback(() => {
+    setAddForm({
+      name: "",
+      email: "",
+      role: "manager",
+      status: "active",
+      password: "",
+      confirmPassword: "",
+    });
+    setSelectedAddClients([]);
+    setIsCreating(false);
+  }, []);
+
+  useEffect(() => {
+    if (!isAddDialogOpen) {
+      resetAddForm();
+    }
+  }, [isAddDialogOpen, resetAddForm]);
 
   useEffect(() => {
     if (selectedManager) {
@@ -158,6 +186,16 @@ export function UserManagement({ onManagerClick }: UserManagementProps) {
     );
   }, []);
 
+  const handleAddFieldChange = useCallback(
+    (
+      field: "name" | "email" | "role" | "status" | "password" | "confirmPassword",
+      value: string,
+    ) => {
+      setAddForm((prev) => ({ ...prev, [field]: value }));
+    },
+    [],
+  );
+
   const handleEditClientToggle = useCallback((clientId: string) => {
     setSelectedEditClients((prev) =>
       prev.includes(clientId)
@@ -172,6 +210,83 @@ export function UserManagement({ onManagerClick }: UserManagementProps) {
     },
     []
   );
+
+  const handleCreateManager = useCallback(async () => {
+    if (isCreating) {
+      return;
+    }
+
+    const name = addForm.name.trim();
+    const email = addForm.email.trim();
+    const password = addForm.password;
+    const confirmPassword = addForm.confirmPassword;
+
+    if (!name || !email) {
+      toast.error("Name and email are required");
+      return;
+    }
+
+    if (!password || !confirmPassword) {
+      toast.error("Password and confirmation are required");
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      toast.error("Passwords do not match");
+      return;
+    }
+
+    if (password.length < 8) {
+      toast.error("Password must be at least 8 characters long");
+      return;
+    }
+
+    if (!authToken) {
+      toast.error("Admin authentication required to create managers");
+      return;
+    }
+
+    const clientIds = selectedAddClients
+      .map((id) => Number(id))
+      .filter((id) => Number.isFinite(id) && id > 0);
+
+    try {
+      setIsCreating(true);
+      await createUser(
+        {
+          name,
+          email,
+          password,
+          role: addForm.role,
+          is_active: addForm.status === "active",
+          assigned_client_ids: clientIds.length ? clientIds : undefined,
+        },
+        authToken,
+      );
+      toast.success("New Ad Manager created successfully");
+      resetAddForm();
+      setIsAddDialogOpen(false);
+      await Promise.all([refreshManagers(), refreshClients()]);
+    } catch (error) {
+      console.error("Failed to create manager", error);
+      toast.error(error instanceof Error ? error.message : "Failed to create manager");
+    } finally {
+      setIsCreating(false);
+    }
+  }, [
+    addForm.confirmPassword,
+    addForm.email,
+    addForm.name,
+    addForm.password,
+    addForm.role,
+    addForm.status,
+    isCreating,
+    authToken,
+    refreshClients,
+    refreshManagers,
+    resetAddForm,
+    selectedAddClients,
+  ]);
 
   const handleSaveChanges = useCallback(async () => {
     if (!selectedManager) {
@@ -208,22 +323,21 @@ export function UserManagement({ onManagerClick }: UserManagementProps) {
 
     try {
       setIsSaving(true);
+      const clientIds = selectedEditClients
+        .map((id) => Number(id))
+        .filter((id) => Number.isFinite(id) && id > 0);
       await updateUser(Number(selectedManager.id), {
         name,
         email,
         role: editForm.role,
         is_active: editForm.status === "active",
+        assigned_client_ids: clientIds,
       }, authToken);
-
-      const clientIds = selectedEditClients
-        .map((id) => Number(id))
-        .filter((id) => Number.isFinite(id) && id > 0);
-      await updateClientAssignments(Number(selectedManager.id), clientIds, authToken);
 
       setSelectedManager(nextManagerState);
       toast.success("Manager updated successfully");
       setIsEditDialogOpen(false);
-      await refreshManagers();
+      await Promise.all([refreshManagers(), refreshClients()]);
       setSelectedManager(null);
     } catch (error) {
       console.error("Failed to update manager", error);
@@ -237,6 +351,7 @@ export function UserManagement({ onManagerClick }: UserManagementProps) {
     editForm.name,
     editForm.role,
     editForm.status,
+    refreshClients,
     refreshManagers,
     selectedEditClients,
     selectedManager,
@@ -268,17 +383,31 @@ export function UserManagement({ onManagerClick }: UserManagementProps) {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="add-name">Full Name *</Label>
-                  <Input id="add-name" placeholder="John Doe" />
+                  <Input
+                    id="add-name"
+                    placeholder="John Doe"
+                    value={addForm.name}
+                    onChange={(event) => handleAddFieldChange("name", event.target.value)}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="add-email">Email *</Label>
-                  <Input id="add-email" type="email" placeholder="john@agency.com" />
+                  <Input
+                    id="add-email"
+                    type="email"
+                    placeholder="john@agency.com"
+                    value={addForm.email}
+                    onChange={(event) => handleAddFieldChange("email", event.target.value)}
+                  />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="add-role">Role *</Label>
-                  <Select defaultValue="manager">
+                  <Select
+                    value={addForm.role}
+                    onValueChange={(value) => handleAddFieldChange("role", value)}
+                  >
                     <SelectTrigger id="add-role">
                       <SelectValue />
                     </SelectTrigger>
@@ -286,12 +415,16 @@ export function UserManagement({ onManagerClick }: UserManagementProps) {
                       <SelectItem value="senior">Senior Ad Manager</SelectItem>
                       <SelectItem value="manager">Ad Manager</SelectItem>
                       <SelectItem value="junior">Junior Ad Manager</SelectItem>
+                      <SelectItem value="admin">Administrator</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="add-status">Status *</Label>
-                  <Select defaultValue="active">
+                  <Select
+                    value={addForm.status}
+                    onValueChange={(value) => handleAddFieldChange("status", value)}
+                  >
                     <SelectTrigger id="add-status">
                       <SelectValue />
                     </SelectTrigger>
@@ -300,6 +433,28 @@ export function UserManagement({ onManagerClick }: UserManagementProps) {
                       <SelectItem value="inactive">Inactive</SelectItem>
                     </SelectContent>
                   </Select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="add-password">Password *</Label>
+                  <Input
+                    id="add-password"
+                    type="password"
+                    placeholder="Enter a secure password"
+                    value={addForm.password}
+                    onChange={(event) => handleAddFieldChange("password", event.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="add-confirm-password">Confirm Password *</Label>
+                  <Input
+                    id="add-confirm-password"
+                    type="password"
+                    placeholder="Confirm password"
+                    value={addForm.confirmPassword}
+                    onChange={(event) => handleAddFieldChange("confirmPassword", event.target.value)}
+                  />
                 </div>
               </div>
               <Separator />
@@ -331,16 +486,12 @@ export function UserManagement({ onManagerClick }: UserManagementProps) {
             <DialogFooter>
               <Button variant="outline" onClick={() => {
                 setIsAddDialogOpen(false);
-                setSelectedAddClients([]);
+                resetAddForm();
               }}>
                 Cancel
               </Button>
-              <Button onClick={() => {
-                toast.success("New Ad Manager created successfully");
-                setIsAddDialogOpen(false);
-                setSelectedAddClients([]);
-              }}>
-                Create Manager
+              <Button onClick={handleCreateManager} disabled={isCreating}>
+                {isCreating ? "Creating..." : "Create Manager"}
               </Button>
             </DialogFooter>
           </DialogContent>

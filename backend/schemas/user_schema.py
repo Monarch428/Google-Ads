@@ -1,8 +1,38 @@
-# Add this to the bottom of schemas/user_schema.py
-
-from pydantic import BaseModel, EmailStr, ConfigDict, field_validator
-from typing import Optional
 from datetime import datetime
+from typing import Iterable, List, Optional
+
+from pydantic import BaseModel, ConfigDict, EmailStr, field_validator
+
+
+def _coerce_client_ids(value: Optional[Iterable[object]]) -> Optional[List[int]]:
+    if value is None:
+        return None
+
+    if isinstance(value, (str, bytes)):
+        value = [value]
+
+    coerced: List[int] = []
+    for item in value:
+        if item is None:
+            continue
+
+        if isinstance(item, str):
+            item = item.strip()
+            if not item:
+                continue
+
+        try:
+            number = int(item)  # type: ignore[arg-type]
+        except (TypeError, ValueError) as exc:
+            raise ValueError("assigned_client_ids must contain integers") from exc
+
+        if number <= 0:
+            raise ValueError("assigned_client_ids must contain positive integers")
+
+        if number not in coerced:
+            coerced.append(number)
+
+    return coerced
 
 
 class UserCreate(BaseModel):
@@ -10,6 +40,12 @@ class UserCreate(BaseModel):
     email: EmailStr
     password: str
     role: Optional[str] = "user"
+    is_active: Optional[bool] = True
+    assigned_client_ids: Optional[List[int]] = None
+
+    _normalize_assigned_ids = field_validator("assigned_client_ids", mode="before")(
+        _coerce_client_ids
+    )
 
 
 class UserLogin(BaseModel):
@@ -28,6 +64,7 @@ class UserUpdate(BaseModel):
     company_phone: Optional[str] = None
     company_website: Optional[str] = None
     company_address: Optional[str] = None
+    assigned_client_ids: Optional[List[int]] = None
 
     @field_validator("company_email", mode="before")
     @classmethod
@@ -35,6 +72,11 @@ class UserUpdate(BaseModel):
         if isinstance(value, str) and not value.strip():
             return None
         return value
+
+    _normalize_assigned_ids = field_validator("assigned_client_ids", mode="before")(
+        _coerce_client_ids
+    )
+
 
 class UserResponse(BaseModel):
     id: int
@@ -49,6 +91,7 @@ class UserResponse(BaseModel):
     company_address: Optional[str] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
+    assigned_client_ids: Optional[List[int]] = None
 
     model_config = ConfigDict(from_attributes=True)
 
