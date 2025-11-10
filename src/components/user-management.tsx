@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
@@ -50,6 +50,7 @@ import {
 } from "lucide-react";
 import { mockManagers, mockClients, Manager } from "../lib/mock-data";
 import { useData } from "../lib/data-context";
+import { updateUser } from "../lib/api";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -57,6 +58,26 @@ import {
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
 import { toast } from "sonner@2.0.3";
+
+const ROLE_OPTIONS = [
+  { value: "senior", label: "Senior Ad Manager" },
+  { value: "manager", label: "Ad Manager" },
+  { value: "junior", label: "Junior Ad Manager" },
+  { value: "admin", label: "Administrator" },
+];
+
+function getRoleValueFromLabel(label: string): string {
+  const normalized = label.toLowerCase();
+  const match = ROLE_OPTIONS.find((option) => option.label.toLowerCase() === normalized);
+  if (match) {
+    return match.value;
+  }
+
+  if (normalized.includes("senior")) return "senior";
+  if (normalized.includes("junior")) return "junior";
+  if (normalized.includes("admin")) return "admin";
+  return "manager";
+}
 
 interface UserManagementProps {
   onManagerClick?: (manager: Manager) => void;
@@ -69,11 +90,39 @@ export function UserManagement({ onManagerClick }: UserManagementProps) {
   const [selectedManager, setSelectedManager] = useState<Manager | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [selectedClients, setSelectedClients] = useState<string[]>([]);
-  const { managers, managersLoading, clients } = useData();
+  const [selectedAddClients, setSelectedAddClients] = useState<string[]>([]);
+  const [selectedEditClients, setSelectedEditClients] = useState<string[]>([]);
+  const [editForm, setEditForm] = useState({
+    name: "",
+    email: "",
+    role: "manager",
+    status: "active",
+  });
+  const [isSaving, setIsSaving] = useState(false);
+  const { managers, managersLoading, clients, refreshManagers, authToken } = useData();
 
   const displayManagers = managers.length ? managers : mockManagers;
   const displayClients = clients.length ? clients : mockClients;
+
+  useEffect(() => {
+    if (selectedManager) {
+      setEditForm({
+        name: selectedManager.name,
+        email: selectedManager.email,
+        role: getRoleValueFromLabel(selectedManager.role),
+        status: selectedManager.status,
+      });
+      setSelectedEditClients(selectedManager.assignedClientIds ?? []);
+    } else {
+      setSelectedEditClients([]);
+    }
+  }, [selectedManager]);
+
+  useEffect(() => {
+    if (!isEditDialogOpen) {
+      setIsSaving(false);
+    }
+  }, [isEditDialogOpen]);
 
   // Filter managers based on search and status
   const filteredManagers = useMemo(() => {
@@ -101,13 +150,92 @@ export function UserManagement({ onManagerClick }: UserManagementProps) {
     }
   };
 
-  const handleClientToggle = (clientId: string) => {
-    setSelectedClients(prev =>
+  const handleAddClientToggle = useCallback((clientId: string) => {
+    setSelectedAddClients((prev) =>
       prev.includes(clientId)
-        ? prev.filter(id => id !== clientId)
+        ? prev.filter((id) => id !== clientId)
         : [...prev, clientId]
     );
-  };
+  }, []);
+
+  const handleEditClientToggle = useCallback((clientId: string) => {
+    setSelectedEditClients((prev) =>
+      prev.includes(clientId)
+        ? prev.filter((id) => id !== clientId)
+        : [...prev, clientId]
+    );
+  }, []);
+
+  const handleEditFieldChange = useCallback(
+    (field: "name" | "email" | "role" | "status", value: string) => {
+      setEditForm((prev) => ({ ...prev, [field]: value }));
+    },
+    []
+  );
+
+  const handleSaveChanges = useCallback(async () => {
+    if (!selectedManager) {
+      return;
+    }
+
+    const name = editForm.name.trim();
+    const email = editForm.email.trim();
+
+    if (!name || !email) {
+      toast.error("Name and email are required");
+      return;
+    }
+
+    const resolvedRoleLabel =
+      ROLE_OPTIONS.find((option) => option.value === editForm.role)?.label ?? selectedManager.role;
+
+    const nextManagerState: Manager = {
+      ...selectedManager,
+      name,
+      email,
+      role: resolvedRoleLabel,
+      status: editForm.status as Manager["status"],
+      clientsAssigned: selectedEditClients.length || selectedManager.clientsAssigned,
+      assignedClientIds: selectedEditClients,
+    };
+
+    if (!authToken) {
+      toast.info("No authenticated session detected. Changes saved locally only.");
+      setSelectedManager(nextManagerState);
+      setIsEditDialogOpen(false);
+      return;
+    }
+
+    try {
+      setIsSaving(true);
+      await updateUser(Number(selectedManager.id), {
+        name,
+        email,
+        role: editForm.role,
+        is_active: editForm.status === "active",
+      }, authToken);
+
+      setSelectedManager(nextManagerState);
+      toast.success("Manager updated successfully");
+      setIsEditDialogOpen(false);
+      await refreshManagers();
+      setSelectedManager(null);
+    } catch (error) {
+      console.error("Failed to update manager", error);
+      toast.error(error instanceof Error ? error.message : "Failed to update manager");
+    } finally {
+      setIsSaving(false);
+    }
+  }, [
+    authToken,
+    editForm.email,
+    editForm.name,
+    editForm.role,
+    editForm.status,
+    refreshManagers,
+    selectedEditClients,
+    selectedManager,
+  ]);
 
   return (
     <div className="space-y-6">
@@ -178,8 +306,8 @@ export function UserManagement({ onManagerClick }: UserManagementProps) {
                     <div key={client.id} className="flex items-center space-x-2">
                       <Checkbox
                         id={`client-${client.id}`}
-                        checked={selectedClients.includes(client.id)}
-                        onCheckedChange={() => handleClientToggle(client.id)}
+                        checked={selectedAddClients.includes(client.id)}
+                        onCheckedChange={() => handleAddClientToggle(client.id)}
                       />
                       <label
                         htmlFor={`client-${client.id}`}
@@ -191,21 +319,21 @@ export function UserManagement({ onManagerClick }: UserManagementProps) {
                   ))}
                 </div>
                 <p className="text-xs text-slate-500 mt-2">
-                  {selectedClients.length} client(s) selected
+                  {selectedAddClients.length} client(s) selected
                 </p>
               </div>
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => {
                 setIsAddDialogOpen(false);
-                setSelectedClients([]);
+                setSelectedAddClients([]);
               }}>
                 Cancel
               </Button>
               <Button onClick={() => {
                 toast.success("New Ad Manager created successfully");
                 setIsAddDialogOpen(false);
-                setSelectedClients([]);
+                setSelectedAddClients([]);
               }}>
                 Create Manager
               </Button>
@@ -451,30 +579,44 @@ export function UserManagement({ onManagerClick }: UserManagementProps) {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="edit-name">Full Name *</Label>
-                  <Input id="edit-name" defaultValue={selectedManager.name} />
+                  <Input
+                    id="edit-name"
+                    value={editForm.name}
+                    onChange={(event) => handleEditFieldChange("name", event.target.value)}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="edit-email">Email *</Label>
-                  <Input id="edit-email" type="email" defaultValue={selectedManager.email} />
+                  <Input
+                    id="edit-email"
+                    type="email"
+                    value={editForm.email}
+                    onChange={(event) => handleEditFieldChange("email", event.target.value)}
+                  />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="edit-role">Role *</Label>
-                  <Select defaultValue="manager">
+                  <Select value={editForm.role} onValueChange={(value) => handleEditFieldChange("role", value)}>
                     <SelectTrigger id="edit-role">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="senior">Senior Ad Manager</SelectItem>
-                      <SelectItem value="manager">Ad Manager</SelectItem>
-                      <SelectItem value="junior">Junior Ad Manager</SelectItem>
+                      {ROLE_OPTIONS.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="edit-status">Status *</Label>
-                  <Select defaultValue={selectedManager.status}>
+                  <Select
+                    value={editForm.status}
+                    onValueChange={(value) => handleEditFieldChange("status", value)}
+                  >
                     <SelectTrigger id="edit-status">
                       <SelectValue />
                     </SelectTrigger>
@@ -489,14 +631,15 @@ export function UserManagement({ onManagerClick }: UserManagementProps) {
               <div className="space-y-2">
                 <Label>Assign Client Accounts</Label>
                 <p className="text-xs text-slate-500 mb-3">
-                  Currently managing {selectedManager.clientsAssigned} client(s)
+                  Currently managing {selectedEditClients.length || selectedManager.clientsAssigned} client(s)
                 </p>
                 <div className="grid grid-cols-2 gap-3 max-h-48 overflow-y-auto border border-slate-200 rounded-lg p-3">
-                  {mockClients.map((client) => (
+                  {displayClients.map((client) => (
                     <div key={client.id} className="flex items-center space-x-2">
-                      <Checkbox 
+                      <Checkbox
                         id={`edit-client-${client.id}`}
-                        defaultChecked={parseInt(client.id) <= selectedManager.clientsAssigned}
+                        checked={selectedEditClients.includes(client.id)}
+                        onCheckedChange={() => handleEditClientToggle(client.id)}
                       />
                       <label
                         htmlFor={`edit-client-${client.id}`}
@@ -529,11 +672,17 @@ export function UserManagement({ onManagerClick }: UserManagementProps) {
             </div>
           )}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsEditDialogOpen(false);
+                setSelectedManager(null);
+              }}
+            >
               Cancel
             </Button>
-            <Button onClick={() => setIsEditDialogOpen(false)}>
-              Save Changes
+            <Button onClick={handleSaveChanges} disabled={isSaving}>
+              {isSaving ? "Saving..." : "Save Changes"}
             </Button>
           </DialogFooter>
         </DialogContent>
