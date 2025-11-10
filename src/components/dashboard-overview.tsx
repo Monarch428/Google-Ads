@@ -1,4 +1,4 @@
-import { ChangeEvent, useMemo, useState } from "react";
+import { ChangeEvent, useCallback, useEffect, useState } from "react";
 import { TrendingUp, DollarSign, Target, Users, AlertTriangle, CheckCircle, Plus } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
@@ -29,6 +29,17 @@ import { ManagerDetails } from "./manager-details";
 import { createClient } from "../lib/api";
 import { toast } from "sonner@2.0.3";
 
+type ClientFormState = {
+  name: string;
+  email: string;
+  developer_token: string;
+  client_id: string;
+  client_secret: string;
+  refresh_token: string;
+  login_customer_id: string;
+  assigned_manager_id: string;
+};
+
 interface DashboardOverviewProps {
   onClientClick: (clientId: string) => void;
   onNavigate?: (view: string) => void;
@@ -58,6 +69,7 @@ export function DashboardOverview({
     authToken,
     refreshToken,
     viewerRole,
+    authDetails,
   } = useData();
   const isAdmin = viewerRole === "admin";
   const displayClients = clients.length ? clients : authToken ? [] : mockClients;
@@ -68,30 +80,32 @@ export function DashboardOverview({
       ? []
       : mockManagers
     : [];
-  const initialClientForm = useMemo(
-    () => ({
+  const createInitialClientForm = useCallback(
+    (): ClientFormState => ({
       name: "",
       email: "",
       developer_token: "",
       client_id: "",
       client_secret: "",
-      refresh_token: "",
+      refresh_token: refreshToken ?? "",
       login_customer_id: "",
       assigned_manager_id: "",
     }),
-    [],
+    [refreshToken],
   );
-  const [clientForm, setClientForm] = useState(() => ({ ...initialClientForm }));
+  const [clientForm, setClientForm] = useState<ClientFormState>(() => createInitialClientForm());
   const [isSubmittingClient, setIsSubmittingClient] = useState(false);
 
   const handleClientDialogChange = (open: boolean) => {
     setIsAddClientDialogOpen(open);
-    if (!open) {
-      setClientForm({ ...initialClientForm });
+    if (open) {
+      setClientForm((prev) => ({ ...prev, refresh_token: refreshToken ?? "" }));
+    } else {
+      setClientForm(createInitialClientForm());
     }
   };
 
-  const handleClientInputChange = (field: keyof typeof initialClientForm) =>
+  const handleClientInputChange = (field: keyof ClientFormState) =>
     (event: ChangeEvent<HTMLInputElement>) => {
       const value = event.target.value;
       setClientForm((prev) => ({ ...prev, [field]: value }));
@@ -112,7 +126,7 @@ export function DashboardOverview({
       return;
     }
 
-    const requiredFields: (keyof typeof initialClientForm)[] = [
+    const requiredFields: Array<keyof ClientFormState> = [
       "name",
       "email",
       "developer_token",
@@ -150,7 +164,7 @@ export function DashboardOverview({
         description: `${clientForm.name} is now available in your workspace`,
       });
       setIsAddClientDialogOpen(false);
-      setClientForm({ ...initialClientForm });
+      setClientForm(createInitialClientForm());
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unable to create client";
       toast.error("Failed to add client", { description: message });
@@ -158,6 +172,18 @@ export function DashboardOverview({
       setIsSubmittingClient(false);
     }
   };
+
+  useEffect(() => {
+    if (isAddClientDialogOpen) {
+      setClientForm((prev) => ({ ...prev, refresh_token: refreshToken ?? "" }));
+    }
+  }, [isAddClientDialogOpen, refreshToken]);
+
+  const maskToken = useCallback((token: string) => {
+    if (!token) return "";
+    if (token.length <= 12) return token;
+    return `${token.slice(0, 6)}…${token.slice(-4)}`;
+  }, []);
 
   if (showCreateReport) {
     return (
@@ -205,6 +231,47 @@ export function DashboardOverview({
                     Connect a new Google Ads account to the AI Agency Analyst platform
                   </DialogDescription>
                 </DialogHeader>
+                {authDetails && (
+                  <div className="mb-6 rounded-lg border border-slate-200 bg-slate-50 p-4 text-xs text-slate-600">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-slate-700">
+                          Signed in via
+                          {" "}
+                          {authDetails.method === "google" ? "Google OAuth" : "Email & Password"}
+                        </p>
+                        <p className="text-[11px] text-slate-500">
+                          Last login: {new Date(authDetails.timestamp).toLocaleString()}
+                        </p>
+                      </div>
+                      <div className="text-[11px] font-mono text-slate-500">
+                        <div>Access token preview: {maskToken(authDetails.response.access_token)}</div>
+                        <div>Refresh token preview: {maskToken(authDetails.response.refresh_token)}</div>
+                      </div>
+                    </div>
+                    <details className="mt-3 space-y-3">
+                      <summary className="cursor-pointer text-[11px] font-medium text-slate-600">
+                        View login payload &amp; response details
+                      </summary>
+                      <div>
+                        <p className="mb-1 text-[11px] uppercase tracking-wide text-slate-500">
+                          Request payload
+                        </p>
+                        <pre className="max-h-48 overflow-auto rounded-md border border-slate-200 bg-white px-3 py-2 text-[11px] leading-relaxed">
+                          {JSON.stringify(authDetails.request, null, 2)}
+                        </pre>
+                      </div>
+                      <div>
+                        <p className="mb-1 text-[11px] uppercase tracking-wide text-slate-500">
+                          Response payload
+                        </p>
+                        <pre className="max-h-48 overflow-auto rounded-md border border-slate-200 bg-white px-3 py-2 text-[11px] leading-relaxed">
+                          {JSON.stringify(authDetails.response, null, 2)}
+                        </pre>
+                      </div>
+                    </details>
+                  </div>
+                )}
                 <div className="py-4">
                   <div className="grid grid-cols-2 gap-x-6 gap-y-4">
                   {/* Left Column */}

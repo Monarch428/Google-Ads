@@ -6,15 +6,18 @@ import { AuthResponse, BackendUser } from "./lib/api";
 import { Toaster } from "./components/ui/sonner";
 import { useRouter } from "./lib/router";
 import { toast } from "sonner@2.0.3";
+import type { AuthDetails, AuthMethod } from "./lib/auth-types";
 
 const AUTH_TOKEN_KEY = "aaa_auth_token";
 const AUTH_REFRESH_KEY = "aaa_refresh_token";
 const AUTH_USER_KEY = "aaa_auth_user";
+const AUTH_DETAILS_KEY = "aaa_auth_details";
 
 type AuthState = {
   token: string;
   refreshToken: string | null;
   user: BackendUser;
+  details: AuthDetails | null;
 };
 
 function parseStoredUser(value: string | null): BackendUser | null {
@@ -27,6 +30,21 @@ function parseStoredUser(value: string | null): BackendUser | null {
   }
 }
 
+function parseStoredAuthDetails(value: string | null): AuthDetails | null {
+  if (!value) return null;
+  try {
+    return JSON.parse(value) as AuthDetails;
+  } catch (error) {
+    console.warn("Failed to parse stored auth details", error);
+    return null;
+  }
+}
+
+type AuthMetadataInput = {
+  method: AuthMethod;
+  request: Record<string, unknown>;
+};
+
 export default function App() {
   const { path, navigate } = useRouter();
   const [authState, setAuthState] = useState<AuthState | null>(() => {
@@ -35,18 +53,34 @@ export default function App() {
 
     if (storedToken && storedUser) {
       const storedRefresh = localStorage.getItem(AUTH_REFRESH_KEY);
-      return { token: storedToken, refreshToken: storedRefresh, user: storedUser };
+      const storedDetails = parseStoredAuthDetails(localStorage.getItem(AUTH_DETAILS_KEY));
+      return {
+        token: storedToken,
+        refreshToken: storedRefresh,
+        user: storedUser,
+        details: storedDetails,
+      };
     }
 
     return null;
   });
 
   const handleAuthenticated = useCallback(
-    (response: AuthResponse) => {
+    (response: AuthResponse, metadata?: AuthMetadataInput) => {
+      const details: AuthDetails | null = metadata
+        ? {
+            method: metadata.method,
+            request: metadata.request,
+            response,
+            timestamp: new Date().toISOString(),
+          }
+        : authState?.details ?? null;
+
       const nextState: AuthState = {
         token: response.access_token,
         refreshToken: response.refresh_token ?? null,
         user: response.user,
+        details,
       };
 
       setAuthState(nextState);
@@ -57,9 +91,14 @@ export default function App() {
         localStorage.removeItem(AUTH_REFRESH_KEY);
       }
       localStorage.setItem(AUTH_USER_KEY, JSON.stringify(nextState.user));
+      if (details) {
+        localStorage.setItem(AUTH_DETAILS_KEY, JSON.stringify(details));
+      } else {
+        localStorage.removeItem(AUTH_DETAILS_KEY);
+      }
       navigate("/dashboard", { replace: true });
     },
-    [navigate],
+    [authState?.details, navigate],
   );
 
   const handleUserUpdated = useCallback((updatedUser: BackendUser) => {
@@ -122,7 +161,14 @@ export default function App() {
       }
 
       window.history.replaceState(null, "", "/auth/google/callback");
-      handleAuthenticated(parsed);
+      handleAuthenticated(parsed, {
+        method: "google",
+        request: {
+          provider: "google",
+          encoded_payload: encoded,
+          decoded_payload: parsed,
+        },
+      });
       toast.success("Signed in with Google", {
         description: `Welcome back, ${parsed.user.name ?? parsed.user.email}!`,
       });
@@ -151,6 +197,7 @@ export default function App() {
     localStorage.removeItem(AUTH_TOKEN_KEY);
     localStorage.removeItem(AUTH_REFRESH_KEY);
     localStorage.removeItem(AUTH_USER_KEY);
+    localStorage.removeItem(AUTH_DETAILS_KEY);
     navigate("/login", { replace: true });
   }, [navigate]);
 
@@ -173,6 +220,7 @@ export default function App() {
         authToken={authState.token}
         refreshToken={authState.refreshToken}
         currentUser={authState.user}
+        authDetails={authState.details}
       >
         <DashboardApp
           user={authState.user}
