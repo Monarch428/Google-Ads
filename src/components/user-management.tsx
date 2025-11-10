@@ -50,7 +50,7 @@ import {
 } from "lucide-react";
 import { mockManagers, mockClients, Manager } from "../lib/mock-data";
 import { useData } from "../lib/data-context";
-import { updateUser } from "../lib/api";
+import { updateUser, updateClientAssignments } from "../lib/api";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -214,6 +214,11 @@ export function UserManagement({ onManagerClick }: UserManagementProps) {
         role: editForm.role,
         is_active: editForm.status === "active",
       }, authToken);
+
+      const clientIds = selectedEditClients
+        .map((id) => Number(id))
+        .filter((id) => Number.isFinite(id) && id > 0);
+      await updateClientAssignments(Number(selectedManager.id), clientIds, authToken);
 
       setSelectedManager(nextManagerState);
       toast.success("Manager updated successfully");

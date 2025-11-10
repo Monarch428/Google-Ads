@@ -28,6 +28,11 @@ _USER_OPTIONAL_COLUMNS = {
     "company_address": "VARCHAR(500)",
 }
 
+_CLIENT_OPTIONAL_COLUMNS = {
+    "created_by_id": "INT",
+    "assigned_manager_id": "INT",
+}
+
 
 def ensure_user_optional_columns() -> None:
     """Ensure optional company columns exist on the users table.
@@ -56,6 +61,29 @@ def ensure_user_optional_columns() -> None:
     with engine.begin() as connection:
         for column_name in missing_columns:
             ddl = f"ALTER TABLE users ADD COLUMN {column_name} {_USER_OPTIONAL_COLUMNS[column_name]} NULL"
+            connection.execute(text(ddl))
+
+
+def ensure_client_assignment_columns() -> None:
+    """Ensure client assignment metadata columns exist on the clients table."""
+
+    inspector = inspect(engine)
+    if not inspector.has_table("clients"):
+        return
+
+    existing_columns = {col["name"] for col in inspector.get_columns("clients")}
+    missing_columns = [
+        column_name
+        for column_name in _CLIENT_OPTIONAL_COLUMNS
+        if column_name not in existing_columns
+    ]
+
+    if not missing_columns:
+        return
+
+    with engine.begin() as connection:
+        for column_name in missing_columns:
+            ddl = f"ALTER TABLE clients ADD COLUMN {column_name} {_CLIENT_OPTIONAL_COLUMNS[column_name]} NULL"
             connection.execute(text(ddl))
 
 

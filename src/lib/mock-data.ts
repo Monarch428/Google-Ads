@@ -13,6 +13,8 @@ export interface Client {
   clicks: number;
   roas: number;
   status: "healthy" | "warning" | "critical";
+  assignedManagerId?: string | null;
+  createdById?: string | null;
 }
 
 export interface Manager {

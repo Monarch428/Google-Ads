@@ -56,9 +56,18 @@ export function DashboardOverview({
     recommendationsLoading,
     refreshClients,
     authToken,
+    refreshToken,
+    viewerRole,
   } = useData();
-  const displayClients = clients.length ? clients : mockClients;
-  const displayManagers = managers.length ? managers : mockManagers;
+  const isAdmin = viewerRole === "admin";
+  const displayClients = clients.length ? clients : authToken ? [] : mockClients;
+  const displayManagers = isAdmin
+    ? managers.length
+      ? managers
+      : authToken
+      ? []
+      : mockManagers
+    : [];
   const initialClientForm = useMemo(
     () => ({
       name: "",
@@ -68,6 +77,7 @@ export function DashboardOverview({
       client_secret: "",
       refresh_token: "",
       login_customer_id: "",
+      assigned_manager_id: "",
     }),
     [],
   );
@@ -88,6 +98,20 @@ export function DashboardOverview({
     };
 
   const handleCreateClient = async () => {
+    if (!authToken) {
+      toast.error("Authentication required", {
+        description: "You must be signed in to add a client.",
+      });
+      return;
+    }
+
+    if (!refreshToken) {
+      toast.error("Session expired", {
+        description: "Please sign in again to manage clients.",
+      });
+      return;
+    }
+
     const requiredFields: (keyof typeof initialClientForm)[] = [
       "name",
       "email",
@@ -115,9 +139,12 @@ export function DashboardOverview({
         client_secret: clientForm.client_secret.trim(),
         refresh_token: clientForm.refresh_token.trim(),
         login_customer_id: clientForm.login_customer_id.trim() || null,
+        assigned_manager_id: clientForm.assigned_manager_id
+          ? Number(clientForm.assigned_manager_id)
+          : undefined,
       };
 
-      await createClient(payload, authToken);
+      await createClient(payload, { accessToken: authToken, refreshToken });
       await refreshClients();
       toast.success("Client connected", {
         description: `${clientForm.name} is now available in your workspace`,
@@ -163,22 +190,23 @@ export function DashboardOverview({
               <SelectItem value="90days">Last 90 Days</SelectItem>
             </SelectContent>
           </Select>
-          <Dialog open={isAddClientDialogOpen} onOpenChange={handleClientDialogChange}>
-            <DialogTrigger asChild>
-              <Button variant="outline">
-                <Plus className="w-4 h-4 mr-2" />
-                Add Client
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-4xl">
-              <DialogHeader>
-                <DialogTitle>Add New Client Account</DialogTitle>
-                <DialogDescription>
-                  Connect a new Google Ads account to the AI Agency Analyst platform
-                </DialogDescription>
-              </DialogHeader>
-              <div className="py-4">
-                <div className="grid grid-cols-2 gap-x-6 gap-y-4">
+          {isAdmin && (
+            <Dialog open={isAddClientDialogOpen} onOpenChange={handleClientDialogChange}>
+              <DialogTrigger asChild>
+                <Button variant="outline">
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Client
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-4xl">
+                <DialogHeader>
+                  <DialogTitle>Add New Client Account</DialogTitle>
+                  <DialogDescription>
+                    Connect a new Google Ads account to the AI Agency Analyst platform
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="py-4">
+                  <div className="grid grid-cols-2 gap-x-6 gap-y-4">
                   {/* Left Column */}
                   <div className="space-y-2">
                     <Label htmlFor="client-name">Client Name</Label>
@@ -265,7 +293,13 @@ export function DashboardOverview({
                     <div className="grid grid-cols-2 gap-x-6 gap-y-4">
                       <div className="space-y-2">
                         <Label htmlFor="assign-manager">Assign Ad Manager</Label>
-                        <Select>
+                        <Select
+                          value={clientForm.assigned_manager_id}
+                          onValueChange={(value) =>
+                            setClientForm((prev) => ({ ...prev, assigned_manager_id: value }))
+                          }
+                          disabled={!displayManagers.length}
+                        >
                           <SelectTrigger id="assign-manager">
                             <SelectValue placeholder="Select a manager..." />
                           </SelectTrigger>
@@ -308,15 +342,16 @@ export function DashboardOverview({
                   variant="outline"
                   onClick={() => handleClientDialogChange(false)}
                   disabled={isSubmittingClient}
-                >
-                  Cancel
-                </Button>
-                <Button onClick={handleCreateClient} disabled={isSubmittingClient}>
-                  {isSubmittingClient ? "Connecting..." : "Connect Account"}
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+                  >
+                    Cancel
+                  </Button>
+                  <Button onClick={handleCreateClient} disabled={isSubmittingClient}>
+                    {isSubmittingClient ? "Connecting..." : "Connect Account"}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          )}
           <Button onClick={() => setShowCreateReport(true)}>Generate Report</Button>
         </div>
       </div>
@@ -332,10 +367,12 @@ export function DashboardOverview({
       />
 
       {/* Manager Activity */}
-      <ManagerActivityPanel
-        managers={displayManagers}
-        onManagerClick={onManagerClick}
-      />
+      {isAdmin && (
+        <ManagerActivityPanel
+          managers={displayManagers}
+          onManagerClick={onManagerClick}
+        />
+      )}
 
       {/* Client Accounts */}
       <div>

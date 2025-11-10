@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from database import Base
@@ -15,9 +15,19 @@ class Client(Base):
     refresh_token = Column(String(500))
     login_customer_id = Column(String(255))
 
+    created_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    assigned_manager_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+
     # ✅ Auto timestamps
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # ✅ Relationship with Campaign table
     campaigns = relationship("Campaign", back_populates="client", cascade="all, delete")
+
+    creator = relationship("UserModel", foreign_keys=[created_by_id], backref="created_clients")
+    assigned_manager = relationship(
+        "UserModel",
+        foreign_keys=[assigned_manager_id],
+        backref="managed_clients",
+    )

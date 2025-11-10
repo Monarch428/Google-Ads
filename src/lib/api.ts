@@ -69,6 +69,8 @@ export interface BackendClient {
   client_secret: string;
   refresh_token: string;
   login_customer_id: string | null;
+  created_by_id?: number | null;
+  assigned_manager_id?: number | null;
   created_at?: string;
   updated_at?: string;
 }
@@ -161,8 +163,13 @@ export interface SystemStatusResponse {
 
 export type CreateClientPayload = Omit<
   BackendClient,
-  "id" | "created_at" | "updated_at"
+  "id" | "created_at" | "updated_at" | "created_by_id"
 >;
+
+export interface ClientAssignmentResponse {
+  manager_id: number;
+  assigned_client_ids: number[];
+}
 
 export type UpdateUserPayload = {
   name?: string;
@@ -220,13 +227,40 @@ export function fetchClients(token?: string) {
     : undefined);
 }
 
-export function createClient(payload: CreateClientPayload, token?: string) {
+export function createClient(
+  payload: CreateClientPayload,
+  tokens?: { accessToken?: string; refreshToken?: string | null },
+) {
+  const headers: Record<string, string> = {};
+  if (tokens?.accessToken) {
+    headers.Authorization = `Bearer ${tokens.accessToken}`;
+  }
+  if (tokens?.refreshToken) {
+    headers["X-Refresh-Token"] = tokens.refreshToken;
+  }
+
   return apiFetch<BackendClient>("/clients/add", {
     method: "POST",
     body: JSON.stringify(payload),
-    ...(token
-      ? { headers: { Authorization: `Bearer ${token}` } }
-      : undefined),
+    ...(Object.keys(headers).length ? { headers } : undefined),
+  });
+}
+
+export function updateClientAssignments(
+  managerId: number | string,
+  clientIds: Array<number | string>,
+  token?: string,
+) {
+  const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
+  const payload = {
+    manager_id: Number(managerId),
+    client_ids: clientIds.map((id) => Number(id)),
+  };
+
+  return apiFetch<ClientAssignmentResponse>("/clients/assignments", {
+    method: "POST",
+    body: JSON.stringify(payload),
+    ...(headers ? { headers } : undefined),
   });
 }
 
