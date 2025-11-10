@@ -3,9 +3,11 @@ fastapi==0.115.0
 uvicorn==0.30.6
 
 # --- Database & ORM ---
+passlib[bcrypt]==1.7.4
+bcrypt==3.2.2
+
 SQLAlchemy==2.0.35
 psycopg[binary]==3.2.3
-
 # --- Data Science & Analytics ---
 pandas==2.2.3
 numpy==2.1.2
@@ -29,3 +31,5 @@ PyJWT==2.9.0
 # --- Misc Utils ---
 requests==2.32.3
 reportlab>=4.0.0
+
+pydantic[email]

@@ -9,8 +9,28 @@ from schemas.user_schema import UserCreate, UserLogin, UserResponse
 from config import settings
 
 # ✅ Password hashing setup
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 UserModel = user_model.UserModel
+# Use bcrypt_sha256 (pre-hash with SHA-256) to avoid 72-byte limit safely.
+pwd_context = CryptContext(
+    schemes=["bcrypt_sha256", "bcrypt"],  # bcrypt kept for legacy hashes if any
+    deprecated="auto",
+    bcrypt__truncate_error=False,         # avoid backend self-test crash on long inputs
+    bcrypt__rounds=12,                    # optional tuning
+)
+
+def _ensure_password_length(password: str) -> str:
+    """
+    Optional guard: avoid absurdly large inputs (DoS protection),
+    but don't enforce 72 bytes anymore.
+    """
+    if password is None:
+        raise HTTPException(status_code=400, detail="Password is required")
+
+    if len(password) > 256:
+        raise HTTPException(status_code=400, detail="Password too long")
+
+    return password
+
 
 # ✅ JWT Config
 SECRET_KEY = settings.SECRET_KEY
