@@ -264,10 +264,16 @@ function mapManagers(backendUsers: BackendUser[], clients: Client[]): Manager[] 
     return mockManagers;
   }
 
-  const totalClients = clients.length || mockClients.length;
+  const effectiveClients = clients.length ? clients : mockClients;
+  const totalManagers = Math.max(1, backendUsers.length);
+
   return backendUsers.map((user, index) => {
     const fallback = mockManagers[index % mockManagers.length];
-    const assigned = Math.max(1, Math.round(totalClients / Math.max(1, backendUsers.length)));
+    const fallbackAssigned = fallback.assignedClientIds ?? [];
+    const derivedAssigned = effectiveClients
+      .filter((_, clientIndex) => clientIndex % totalManagers === index % totalManagers)
+      .map((client) => client.id);
+    const assignedClientIds = derivedAssigned.length ? derivedAssigned : fallbackAssigned;
 
     return {
       ...fallback,
@@ -276,7 +282,8 @@ function mapManagers(backendUsers: BackendUser[], clients: Client[]): Manager[] 
       email: user.email || fallback.email,
       role: formatRole(user.role, fallback.role),
       status: user.is_active ? "active" : "inactive",
-      clientsAssigned: assigned,
+      clientsAssigned: assignedClientIds.length || fallback.clientsAssigned,
+      assignedClientIds,
     };
   });
 }

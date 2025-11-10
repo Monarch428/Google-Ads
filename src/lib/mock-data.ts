@@ -22,6 +22,7 @@ export interface Manager {
   role: string;
   status: "active" | "inactive";
   clientsAssigned: number;
+  assignedClientIds?: string[];
   recommendationsReviewed: number;
   recommendationsPending: number;
   recommendationsApproved: number;
@@ -175,6 +176,7 @@ export const mockManagers: Manager[] = [
     role: "Senior Ad Manager",
     status: "active",
     clientsAssigned: 3,
+    assignedClientIds: ["1", "2", "3"],
     recommendationsReviewed: 45,
     recommendationsPending: 8,
     recommendationsApproved: 38,
@@ -188,6 +190,7 @@ export const mockManagers: Manager[] = [
     role: "Ad Manager",
     status: "active",
     clientsAssigned: 2,
+    assignedClientIds: ["4", "5"],
     recommendationsReviewed: 32,
     recommendationsPending: 5,
     recommendationsApproved: 28,
@@ -201,6 +204,7 @@ export const mockManagers: Manager[] = [
     role: "Ad Manager",
     status: "inactive",
     clientsAssigned: 1,
+    assignedClientIds: ["6"],
     recommendationsReviewed: 23,
     recommendationsPending: 3,
     recommendationsApproved: 20,
