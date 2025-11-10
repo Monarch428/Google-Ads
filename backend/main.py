@@ -7,7 +7,13 @@ from sqlalchemy import text
 from apscheduler.schedulers.background import BackgroundScheduler
 
 # Internal imports
-from database import get_db, Base, engine, ensure_user_optional_columns
+from database import (
+    get_db,
+    Base,
+    engine,
+    ensure_user_optional_columns,
+    ensure_client_assignment_columns,
+)
 from models import user_model, client_model, campaign_model
 from routes import (
     auth_routes,
@@ -27,6 +33,7 @@ from services.google_ads_service import fetch_campaign_metrics_for_client
 # Initialize database tables and backfill optional columns for legacy DBs
 Base.metadata.create_all(bind=engine)
 ensure_user_optional_columns()
+ensure_client_assignment_columns()
 
 # Initialize FastAPI app
 app = FastAPI(

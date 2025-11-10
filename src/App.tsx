@@ -8,10 +8,12 @@ import { useRouter } from "./lib/router";
 import { toast } from "sonner@2.0.3";
 
 const AUTH_TOKEN_KEY = "aaa_auth_token";
+const AUTH_REFRESH_KEY = "aaa_refresh_token";
 const AUTH_USER_KEY = "aaa_auth_user";
 
 type AuthState = {
   token: string;
+  refreshToken: string | null;
   user: BackendUser;
 };
 
@@ -32,7 +34,8 @@ export default function App() {
     const storedUser = parseStoredUser(localStorage.getItem(AUTH_USER_KEY));
 
     if (storedToken && storedUser) {
-      return { token: storedToken, user: storedUser };
+      const storedRefresh = localStorage.getItem(AUTH_REFRESH_KEY);
+      return { token: storedToken, refreshToken: storedRefresh, user: storedUser };
     }
 
     return null;
@@ -42,11 +45,17 @@ export default function App() {
     (response: AuthResponse) => {
       const nextState: AuthState = {
         token: response.access_token,
+        refreshToken: response.refresh_token ?? null,
         user: response.user,
       };
 
       setAuthState(nextState);
       localStorage.setItem(AUTH_TOKEN_KEY, nextState.token);
+      if (nextState.refreshToken) {
+        localStorage.setItem(AUTH_REFRESH_KEY, nextState.refreshToken);
+      } else {
+        localStorage.removeItem(AUTH_REFRESH_KEY);
+      }
       localStorage.setItem(AUTH_USER_KEY, JSON.stringify(nextState.user));
       navigate("/dashboard", { replace: true });
     },
@@ -140,6 +149,7 @@ export default function App() {
   const handleLogout = useCallback(() => {
     setAuthState(null);
     localStorage.removeItem(AUTH_TOKEN_KEY);
+    localStorage.removeItem(AUTH_REFRESH_KEY);
     localStorage.removeItem(AUTH_USER_KEY);
     navigate("/login", { replace: true });
   }, [navigate]);
@@ -159,7 +169,11 @@ export default function App() {
     );
   } else if (authState) {
     content = (
-      <DataProvider authToken={authState.token}>
+      <DataProvider
+        authToken={authState.token}
+        refreshToken={authState.refreshToken}
+        currentUser={authState.user}
+      >
         <DashboardApp
           user={authState.user}
           token={authState.token}

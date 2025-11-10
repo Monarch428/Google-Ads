@@ -58,6 +58,8 @@ type DashboardAppProps = {
 export function DashboardApp({ user, token, onLogout, onUserUpdated }: DashboardAppProps) {
   const { path, navigate } = useRouter();
   const currentView = useMemo<ViewKey>(() => mapPathToView(path), [path]);
+  const normalizedRole = (user.role ?? "").toLowerCase();
+  const isAdmin = normalizedRole === "admin";
   const [selectedClient, setSelectedClient] = useState<string | null>(null);
 
   // Global side panel state
@@ -73,6 +75,12 @@ export function DashboardApp({ user, token, onLogout, onUserUpdated }: Dashboard
   }, [path, navigate]);
 
   useEffect(() => {
+    if (!isAdmin && currentView === "users") {
+      navigate(FALLBACK_ROUTE, { replace: true });
+    }
+  }, [currentView, isAdmin, navigate]);
+
+  useEffect(() => {
     setSelectedClient(null);
     setSelectedAlert(null);
     setSelectedManager(null);
@@ -83,17 +91,23 @@ export function DashboardApp({ user, token, onLogout, onUserUpdated }: Dashboard
   // Handle view change and clear any detail views
   const handleViewChange = (view: string) => {
     const targetRoute = (VIEW_ROUTES as Record<string, string>)[view] ?? FALLBACK_ROUTE;
+    if (!isAdmin && view === "users") {
+      navigate(FALLBACK_ROUTE, { replace: true });
+      return;
+    }
     if (targetRoute !== path) {
       navigate(targetRoute);
     }
   };
+
+  const effectiveView: ViewKey = currentView === "users" && !isAdmin ? "dashboard" : currentView;
 
   const renderContent = () => {
     if (selectedClient) {
       return <ClientDetails clientId={selectedClient} onBack={() => setSelectedClient(null)} />;
     }
 
-    switch (currentView) {
+    switch (effectiveView) {
       case "dashboard":
         return (
           <DashboardOverview
@@ -135,7 +149,7 @@ export function DashboardApp({ user, token, onLogout, onUserUpdated }: Dashboard
     <SidebarProvider>
       <div className="flex min-h-screen w-full bg-slate-50">
         <AppSidebar
-          currentView={currentView}
+          currentView={effectiveView}
           onViewChange={handleViewChange}
           user={user}
           onLogout={onLogout}

@@ -61,6 +61,12 @@ const systemItems = [
 ];
 
 export function AppSidebar({ currentView, onViewChange, user, onLogout }: AppSidebarProps) {
+  const isAdmin = (user.role ?? "").toLowerCase() === "admin";
+  const workspaceLabel = isAdmin ? "Admin Dashboard" : "Manager Workspace";
+  const filteredSystemItems = isAdmin
+    ? systemItems
+    : systemItems.filter((item) => item.id !== "users");
+
   return (
     <Sidebar>
       <SidebarHeader className="border-b px-6 py-4">
@@ -68,7 +74,7 @@ export function AppSidebar({ currentView, onViewChange, user, onLogout }: AppSid
           <img src={beezLogo} alt="Beez Logo" className="w-12 h-12 object-contain" />
           <div>
             <h2 className="text-slate-900">AI Agency Analyst</h2>
-            <p className="text-xs text-slate-500">Admin Dashboard</p>
+            <p className="text-xs text-slate-500">{workspaceLabel}</p>
           </div>
         </div>
       </SidebarHeader>
@@ -96,7 +102,7 @@ export function AppSidebar({ currentView, onViewChange, user, onLogout }: AppSid
           <SidebarGroupLabel>System</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {systemItems.map((item) => (
+              {filteredSystemItems.map((item) => (
                 <SidebarMenuItem key={item.id}>
                   <SidebarMenuButton
                     isActive={currentView === item.id}

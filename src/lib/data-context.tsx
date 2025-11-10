@@ -45,6 +45,9 @@ type DataContextValue = {
   approveRecommendation: (recId: string) => Promise<void>;
   dismissRecommendation: (recId: string) => Promise<void>;
   authToken?: string;
+  refreshToken?: string | null;
+  viewerRole: string;
+  currentUser?: BackendUser;
 };
 
 const DataContext = createContext<DataContextValue | undefined>(undefined);
@@ -154,6 +157,12 @@ function mapClients(
       clicks,
       roas: Number(roas.toFixed(2)),
       status: deriveStatus(conversionRate, ctr, conversions, fallback.status),
+      assignedManagerId:
+        client.assigned_manager_id != null
+          ? String(client.assigned_manager_id)
+          : fallback.assignedManagerId,
+      createdById:
+        client.created_by_id != null ? String(client.created_by_id) : fallback.createdById,
     };
   });
 }
@@ -259,36 +268,60 @@ function formatRole(role: string | undefined, fallbackRole: string): string {
   }
 }
 
-function mapManagers(backendUsers: BackendUser[], clients: Client[]): Manager[] {
+function mapManagers(
+  backendUsers: BackendUser[],
+  clients: Client[],
+  useFallback: boolean,
+): Manager[] {
   if (!backendUsers.length) {
-    return mockManagers;
+    return useFallback ? mockManagers : [];
   }
 
-  const effectiveClients = clients.length ? clients : mockClients;
-  const totalManagers = Math.max(1, backendUsers.length);
+  const effectiveClients = clients.length ? clients : useFallback ? mockClients : [];
+  const assignments = new Map<string, string[]>();
+
+  for (const client of effectiveClients) {
+    if (client.assignedManagerId) {
+      const managerId = client.assignedManagerId;
+      const assigned = assignments.get(managerId) ?? [];
+      assigned.push(client.id);
+      assignments.set(managerId, assigned);
+    }
+  }
 
   return backendUsers.map((user, index) => {
     const fallback = mockManagers[index % mockManagers.length];
-    const fallbackAssigned = fallback.assignedClientIds ?? [];
-    const derivedAssigned = effectiveClients
-      .filter((_, clientIndex) => clientIndex % totalManagers === index % totalManagers)
-      .map((client) => client.id);
-    const assignedClientIds = derivedAssigned.length ? derivedAssigned : fallbackAssigned;
+    const managerId = String(user.id);
+    const assignedClientIds = assignments.get(managerId) ?? [];
 
     return {
       ...fallback,
-      id: String(user.id),
+      id: managerId,
       name: user.name || fallback.name,
       email: user.email || fallback.email,
       role: formatRole(user.role, fallback.role),
       status: user.is_active ? "active" : "inactive",
-      clientsAssigned: assignedClientIds.length || fallback.clientsAssigned,
+      clientsAssigned: assignedClientIds.length,
       assignedClientIds,
     };
   });
 }
 
-export function DataProvider({ children, authToken }: { children: React.ReactNode; authToken?: string }) {
+export function DataProvider({
+  children,
+  authToken,
+  refreshToken,
+  currentUser,
+}: {
+  children: React.ReactNode;
+  authToken?: string;
+  refreshToken?: string | null;
+  currentUser?: BackendUser | null;
+}) {
+  const normalizedRole = (currentUser?.role ?? "").toLowerCase();
+  const viewerRole = normalizedRole || "manager";
+  const isAdmin = viewerRole === "admin";
+
   const [clients, setClients] = useState<Client[]>([]);
   const [clientsLoading, setClientsLoading] = useState(true);
   const [clientsError, setClientsError] = useState<string | null>(null);
@@ -325,7 +358,7 @@ export function DataProvider({ children, authToken }: { children: React.ReactNod
       setClientsError(null);
     } catch (error) {
       console.error("Failed to load clients", error);
-      setClients(mockClients);
+      setClients([]);
       setCampaigns([]);
       setClientsError(error instanceof Error ? error.message : "Failed to load clients");
     } finally {
@@ -341,20 +374,27 @@ export function DataProvider({ children, authToken }: { children: React.ReactNod
       return;
     }
 
+    if (!isAdmin) {
+      setManagers([]);
+      setManagersError(null);
+      setManagersLoading(false);
+      return;
+    }
+
     setManagersLoading(true);
     try {
       const users = await fetchUsers(authToken);
-      const mappedManagers = mapManagers(users, clients.length ? clients : mockClients);
+      const mappedManagers = mapManagers(users, clients, false);
       setManagers(mappedManagers);
       setManagersError(null);
     } catch (error) {
       console.error("Failed to load managers", error);
-      setManagers(mockManagers);
+      setManagers([]);
       setManagersError(error instanceof Error ? error.message : "Failed to load managers");
     } finally {
       setManagersLoading(false);
     }
-  }, [authToken, clients]);
+  }, [authToken, clients, isAdmin]);
 
   const loadRecommendations = useCallback(async () => {
     if (!authToken) {
@@ -372,7 +412,7 @@ export function DataProvider({ children, authToken }: { children: React.ReactNod
       setRecommendationsError(null);
     } catch (error) {
       console.error("Failed to load recommendations", error);
-      setRecommendations(mockRecommendations);
+      setRecommendations([]);
       setRecommendationsError(error instanceof Error ? error.message : "Failed to load recommendations");
     } finally {
       setRecommendationsLoading(false);
@@ -430,6 +470,9 @@ export function DataProvider({ children, authToken }: { children: React.ReactNod
     approveRecommendation: handleApproveRecommendation,
     dismissRecommendation: handleDismissRecommendation,
     authToken,
+    refreshToken: refreshToken ?? null,
+    viewerRole,
+    currentUser: currentUser ?? undefined,
   }), [
     clients,
     clientsLoading,
@@ -447,6 +490,9 @@ export function DataProvider({ children, authToken }: { children: React.ReactNod
     handleApproveRecommendation,
     handleDismissRecommendation,
     authToken,
+    refreshToken,
+    viewerRole,
+    currentUser,
   ]);
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
