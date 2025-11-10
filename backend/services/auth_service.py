@@ -43,6 +43,25 @@ def decode_token(token: str) -> dict:
 # -------------------------------------------------------
 # 👤 Register New User
 # -------------------------------------------------------
+def _ensure_password_length(password: str) -> str:
+    """Validate that the password does not exceed bcrypt's 72-byte limit."""
+
+    if password is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Password is required",
+        )
+
+    password_bytes = password.encode("utf-8")
+    if len(password_bytes) > 72:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Password must be 72 bytes or fewer",
+        )
+
+    return password
+
+
 def register_user(db: Session, user: UserCreate) -> UserResponse:
     existing_user = db.query(UserModel).filter(UserModel.email == user.email).first()
     if existing_user:
@@ -51,8 +70,7 @@ def register_user(db: Session, user: UserCreate) -> UserResponse:
             detail="Email already registered",
         )
 
-    # bcrypt accepts only first 72 characters of a password
-    password_to_hash = user.password[:72]
+    password_to_hash = _ensure_password_length(user.password)
     hashed_password = pwd_context.hash(password_to_hash)
 
     is_active = True if user.is_active is None else bool(user.is_active)
@@ -86,7 +104,13 @@ def login_user(db: Session, credentials: UserLogin) -> dict:
     if not user:
         raise HTTPException(status_code=400, detail="Invalid email or password")
 
-    if not pwd_context.verify(credentials.password, user.password_hash):
+    try:
+        password = _ensure_password_length(credentials.password)
+    except HTTPException:
+        # Avoid leaking whether the email exists for overlong passwords
+        raise HTTPException(status_code=400, detail="Invalid email or password")
+
+    if not pwd_context.verify(password, user.password_hash):
         raise HTTPException(status_code=400, detail="Invalid email or password")
 
     # ✅ Token expires in 24 hours
