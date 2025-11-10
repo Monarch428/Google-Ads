@@ -37,3 +37,4 @@ argon2-cffi
 httpx<0.28
 python-jose[cryptography]
 python-multipart
+psutil
