@@ -127,7 +127,7 @@ export function Accounts({ onClientClick }: AccountsProps) {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
-                        <Button size="sm" onClick={() => onClientClick?.(client.id)}>
+                        <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white" onClick={() => onClientClick?.(client.id)}>
                           View Details
                         </Button>
                         {isAdmin && (
