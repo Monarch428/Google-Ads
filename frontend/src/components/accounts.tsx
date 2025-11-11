@@ -12,6 +12,18 @@ import {
 } from "./ui/table";
 import { useData } from "../lib/data-context";
 import { AccountsChatbot } from "./accounts-chatbot";
+import { Button } from "./ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "./ui/alert-dialog";
+import { toast } from "sonner@2.0.3";
 
 interface AccountsProps {
   onClientClick?: (clientId: string) => void;
@@ -19,7 +31,12 @@ interface AccountsProps {
 
 export function Accounts({ onClientClick }: AccountsProps) {
   const [searchQuery, setSearchQuery] = useState("");
-  const { clients, clientsLoading } = useData();
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [clientPendingDelete, setClientPendingDelete] = useState<{ id: string; name: string } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const { clients, clientsLoading, deleteClient, viewerRole } = useData();
+
+  const isAdmin = viewerRole === "admin";
 
   const filteredClients = useMemo(() => {
     return clients.filter((client) =>
@@ -109,12 +126,23 @@ export function Accounts({ onClientClick }: AccountsProps) {
                       <p className="text-sm text-slate-900">{client.roas.toFixed(2)}x</p>
                     </TableCell>
                     <TableCell className="text-right">
-                      <button
-                        onClick={() => onClientClick?.(client.id)}
-                        className="inline-flex items-center px-3 py-1.5 text-xs bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-                      >
-                        View Details
-                      </button>
+                      <div className="flex justify-end gap-2">
+                        <Button size="sm" onClick={() => onClientClick?.(client.id)}>
+                          View Details
+                        </Button>
+                        {isAdmin && (
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => {
+                              setClientPendingDelete({ id: client.id, name: client.name });
+                              setIsDeleteDialogOpen(true);
+                            }}
+                          >
+                            Delete
+                          </Button>
+                        )}
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -132,6 +160,58 @@ export function Accounts({ onClientClick }: AccountsProps) {
 
       {/* AI Chatbot Assistant */}
       <AccountsChatbot />
+
+      <AlertDialog
+        open={isDeleteDialogOpen}
+        onOpenChange={(open) => {
+          setIsDeleteDialogOpen(open);
+          if (!open && !isDeleting) {
+            setClientPendingDelete(null);
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Client Account?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {clientPendingDelete ? (
+                <span>
+                  Are you sure you want to delete <strong>{clientPendingDelete.name}</strong>? This action cannot be undone and
+                  will permanently remove the client&apos;s account access.
+                </span>
+              ) : (
+                "Are you sure you want to delete this client?"
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-600 hover:bg-red-700"
+              disabled={isDeleting}
+              onClick={async () => {
+                if (!clientPendingDelete) return;
+                setIsDeleting(true);
+                try {
+                  await deleteClient(clientPendingDelete.id);
+                  toast.success("Client deleted", {
+                    description: `${clientPendingDelete.name} has been removed from your managed accounts.`,
+                  });
+                } catch (error) {
+                  const message = error instanceof Error ? error.message : "Failed to delete client";
+                  toast.error("Unable to delete client", { description: message });
+                } finally {
+                  setIsDeleting(false);
+                  setIsDeleteDialogOpen(false);
+                  setClientPendingDelete(null);
+                }
+              }}
+            >
+              {isDeleting ? "Deleting..." : "Delete Client"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

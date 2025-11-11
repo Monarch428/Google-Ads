@@ -7,6 +7,7 @@ import {
   fetchRecommendations,
   approveRecommendation,
   dismissRecommendation,
+  deleteClient as deleteClientApi,
   BackendCampaign,
   BackendClient,
   BackendUser,
@@ -45,6 +46,7 @@ type DataContextValue = {
   refreshRecommendations: () => Promise<void>;
   approveRecommendation: (recId: string) => Promise<void>;
   dismissRecommendation: (recId: string) => Promise<void>;
+  deleteClient: (clientId: string) => Promise<void>;
   authToken?: string;
   refreshToken?: string | null;
   viewerRole: string;
@@ -449,6 +451,27 @@ export function DataProvider({
     }
   }, [authToken, loadRecommendations]);
 
+  const handleDeleteClient = useCallback(
+    async (clientId: string) => {
+      if (!authToken) {
+        throw new Error("Authentication required to delete clients");
+      }
+
+      try {
+        await deleteClientApi(clientId, {
+          accessToken: authToken,
+          refreshToken: refreshToken ?? null,
+        });
+        await loadClients();
+        await loadManagers();
+      } catch (error) {
+        console.error("Failed to delete client", error);
+        throw error;
+      }
+    },
+    [authToken, refreshToken, loadClients, loadManagers],
+  );
+
   useEffect(() => {
     loadClients();
   }, [loadClients]);
@@ -477,6 +500,7 @@ export function DataProvider({
     refreshRecommendations: loadRecommendations,
     approveRecommendation: handleApproveRecommendation,
     dismissRecommendation: handleDismissRecommendation,
+    deleteClient: handleDeleteClient,
     authToken,
     refreshToken: refreshToken ?? null,
     viewerRole,
@@ -498,6 +522,7 @@ export function DataProvider({
     loadRecommendations,
     handleApproveRecommendation,
     handleDismissRecommendation,
+    handleDeleteClient,
     authToken,
     refreshToken,
     viewerRole,

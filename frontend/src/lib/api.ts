@@ -257,6 +257,24 @@ export function createClient(
   });
 }
 
+export function deleteClient(
+  clientId: number | string,
+  tokens?: { accessToken?: string; refreshToken?: string | null },
+) {
+  const headers: Record<string, string> = {};
+  if (tokens?.accessToken) {
+    headers.Authorization = `Bearer ${tokens.accessToken}`;
+  }
+  if (tokens?.refreshToken) {
+    headers["X-Refresh-Token"] = tokens.refreshToken;
+  }
+
+  return apiFetch<{ message?: string }>(`/clients/${clientId}`, {
+    method: "DELETE",
+    ...(Object.keys(headers).length ? { headers } : undefined),
+  });
+}
+
 export function updateClientAssignments(
   managerId: number | string,
   clientIds: Array<number | string>,
