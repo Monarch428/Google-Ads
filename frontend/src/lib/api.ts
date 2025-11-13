@@ -162,6 +162,31 @@ export interface SystemStatusResponse {
   status: string;
 }
 
+export interface GoogleAdsMetricsBreakdown {
+  id: number;
+  name: string;
+  impressions: number;
+  clicks: number;
+  conversions: number;
+  cost: number;
+  ctr: number;
+  cpc: number;
+}
+
+export interface GoogleAdsMetricsResponse {
+  client_id: number;
+  start_date: string;
+  end_date: string;
+  days: number;
+  totals: {
+    impressions: number;
+    clicks: number;
+    conversions: number;
+    cost: number;
+  };
+  campaigns: GoogleAdsMetricsBreakdown[];
+}
+
 export type CreateClientPayload = Omit<
   BackendClient,
   "id" | "created_at" | "updated_at" | "created_by_id"
@@ -439,4 +464,33 @@ export function fetchSystemStatus(token?: string) {
   return apiFetch<SystemStatusResponse>("/system/status", token
     ? { headers: { Authorization: `Bearer ${token}` } }
     : undefined);
+}
+
+export function fetchGoogleAdsDailyMetrics(clientId: number | string, date: string, token?: string) {
+  const params = new URLSearchParams({
+    client_id: String(clientId),
+    date,
+  });
+
+  const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
+
+  return apiFetch<GoogleAdsMetricsResponse>(`/google-ads/metrics/daily?${params.toString()}`, headers
+    ? { headers }
+    : undefined);
+}
+
+export function fetchGoogleAdsCustomMetrics(
+  payload: { client_id: number | string; start_date: string; end_date: string },
+  token?: string,
+) {
+  const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
+  return apiFetch<GoogleAdsMetricsResponse>("/google-ads/metrics/custom", {
+    method: "POST",
+    body: JSON.stringify({
+      client_id: Number(payload.client_id),
+      start_date: payload.start_date,
+      end_date: payload.end_date,
+    }),
+    ...(headers ? { headers } : undefined),
+  });
 }

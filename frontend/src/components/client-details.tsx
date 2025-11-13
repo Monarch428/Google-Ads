@@ -1,4 +1,5 @@
-import { useState, useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
+import type { DateRange } from "react-day-picker@8.10.1";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
@@ -17,11 +18,17 @@ import {
   TooltipTrigger,
 } from "./ui/tooltip";
 import { ArrowLeft, CheckCircle2, Clock, AlertCircle, Calendar as CalendarIcon, Target, TrendingUp, DollarSign, Users, Package, Play, Lightbulb, XCircle, Download, Settings, MessageSquare, User, FileText, Sparkles, Plus } from "lucide-react";
+import { Calendar } from "./ui/calendar";
 import { mockClients, mockActionBundles } from "../lib/mock-data";
 import { useData } from "../lib/data-context";
 import { ClientChatbotInline } from "./client-chatbot-inline";
 import { CreateBundle } from "./create-bundle";
 import { toast } from "sonner@2.0.3";
+import {
+  fetchGoogleAdsCustomMetrics,
+  fetchGoogleAdsDailyMetrics,
+  GoogleAdsMetricsResponse,
+} from "../lib/api";
 
 interface ClientDetailsProps {
   clientId: string;
@@ -73,6 +80,24 @@ const percentFormatter = new Intl.NumberFormat("en-US", {
   minimumFractionDigits: 0,
   maximumFractionDigits: 2,
 });
+const humanDateFormatter = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  day: "numeric",
+  year: "numeric",
+});
+
+const toIsoDate = (value: Date) => {
+  const year = value.getFullYear();
+  const month = String(value.getMonth() + 1).padStart(2, "0");
+  const day = String(value.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+const formatHumanDate = (value: string | Date | undefined) => {
+  if (!value) return "";
+  const dateValue = typeof value === "string" ? new Date(value) : value;
+  return humanDateFormatter.format(dateValue);
+};
 
 const monthConfigs = {
   "2025-10": { name: "October 2025", days: 31, startDay: 3, currentDay: 30 },
@@ -267,17 +292,93 @@ const mockActivityLogs: ActivityLog[] = [
 ];
 
 export function ClientDetails({ clientId, onBack }: ClientDetailsProps) {
-  const { clients, campaigns } = useData();
+  const { clients, campaigns, authToken } = useData();
   const availableClients = clients.length ? clients : mockClients;
   const client = availableClients.find(c => c.id === clientId);
   const [selectedMonth, setSelectedMonth] = useState<string>("2025-10");
   const [monthlyData, setMonthlyData] = useState<DayStatus[]>(generateMonthlyData("2025-10"));
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
+  const [metricsMode, setMetricsMode] = useState<"daily" | "custom">("daily");
+  const [selectedDate, setSelectedDate] = useState<Date>(() => new Date());
+  const [customRange, setCustomRange] = useState<DateRange | undefined>(() => {
+    const today = new Date();
+    const rangeStart = new Date(today);
+    rangeStart.setDate(today.getDate() - 6);
+    return { from: rangeStart, to: today };
+  });
+  const [metricsData, setMetricsData] = useState<GoogleAdsMetricsResponse | null>(null);
+  const [metricsLoading, setMetricsLoading] = useState(false);
+  const [metricsError, setMetricsError] = useState<string | null>(null);
+  const numericClientId = useMemo(() => {
+    const candidate = client?.id ?? clientId;
+    const parsed = Number(candidate);
+    return Number.isNaN(parsed) ? null : parsed;
+  }, [client, clientId]);
+  const canQueryLiveMetrics = numericClientId !== null;
+  const customRangeDays = useMemo(() => {
+    if (!customRange?.from || !customRange?.to) {
+      return null;
+    }
+    const diff = Math.abs(customRange.to.getTime() - customRange.from.getTime());
+    return Math.floor(diff / 86400000) + 1;
+  }, [customRange]);
 
   // Scroll to top when component mounts
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "instant" });
   }, []);
+  useEffect(() => {
+    if (!numericClientId) {
+      setMetricsLoading(false);
+      setMetricsData(null);
+      setMetricsError("Connect this client to a synced Google Ads account to fetch live metrics.");
+      return;
+    }
+
+    if (metricsMode === "custom" && (!customRange?.from || !customRange?.to)) {
+      setMetricsLoading(false);
+      setMetricsData(null);
+      setMetricsError("Select both a start and end date to run a custom fetch.");
+      return;
+    }
+
+    let ignore = false;
+    const loadMetrics = async () => {
+      setMetricsLoading(true);
+      setMetricsError(null);
+      try {
+        const response =
+          metricsMode === "daily"
+            ? await fetchGoogleAdsDailyMetrics(numericClientId, toIsoDate(selectedDate), authToken)
+            : await fetchGoogleAdsCustomMetrics(
+                {
+                  client_id: numericClientId,
+                  start_date: customRange?.from ? toIsoDate(customRange.from) : toIsoDate(selectedDate),
+                  end_date: customRange?.to ? toIsoDate(customRange.to) : toIsoDate(selectedDate),
+                },
+                authToken,
+              );
+        if (!ignore) {
+          setMetricsData(response);
+        }
+      } catch (error) {
+        if (!ignore) {
+          const message = error instanceof Error ? error.message : "Unable to load Google Ads data";
+          setMetricsError(message);
+          setMetricsData(null);
+        }
+      } finally {
+        if (!ignore) {
+          setMetricsLoading(false);
+        }
+      }
+    };
+
+    loadMetrics();
+    return () => {
+      ignore = true;
+    };
+  }, [authToken, customRange, metricsMode, numericClientId, selectedDate]);
   const [isDayDetailsOpen, setIsDayDetailsOpen] = useState(false);
   const [selectedBundleId, setSelectedBundleId] = useState<string | null>(null);
   const [isCreatingBundle, setIsCreatingBundle] = useState(false);
@@ -290,6 +391,32 @@ export function ClientDetails({ clientId, onBack }: ClientDetailsProps) {
   const [newTaskRecommendation, setNewTaskRecommendation] = useState("");
   const [newTaskImpact, setNewTaskImpact] = useState("");
   const [newTaskCampaign, setNewTaskCampaign] = useState("");
+  const googleAdsSummaryMetrics = [
+    {
+      key: "impressions",
+      label: "Impressions",
+      value: metricsData?.totals.impressions ?? 0,
+      formatter: (value: number) => numberFormatter.format(value),
+    },
+    {
+      key: "clicks",
+      label: "Clicks",
+      value: metricsData?.totals.clicks ?? 0,
+      formatter: (value: number) => numberFormatter.format(value),
+    },
+    {
+      key: "conversions",
+      label: "Conversions",
+      value: metricsData?.totals.conversions ?? 0,
+      formatter: (value: number) => numberFormatter.format(value),
+    },
+    {
+      key: "cost",
+      label: "Cost",
+      value: metricsData?.totals.cost ?? 0,
+      formatter: (value: number) => currencyFormatterWithCents.format(value),
+    },
+  ];
 
   const handleMonthChange = (month: string) => {
     setSelectedMonth(month);
@@ -1260,6 +1387,167 @@ export function ClientDetails({ clientId, onBack }: ClientDetailsProps) {
                       Based on current CTR and conversion trends
                     </span>
                   </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Google Ads Calendar Module */}
+      <Card>
+        <CardHeader>
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <CalendarIcon className="w-5 h-5 text-blue-600" />
+                Google Ads Performance Window
+              </CardTitle>
+              <p className="text-sm text-slate-500 mt-1">
+                Tap into the backend fetch endpoints to inspect performance for any specific day or custom range.
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant={metricsMode === "daily" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setMetricsMode("daily")}
+              >
+                Daily Snapshot
+              </Button>
+              <Button
+                variant={metricsMode === "custom" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setMetricsMode("custom")}
+              >
+                Custom Range
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
+            <div>
+              <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-700">
+                <CalendarIcon className="w-4 h-4 text-blue-600" />
+                {metricsMode === "daily" ? "Select a single day" : "Choose your reporting window"}
+              </div>
+              <div className="rounded-2xl border bg-white p-2 shadow-sm">
+                {metricsMode === "daily" ? (
+                  <Calendar
+                    mode="single"
+                    selected={selectedDate}
+                    onSelect={(date) => {
+                      if (!date || !canQueryLiveMetrics) return;
+                      setSelectedDate(date);
+                    }}
+                  />
+                ) : (
+                  <Calendar
+                    mode="range"
+                    numberOfMonths={2}
+                    selected={customRange}
+                    onSelect={(range) => {
+                      if (!canQueryLiveMetrics) return;
+                      setCustomRange(range);
+                    }}
+                  />
+                )}
+              </div>
+              <p className="mt-3 text-xs text-slate-500">
+                {metricsMode === "daily"
+                  ? "GET /google-ads/metrics/daily"
+                  : "POST /google-ads/metrics/custom"}
+              </p>
+            </div>
+
+            <div className="space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-slate-500">Timeframe</p>
+                  <p className="text-lg font-semibold text-slate-900">
+                    {metricsData
+                      ? metricsData.start_date === metricsData.end_date
+                        ? formatHumanDate(metricsData.start_date)
+                        : `${formatHumanDate(metricsData.start_date)} – ${formatHumanDate(metricsData.end_date)}`
+                      : metricsMode === "daily"
+                        ? formatHumanDate(selectedDate)
+                        : customRange?.from && customRange?.to
+                          ? `${formatHumanDate(customRange.from)} – ${formatHumanDate(customRange.to)}`
+                          : "Awaiting selection"}
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    {metricsData
+                      ? `${metricsData.days} day${metricsData.days === 1 ? "" : "s"} selected`
+                      : metricsMode === "daily"
+                        ? "1 day selected"
+                        : customRangeDays
+                          ? `${customRangeDays} day${customRangeDays === 1 ? "" : "s"} selected`
+                          : "Pick start and end dates"}
+                  </p>
+                </div>
+                <Badge variant="outline" className="text-xs capitalize">
+                  {metricsMode === "daily" ? "fetch-daily" : "fetch-custom"}
+                </Badge>
+              </div>
+
+              {metricsError && (
+                <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                  {metricsError}
+                </div>
+              )}
+
+              {!metricsError && !canQueryLiveMetrics && (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700">
+                  Link this account to a backend client to unlock Google Ads API data.
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+                {googleAdsSummaryMetrics.map((metric) => (
+                  <div key={metric.key} className="rounded-xl border p-3">
+                    <p className="text-xs text-slate-500">{metric.label}</p>
+                    <p className="text-xl font-semibold text-slate-900">
+                      {metricsLoading ? "…" : metric.formatter(metric.value)}
+                    </p>
+                  </div>
+                ))}
+              </div>
+
+              <div className="rounded-xl border">
+                <div className="grid grid-cols-5 gap-2 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  <span>Campaign</span>
+                  <span className="text-right">Impr.</span>
+                  <span className="text-right">Clicks</span>
+                  <span className="text-right">Conv.</span>
+                  <span className="text-right">Cost</span>
+                </div>
+                <div className="divide-y">
+                  {metricsLoading && (
+                    <div className="px-4 py-3 text-sm text-slate-500">Loading campaign data…</div>
+                  )}
+                  {!metricsLoading && metricsData?.campaigns?.length ? (
+                    metricsData.campaigns.map((campaign) => (
+                      <div key={campaign.id} className="grid grid-cols-5 gap-2 px-4 py-3 text-sm">
+                        <div>
+                          <p className="font-medium text-slate-900">{campaign.name}</p>
+                          <p className="text-xs text-slate-500">
+                            CTR {percentFormatter.format(campaign.ctr)}% · CPC {currencyFormatterWithCents.format(campaign.cpc)}
+                          </p>
+                        </div>
+                        <p className="text-right">{numberFormatter.format(campaign.impressions)}</p>
+                        <p className="text-right">{numberFormatter.format(campaign.clicks)}</p>
+                        <p className="text-right">{numberFormatter.format(campaign.conversions)}</p>
+                        <p className="text-right">{currencyFormatterWithCents.format(campaign.cost)}</p>
+                      </div>
+                    ))
+                  ) : (
+                    !metricsLoading && (
+                      <div className="px-4 py-3 text-sm text-slate-500">
+                        Select a timeframe above to pull Google Ads campaign metrics.
+                      </div>
+                    )
+                  )}
                 </div>
               </div>
             </div>
