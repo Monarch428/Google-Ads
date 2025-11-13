@@ -4,11 +4,13 @@ import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Input } from "./ui/input";
-import { Lightbulb, Search, CheckCircle, XCircle, Edit } from "lucide-react";
+import { Lightbulb, Search, CheckCircle, XCircle, Edit, AlertTriangle } from "lucide-react";
 import { AIRecommendationsChatbot } from "./ai-recommendations-chatbot";
 import { useData } from "../lib/data-context";
 import { toast } from "sonner@2.0.3";
 import { GoogleAdsSyncControls } from "./google-ads-sync-controls";
+import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
+import { useRouter } from "../lib/router";
 
 interface AIRecommendationsProps {
   onBundleClick?: (bundleId: string) => void;
@@ -20,6 +22,7 @@ export function AIRecommendations({ onBundleClick }: AIRecommendationsProps) {
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [processingId, setProcessingId] = useState<string | null>(null);
   const {
+    clients,
     recommendations,
     recommendationsLoading,
     recommendationsError,
@@ -27,6 +30,9 @@ export function AIRecommendations({ onBundleClick }: AIRecommendationsProps) {
     dismissRecommendation,
     authToken,
   } = useData();
+  const { navigate } = useRouter();
+  const oauthPendingClients = authToken ? clients.filter((client) => !client.hasGoogleOAuth) : [];
+  const showGoogleOAuthAlert = oauthPendingClients.length > 0;
 
   const displayRecommendations = useMemo(() => {
     return recommendations;
@@ -134,11 +140,32 @@ export function AIRecommendations({ onBundleClick }: AIRecommendationsProps) {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-slate-900">AI Recommendations</h1>
-          <p className="text-slate-500">Review and manage AI-generated insights</p>
-        </div>
+      <div>
+        <h1 className="text-slate-900">AI Recommendations</h1>
+        <p className="text-slate-500">Review and manage AI-generated insights</p>
       </div>
+    </div>
+
+      {showGoogleOAuthAlert && (
+        <Alert className="border-amber-200 bg-amber-50">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="w-5 h-5 text-amber-600 mt-1" />
+              <div>
+                <AlertTitle>Google OAuth required for live recommendations</AlertTitle>
+                <AlertDescription>
+                  {oauthPendingClients.length === 1
+                    ? `${oauthPendingClients[0].name} must finish Google OAuth before AI recommendations can use live spend data.`
+                    : `${oauthPendingClients.length} client accounts still need Google OAuth before AI recommendations can use live spend data.`}
+                </AlertDescription>
+              </div>
+            </div>
+            <Button variant="outline" size="sm" onClick={() => navigate("/accounts")}>
+              Connect accounts
+            </Button>
+          </div>
+        </Alert>
+      )}
 
       <GoogleAdsSyncControls className="max-w-5xl" contextLabel="AI recommendations" />
 

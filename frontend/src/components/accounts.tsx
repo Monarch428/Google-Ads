@@ -25,6 +25,7 @@ import {
 } from "./ui/alert-dialog";
 import { toast } from "sonner@2.0.3";
 import { GoogleAdsSyncControls } from "./google-ads-sync-controls";
+import { API_BASE_URL } from "../lib/api";
 
 interface AccountsProps {
   onClientClick?: (clientId: string) => void;
@@ -45,6 +46,20 @@ export function Accounts({ onClientClick }: AccountsProps) {
       (client.industry && client.industry.toLowerCase().includes(searchQuery.toLowerCase()))
     );
   }, [clients, searchQuery]);
+
+  const handleGoogleOAuthConnect = (clientId: string, clientName: string) => {
+    const oauthUrl = `${API_BASE_URL}/google-ads/connect?client_db_id=${clientId}`;
+    if (typeof window !== "undefined") {
+      window.open(oauthUrl, "_blank", "noopener,noreferrer");
+      toast.info("Google OAuth launched", {
+        description: `Complete the Google consent screen for ${clientName} to sync live Google Ads data.`,
+      });
+    } else {
+      toast.error("Unable to launch Google OAuth", {
+        description: "A browser window is required to complete the Google consent flow.",
+      });
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -86,13 +101,14 @@ export function Accounts({ onClientClick }: AccountsProps) {
                   <TableHead className="text-right">Ad Spend</TableHead>
                   <TableHead className="text-right">Conversions</TableHead>
                   <TableHead className="text-right">ROAS</TableHead>
+                  <TableHead className="text-center">Google OAuth</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {clientsLoading && (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-6 text-slate-500">
+                    <TableCell colSpan={8} className="text-center py-6 text-slate-500">
                       Loading clients...
                     </TableCell>
                   </TableRow>
@@ -127,6 +143,21 @@ export function Accounts({ onClientClick }: AccountsProps) {
                     </TableCell>
                     <TableCell className="text-right">
                       <p className="text-sm text-slate-900">{client.roas.toFixed(2)}x</p>
+                    </TableCell>
+                    <TableCell className="text-center">
+                      {client.hasGoogleOAuth ? (
+                        <span className="inline-flex items-center justify-center rounded-full bg-green-50 px-3 py-1 text-xs font-medium text-green-700">
+                          Connected
+                        </span>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleGoogleOAuthConnect(client.id, client.name)}
+                        >
+                          Connect
+                        </Button>
+                      )}
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">

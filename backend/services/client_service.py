@@ -37,6 +37,29 @@ def _validate_manager(db: Session, manager_id: int) -> UserModel:
     return manager
 
 
+def _attach_google_ads_status(db: Session, clients: Sequence[Client]) -> Sequence[Client]:
+    """Populate each client object with a boolean flag for Google OAuth linkage."""
+
+    if not clients:
+        return clients
+
+    client_ids = [client.id for client in clients if client.id is not None]
+    if not client_ids:
+        return clients
+
+    accounts = (
+        db.query(GoogleAdsAccount.client_id, GoogleAdsAccount.refresh_token)
+        .filter(GoogleAdsAccount.client_id.in_(client_ids))
+        .all()
+    )
+    tokens_by_client = {client_id: bool(refresh_token) for client_id, refresh_token in accounts}
+
+    for client in clients:
+        setattr(client, "has_google_ads_auth", tokens_by_client.get(client.id, False))
+
+    return clients
+
+
 def create_client(db: Session, client_data: ClientCreate, created_by: UserModel) -> Client:
     """Create a new client record linked to the admin who created it."""
 
@@ -57,6 +80,7 @@ def create_client(db: Session, client_data: ClientCreate, created_by: UserModel)
     db.add(new_client)
     db.commit()
     db.refresh(new_client)
+    setattr(new_client, "has_google_ads_auth", False)
     return new_client
 
 
@@ -67,7 +91,9 @@ def get_clients_for_user(db: Session, requester: UserModel) -> Sequence[Client]:
     if (requester.role or "").lower() != "admin":
         query = query.filter(Client.assigned_manager_id == requester.id)
 
-    return query.order_by(Client.name.asc()).all()
+    clients = query.order_by(Client.name.asc()).all()
+    _attach_google_ads_status(db, clients)
+    return clients
 
 
 def get_client_by_id(db: Session, client_id: int, requester: UserModel) -> Client:
@@ -79,6 +105,7 @@ def get_client_by_id(db: Session, client_id: int, requester: UserModel) -> Clien
         if client.assigned_manager_id != requester.id:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access to client denied")
 
+    _attach_google_ads_status(db, [client])
     return client
 
 
@@ -99,6 +126,7 @@ def update_client(db: Session, client_id: int, update_data: ClientUpdate) -> Cli
 
     db.commit()
     db.refresh(client)
+    _attach_google_ads_status(db, [client])
     return client
 
 
