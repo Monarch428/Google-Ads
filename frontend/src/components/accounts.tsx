@@ -47,17 +47,37 @@ export function Accounts({ onClientClick }: AccountsProps) {
     );
   }, [clients, searchQuery]);
 
-  const handleGoogleOAuthConnect = (clientId: string, clientName: string) => {
-    const oauthUrl = `${API_BASE_URL}/google-ads/connect?client_db_id=${clientId}`;
-    if (typeof window !== "undefined") {
-      window.open(oauthUrl, "_blank", "noopener,noreferrer");
-      toast.info("Google OAuth launched", {
-        description: `Complete the Google consent screen for ${clientName} to sync live Google Ads data.`,
-      });
-    } else {
+  /**
+   * Launch the Google OAuth flow for a particular client record.
+   * Backend is expected to expose /auth/google-connect?client_db_id=<id>
+   */
+  const handleGoogleOAuthConnect = (clientId: string | number, clientName: string) => {
+    // ensure clientId is string and safely encoded
+    const idStr = String(clientId);
+    const oauthUrl = `${API_BASE_URL}/auth/google-connect?client_db_id=${encodeURIComponent(idStr)}`;
+
+    if (typeof window === "undefined") {
       toast.error("Unable to launch Google OAuth", {
         description: "A browser window is required to complete the Google consent flow.",
       });
+      return;
+    }
+
+    try {
+      // open in new tab - backend will 302 to Google and set state cookie
+      const win = window.open(oauthUrl, "_blank", "noopener,noreferrer");
+      if (!win) {
+        toast.error("Popup blocked", {
+          description: "Please allow popups for this site or use the Connect link directly.",
+        });
+        return;
+      }
+      toast.info("Google OAuth launched", {
+        description: `Complete the Google consent screen for ${clientName} to sync live Google Ads data.`,
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unable to open OAuth window";
+      toast.error("Google OAuth failed", { description: message });
     }
   };
 
@@ -232,7 +252,7 @@ export function Accounts({ onClientClick }: AccountsProps) {
                     description: `${clientPendingDelete.name} has been removed from your managed accounts.`,
                   });
                 } catch (error) {
-                  const message = error instanceof Error ? error.message : "Failed to delete client";
+                  const message = error instanceof Error ? err.message : "Failed to delete client";
                   toast.error("Unable to delete client", { description: message });
                 } finally {
                   setIsDeleting(false);
