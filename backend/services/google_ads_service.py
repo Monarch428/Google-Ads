@@ -23,21 +23,42 @@ logger.setLevel(logging.INFO)
 
 
 # -------------------- STEP 1: REFRESH ACCESS TOKEN --------------------
-def refresh_access_token(refresh_token: str) -> str:
+def refresh_access_token(
+    refresh_token: str,
+    *,
+    google_client_id: str | None = None,
+    google_client_secret: str | None = None,
+) -> str:
     """
     Refresh the access token using stored refresh token.
     """
+    client_id = google_client_id or os.getenv("GOOGLE_CLIENT_ID")
+    client_secret = google_client_secret or os.getenv("GOOGLE_CLIENT_SECRET")
+
+    if not all([client_id, client_secret, refresh_token]):
+        raise HTTPException(
+            status_code=400,
+            detail="Missing Google OAuth credentials required for token refresh",
+        )
+
     payload = {
-        "client_id": os.getenv("GOOGLE_CLIENT_ID"),
-        "client_secret": os.getenv("GOOGLE_CLIENT_SECRET"),
+        "client_id": client_id,
+        "client_secret": client_secret,
         "refresh_token": refresh_token,
         "grant_type": "refresh_token",
     }
 
     response = requests.post(GOOGLE_TOKEN_URL, data=payload, timeout=15)
     if response.status_code != 200:
-        logger.error(f"❌ Failed to refresh token: {response.text}")
-        raise HTTPException(status_code=400, detail="Failed to refresh Google token")
+        try:
+            error_detail = response.json()
+        except ValueError:
+            error_detail = response.text
+        logger.error(f"❌ Failed to refresh token: {error_detail}")
+        raise HTTPException(
+            status_code=400,
+            detail=f"Failed to refresh Google token: {error_detail}",
+        )
 
     data = response.json()
     logger.info("✅ Access token refreshed successfully.")
@@ -121,7 +142,7 @@ def save_campaign_data(db: Session, client_db_id: int, response_data):
 
 # -------------------- STEP 4A: CALENDAR (Custom Date Range) --------------------
 def _resolve_google_ads_credentials(db: Session, client_db_id: int):
-    """Return refresh token, login customer id, and developer token for a client."""
+    """Return all Google Ads credentials associated with a client."""
 
     account = (
         db.query(GoogleAdsAccount)
@@ -130,15 +151,23 @@ def _resolve_google_ads_credentials(db: Session, client_db_id: int):
     )
 
     if account and account.refresh_token:
-        return account.refresh_token, account.login_customer_id, account.developer_token
+        return {
+            "refresh_token": account.refresh_token,
+            "login_customer_id": account.login_customer_id,
+            "developer_token": account.developer_token,
+            "google_client_id": account.google_client_id,
+            "google_client_secret": account.google_client_secret,
+        }
 
     client_record = db.query(Client).filter(Client.id == client_db_id).first()
     if client_record and client_record.refresh_token:
-        return (
-            client_record.refresh_token,
-            client_record.login_customer_id,
-            client_record.developer_token,
-        )
+        return {
+            "refresh_token": client_record.refresh_token,
+            "login_customer_id": client_record.login_customer_id,
+            "developer_token": client_record.developer_token,
+            "google_client_id": client_record.client_id,
+            "google_client_secret": client_record.client_secret,
+        }
 
     return None
 
@@ -153,9 +182,15 @@ def fetch_and_save_campaigns(db: Session, client_db_id: int, start_date: str, en
     if not credentials:
         return {"error": "❌ No connected Google Ads account or missing refresh token"}
 
-    refresh_token, login_customer_id, developer_token = credentials
+    refresh_token = credentials["refresh_token"]
+    login_customer_id = credentials.get("login_customer_id")
+    developer_token = credentials.get("developer_token")
 
-    access_token = refresh_access_token(refresh_token)
+    access_token = refresh_access_token(
+        refresh_token,
+        google_client_id=credentials.get("google_client_id"),
+        google_client_secret=credentials.get("google_client_secret"),
+    )
 
     customer_id = login_customer_id or os.getenv("LOGIN_CUSTOMER_ID")
     if not customer_id:
