@@ -85,6 +85,14 @@ export interface BackendCampaign {
   client_id: number;
 }
 
+export interface GoogleAdsSyncResponse {
+  status?: string;
+  saved_records?: number;
+  period?: string;
+  message?: string;
+  error?: string;
+}
+
 export interface BackendUser {
   id: number;
   name: string;
@@ -289,6 +297,36 @@ export function updateClientAssignments(
   return apiFetch<ClientAssignmentResponse>("/clients/assignments", {
     method: "POST",
     body: JSON.stringify(payload),
+    ...(headers ? { headers } : undefined),
+  });
+}
+
+export function fetchGoogleAdsRange(
+  clientId: number | string,
+  startDate: string,
+  endDate: string,
+  token?: string,
+) {
+  const params = new URLSearchParams({
+    client_id: String(clientId),
+    start_date: startDate,
+    end_date: endDate,
+  });
+
+  const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
+
+  return apiFetch<GoogleAdsSyncResponse>(`/google-ads/fetch-customized?${params.toString()}`, {
+    method: "GET",
+    ...(headers ? { headers } : undefined),
+  });
+}
+
+export function fetchGoogleAdsDaily(clientId: number | string, token?: string) {
+  const params = new URLSearchParams({ client_id: String(clientId) });
+  const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
+
+  return apiFetch<GoogleAdsSyncResponse>(`/google-ads/fetch-daily?${params.toString()}`, {
+    method: "GET",
     ...(headers ? { headers } : undefined),
   });
 }
