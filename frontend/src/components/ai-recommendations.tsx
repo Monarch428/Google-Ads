@@ -8,6 +8,7 @@ import { Lightbulb, Search, CheckCircle, XCircle, Edit } from "lucide-react";
 import { AIRecommendationsChatbot } from "./ai-recommendations-chatbot";
 import { useData } from "../lib/data-context";
 import { toast } from "sonner@2.0.3";
+import { GoogleAdsSyncControls } from "./google-ads-sync-controls";
 
 interface AIRecommendationsProps {
   onBundleClick?: (bundleId: string) => void;
@@ -138,6 +139,8 @@ export function AIRecommendations({ onBundleClick }: AIRecommendationsProps) {
           <p className="text-slate-500">Review and manage AI-generated insights</p>
         </div>
       </div>
+
+      <GoogleAdsSyncControls className="max-w-5xl" contextLabel="AI recommendations" />
 
       {/* AI Chatbot Assistant */}
       <AIRecommendationsChatbot />

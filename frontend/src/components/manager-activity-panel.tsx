@@ -2,6 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { CheckCircle, Clock, Package } from "lucide-react";
 import { Manager } from "../lib/mock-data";
+import { GoogleAdsSyncControls } from "./google-ads-sync-controls";
 
 interface ManagerActivityPanelProps {
   managers: Manager[];
@@ -11,8 +12,12 @@ interface ManagerActivityPanelProps {
 export function ManagerActivityPanel({ managers, onManagerClick }: ManagerActivityPanelProps) {
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="space-y-4">
         <CardTitle>Manager Activity</CardTitle>
+        <GoogleAdsSyncControls
+          size="compact"
+          contextLabel="manager performance"
+        />
       </CardHeader>
       <CardContent>
         <div className="space-y-4">

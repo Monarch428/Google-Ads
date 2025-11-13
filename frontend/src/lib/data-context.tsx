@@ -8,10 +8,13 @@ import {
   approveRecommendation,
   dismissRecommendation,
   deleteClient as deleteClientApi,
+  fetchGoogleAdsRange,
+  fetchGoogleAdsDaily,
   BackendCampaign,
   BackendClient,
   BackendUser,
   BackendRecommendation,
+  GoogleAdsSyncResponse,
 } from "./api";
 import type { AuthDetails } from "./auth-types";
 
@@ -52,6 +55,12 @@ type DataContextValue = {
   viewerRole: string;
   currentUser?: BackendUser;
   authDetails: AuthDetails | null;
+  syncGoogleAdsRange: (
+    clientId: string,
+    startDate: string,
+    endDate: string,
+  ) => Promise<GoogleAdsSyncResponse>;
+  syncGoogleAdsDaily: (clientId: string) => Promise<GoogleAdsSyncResponse>;
 };
 
 const DataContext = createContext<DataContextValue | undefined>(undefined);
@@ -472,6 +481,42 @@ export function DataProvider({
     [authToken, refreshToken, loadClients, loadManagers],
   );
 
+  const handleSyncGoogleAdsRange = useCallback(
+    async (clientId: string, startDate: string, endDate: string) => {
+      if (!authToken) {
+        throw new Error("Sign in to sync Google Ads data");
+      }
+
+      try {
+        const response = await fetchGoogleAdsRange(clientId, startDate, endDate, authToken);
+        await Promise.all([loadClients(), loadRecommendations()]);
+        return response;
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Failed to sync Google Ads data";
+        throw error;
+      }
+    },
+    [authToken, loadClients, loadRecommendations],
+  );
+
+  const handleSyncGoogleAdsDaily = useCallback(
+    async (clientId: string) => {
+      if (!authToken) {
+        throw new Error("Sign in to sync Google Ads data");
+      }
+
+      try {
+        const response = await fetchGoogleAdsDaily(clientId, authToken);
+        await Promise.all([loadClients(), loadRecommendations()]);
+        return response;
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Failed to sync Google Ads data";
+        throw error;
+      }
+    },
+    [authToken, loadClients, loadRecommendations],
+  );
+
   useEffect(() => {
     loadClients();
   }, [loadClients]);
@@ -506,6 +551,8 @@ export function DataProvider({
     viewerRole,
     currentUser: currentUser ?? undefined,
     authDetails: authDetails ?? null,
+    syncGoogleAdsRange: handleSyncGoogleAdsRange,
+    syncGoogleAdsDaily: handleSyncGoogleAdsDaily,
   }), [
     clients,
     clientsLoading,
@@ -528,6 +575,8 @@ export function DataProvider({
     viewerRole,
     currentUser,
     authDetails,
+    handleSyncGoogleAdsRange,
+    handleSyncGoogleAdsDaily,
   ]);
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;

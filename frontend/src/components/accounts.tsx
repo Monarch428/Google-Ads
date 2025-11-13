@@ -24,6 +24,7 @@ import {
   AlertDialogTitle,
 } from "./ui/alert-dialog";
 import { toast } from "sonner@2.0.3";
+import { GoogleAdsSyncControls } from "./google-ads-sync-controls";
 
 interface AccountsProps {
   onClientClick?: (clientId: string) => void;
@@ -52,6 +53,8 @@ export function Accounts({ onClientClick }: AccountsProps) {
         <h1 className="text-slate-900">Client Accounts</h1>
         <p className="text-slate-500">Manage and monitor all client Google Ads accounts</p>
       </div>
+
+      <GoogleAdsSyncControls className="max-w-4xl" contextLabel="client account metrics" />
 
       {/* Client Accounts List */}
       <Card>

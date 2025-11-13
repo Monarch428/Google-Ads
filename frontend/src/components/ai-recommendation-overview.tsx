@@ -3,6 +3,7 @@ import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Lightbulb, ArrowUpRight } from "lucide-react";
 import { AIRecommendation } from "../lib/mock-data";
+import { GoogleAdsSyncControls } from "./google-ads-sync-controls";
 
 interface AIRecommendationOverviewProps {
   recommendations: AIRecommendation[];
@@ -36,6 +37,11 @@ export function AIRecommendationOverview({ recommendations, loading = false, onV
         </Button>
       </CardHeader>
       <CardContent>
+        <GoogleAdsSyncControls
+          size="compact"
+          className="mb-4"
+          contextLabel="AI recommendation inputs"
+        />
         {loading ? (
           <p className="text-sm text-slate-500">Loading latest AI recommendations...</p>
         ) : pendingRecs.length === 0 ? (

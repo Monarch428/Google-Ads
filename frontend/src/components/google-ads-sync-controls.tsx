@@ -1,0 +1,217 @@
+import { useEffect, useMemo, useState } from "react";
+import { CalendarIcon, Loader2, RefreshCw } from "lucide-react";
+import { DateRange } from "react-day-picker@8.10.1";
+import { Button } from "./ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
+import { Calendar } from "./ui/calendar";
+import { cn } from "./ui/utils";
+import { useData } from "../lib/data-context";
+import { toast } from "sonner@2.0.3";
+
+function formatForApi(date: Date) {
+  return date.toISOString().slice(0, 10);
+}
+
+function formatDisplay(date?: Date) {
+  if (!date) return "";
+  return date.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+}
+
+const SIX_DAYS_IN_MS = 6 * 24 * 60 * 60 * 1000;
+
+const defaultRange: DateRange = {
+  from: new Date(Date.now() - SIX_DAYS_IN_MS),
+  to: new Date(),
+};
+
+export type GoogleAdsSyncControlsProps = {
+  size?: "default" | "compact";
+  className?: string;
+  contextLabel?: string;
+};
+
+export function GoogleAdsSyncControls({
+  size = "default",
+  className,
+  contextLabel = "Google Ads data",
+}: GoogleAdsSyncControlsProps) {
+  const {
+    clients,
+    clientsLoading,
+    syncGoogleAdsDaily,
+    syncGoogleAdsRange,
+    authToken,
+  } = useData();
+  const [selectedClientId, setSelectedClientId] = useState<string>("");
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(defaultRange);
+  const [isRangeLoading, setIsRangeLoading] = useState(false);
+  const [isDailyLoading, setIsDailyLoading] = useState(false);
+  const [statusMessage, setStatusMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  useEffect(() => {
+    if (!clients.length) {
+      setSelectedClientId("");
+      return;
+    }
+    if (!selectedClientId || !clients.some((client) => client.id === selectedClientId)) {
+      setSelectedClientId(clients[0].id);
+    }
+  }, [clients, selectedClientId]);
+
+  const formattedRangeLabel = useMemo(() => {
+    if (!dateRange?.from || !dateRange?.to) {
+      return "Pick a date range";
+    }
+    return `${formatDisplay(dateRange.from)} → ${formatDisplay(dateRange.to)}`;
+  }, [dateRange]);
+
+  const buttonSize = size === "compact" ? "sm" : "default";
+  const disabled = !selectedClientId || clientsLoading || !authToken;
+
+  const handleRangeSync = async () => {
+    if (!selectedClientId) {
+      toast.error("Select a client", { description: "Choose a Google Ads account to sync." });
+      return;
+    }
+    if (!dateRange?.from || !dateRange?.to) {
+      toast.error("Select a valid range", { description: "Pick both a start and end date." });
+      return;
+    }
+    setIsRangeLoading(true);
+    setStatusMessage(null);
+    try {
+      const response = await syncGoogleAdsRange(
+        selectedClientId,
+        formatForApi(dateRange.from),
+        formatForApi(dateRange.to),
+      );
+      const message = response.message || `Synced ${contextLabel} for selected range.`;
+      setStatusMessage({ type: "success", text: message });
+      toast.success("Google Ads sync completed", { description: message });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to sync Google Ads data";
+      setStatusMessage({ type: "error", text: message });
+      toast.error("Sync failed", { description: message });
+    } finally {
+      setIsRangeLoading(false);
+    }
+  };
+
+  const handleDailySync = async () => {
+    if (!selectedClientId) {
+      toast.error("Select a client", { description: "Choose a Google Ads account to sync." });
+      return;
+    }
+    setIsDailyLoading(true);
+    setStatusMessage(null);
+    try {
+      const response = await syncGoogleAdsDaily(selectedClientId);
+      const message = response.message || `Fetched today's ${contextLabel}.`;
+      setStatusMessage({ type: "success", text: message });
+      toast.success("Daily Google Ads sync started", { description: message });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to sync Google Ads data";
+      setStatusMessage({ type: "error", text: message });
+      toast.error("Sync failed", { description: message });
+    } finally {
+      setIsDailyLoading(false);
+    }
+  };
+
+  return (
+    <div
+      className={cn(
+        "flex w-full flex-col gap-3 rounded-xl border border-dashed border-slate-200 bg-white/80 px-4 py-3 shadow-sm",
+        size === "compact" ? "text-xs" : "text-sm",
+        className,
+      )}
+    >
+      <div className="flex flex-wrap items-center gap-3">
+        <Select
+          value={selectedClientId}
+          onValueChange={setSelectedClientId}
+          disabled={clientsLoading || !clients.length}
+        >
+          <SelectTrigger className={cn("min-w-[200px]", size === "compact" && "h-9 text-xs")}> 
+            <SelectValue placeholder={clientsLoading ? "Loading clients..." : "Select client"} />
+          </SelectTrigger>
+          <SelectContent>
+            {clients.map((client) => (
+              <SelectItem key={client.id} value={client.id}>
+                {client.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              className={cn(
+                "justify-start text-left font-normal",
+                size === "compact" ? "h-9 text-xs" : "min-w-[220px]",
+                !dateRange?.from && "text-muted-foreground",
+              )}
+              disabled={disabled}
+            >
+              <CalendarIcon className="mr-2 h-4 w-4" />
+              {formattedRangeLabel}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="start">
+            <Calendar
+              mode="range"
+              selected={dateRange}
+              defaultMonth={dateRange?.from}
+              onSelect={setDateRange}
+              numberOfMonths={2}
+            />
+          </PopoverContent>
+        </Popover>
+      </div>
+      <div className="flex flex-wrap items-center gap-3">
+        <Button
+          onClick={handleRangeSync}
+          disabled={disabled || isRangeLoading}
+          size={buttonSize}
+        >
+          {isRangeLoading ? (
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          ) : (
+            <CalendarIcon className="mr-2 h-4 w-4" />
+          )}
+          Fetch Custom Range
+        </Button>
+        <Button
+          variant="secondary"
+          onClick={handleDailySync}
+          disabled={disabled || isDailyLoading}
+          size={buttonSize}
+        >
+          {isDailyLoading ? (
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          ) : (
+            <RefreshCw className="mr-2 h-4 w-4" />
+          )}
+          Fetch Today
+        </Button>
+        {statusMessage && (
+          <p
+            className={cn(
+              "text-xs font-medium",
+              statusMessage.type === "success" ? "text-green-600" : "text-red-600",
+            )}
+          >
+            {statusMessage.text}
+          </p>
+        )}
+        {!authToken && (
+          <p className="text-xs text-slate-500">
+            Sign in with your backend account to trigger Google Ads syncs.
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}

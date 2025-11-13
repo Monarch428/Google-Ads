@@ -2,6 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { AlertTriangle, TrendingDown, DollarSign, XCircle } from "lucide-react";
 import { Alert as AlertType } from "../lib/mock-data";
+import { GoogleAdsSyncControls } from "./google-ads-sync-controls";
 
 interface AlertsPanelProps {
   alerts: AlertType[];
@@ -61,6 +62,11 @@ export function AlertsPanel({ alerts, onAlertClick }: AlertsPanelProps) {
           </div>
         </CardHeader>
         <CardContent>
+          <GoogleAdsSyncControls
+            size="compact"
+            className="mb-4"
+            contextLabel="notification insights"
+          />
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {alerts.map((alert) => {
               const Icon = getAlertIcon(alert.type);
