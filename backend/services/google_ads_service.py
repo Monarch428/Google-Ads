@@ -5,6 +5,7 @@ from datetime import date
 import logging
 from fastapi import HTTPException
 from models.google_ads_account import GoogleAdsAccount
+from models.client_model import Client
 from models.campaign_model import Campaign
 
 # -------------------- Google API Endpoints --------------------
@@ -44,13 +45,13 @@ def refresh_access_token(refresh_token: str) -> str:
 
 
 # -------------------- STEP 2: RUN GOOGLE ADS QUERY --------------------
-def run_google_ads_query(access_token: str, customer_id: str, query: str):
+def run_google_ads_query(access_token: str, customer_id: str, query: str, developer_token: str | None = None):
     """
     Run a GAQL (Google Ads Query Language) query to fetch campaign data.
     """
     headers = {
         "Authorization": f"Bearer {access_token}",
-        "developer-token": os.getenv("DEVELOPER_TOKEN"),
+        "developer-token": developer_token or os.getenv("DEVELOPER_TOKEN"),
         "Content-Type": "application/json",
         "login-customer-id": customer_id,
     }
@@ -119,17 +120,46 @@ def save_campaign_data(db: Session, client_db_id: int, response_data):
 
 
 # -------------------- STEP 4A: CALENDAR (Custom Date Range) --------------------
+def _resolve_google_ads_credentials(db: Session, client_db_id: int):
+    """Return refresh token, login customer id, and developer token for a client."""
+
+    account = (
+        db.query(GoogleAdsAccount)
+        .filter(GoogleAdsAccount.client_id == client_db_id)
+        .first()
+    )
+
+    if account and account.refresh_token:
+        return account.refresh_token, account.login_customer_id, account.developer_token
+
+    client_record = db.query(Client).filter(Client.id == client_db_id).first()
+    if client_record and client_record.refresh_token:
+        return (
+            client_record.refresh_token,
+            client_record.login_customer_id,
+            client_record.developer_token,
+        )
+
+    return None
+
+
 def fetch_and_save_campaigns(db: Session, client_db_id: int, start_date: str, end_date: str):
     """
     Fetch Google Ads campaign data for a user-selected date range.
     """
     logger.info(f"📅 Fetching Google Ads data for {client_db_id} ({start_date} → {end_date})")
 
-    account = db.query(GoogleAdsAccount).filter(GoogleAdsAccount.client_id == client_db_id).first()
-    if not account or not account.refresh_token:
+    credentials = _resolve_google_ads_credentials(db, client_db_id)
+    if not credentials:
         return {"error": "❌ No connected Google Ads account or missing refresh token"}
 
-    access_token = refresh_access_token(account.refresh_token)
+    refresh_token, login_customer_id, developer_token = credentials
+
+    access_token = refresh_access_token(refresh_token)
+
+    customer_id = login_customer_id or os.getenv("LOGIN_CUSTOMER_ID")
+    if not customer_id:
+        raise HTTPException(status_code=400, detail="Missing login_customer_id for Google Ads request")
 
     query = f"""
         SELECT 
@@ -149,8 +179,9 @@ def fetch_and_save_campaigns(db: Session, client_db_id: int, start_date: str, en
 
     response_data = run_google_ads_query(
         access_token=access_token,
-        customer_id=account.login_customer_id or os.getenv("LOGIN_CUSTOMER_ID"),
+        customer_id=customer_id,
         query=query,
+        developer_token=developer_token,
     )
 
     saved_count = save_campaign_data(db, client_db_id, response_data)
