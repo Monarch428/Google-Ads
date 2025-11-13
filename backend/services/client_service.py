@@ -5,6 +5,9 @@ from sqlalchemy.orm import Session
 
 from models.client_model import Client
 from models.user_model import UserModel
+from models.campaign_model import Campaign
+from models.recommendation_model import Recommendation
+from models.google_ads_account import GoogleAdsAccount
 from schemas.client_schema import (
     ClientAssignmentResponse,
     ClientAssignmentUpdate,
@@ -103,6 +106,16 @@ def delete_client(db: Session, client_id: int) -> dict:
     """Delete a client record (admin only)."""
 
     client = _get_client_or_404(db, client_id)
+
+    # Remove dependent records that use a hard foreign-key constraint. The
+    # GoogleAdsAccount and Recommendation tables do not have SQLAlchemy
+    # relationships with cascade rules, so deleting the client would otherwise
+    # raise an IntegrityError. Explicitly delete the related rows first to keep
+    # the operation atomic.
+    db.query(GoogleAdsAccount).filter(GoogleAdsAccount.client_id == client.id).delete(synchronize_session=False)
+    db.query(Recommendation).filter(Recommendation.client_id == client.id).delete(synchronize_session=False)
+    db.query(Campaign).filter(Campaign.client_id == client.id).delete(synchronize_session=False)
+
     db.delete(client)
     db.commit()
     return {"message": "Client deleted successfully"}
