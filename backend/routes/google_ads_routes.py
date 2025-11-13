@@ -1,14 +1,15 @@
-# routes/google_ads_routes.py
 from fastapi import APIRouter, Depends, Request, HTTPException
 from fastapi.responses import RedirectResponse, JSONResponse
 from sqlalchemy.orm import Session
 import os
-
 from database import get_db
 from services.google_oauth_service import build_oauth_consent_url, exchange_code_for_tokens, save_google_account
+from services.google_ads_service import (
+    fetch_and_save_campaigns,
+    fetch_and_save_daily_campaigns,
+)
 
 router = APIRouter(
-    # prefix="/google-ads", 
     tags=["Google Ads"])
 
 # Step 1: Redirect user to Google consent screen
@@ -52,3 +53,13 @@ def oauth_callback(request: Request, code: str = None, error: str = None, client
     # Save account
     save_google_account(db=db, client_db_id=client_db_id, tokens=tokens, login_customer_id=login_customer_id, developer_token=os.getenv("DEVELOPER_TOKEN"))
     return JSONResponse({"status": "connected", "client_db_id": client_db_id})
+
+@router.get("/fetch-customized")
+def fetch_by_date(client_id: int, start_date: str, end_date: str, db: Session = Depends(get_db)):
+    """📅 Fetch Google Ads data for selected calendar date range"""
+    return fetch_and_save_campaigns(db, client_id, start_date, end_date)
+
+@router.get("/fetch-daily")
+def fetch_today(client_id: int, db: Session = Depends(get_db)):
+    """⚡ Automatically fetch today's Google Ads data"""
+    return fetch_and_save_daily_campaigns(db, client_id)

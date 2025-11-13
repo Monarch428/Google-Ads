@@ -19,16 +19,20 @@ from routes import (
     auth_routes,
     client_routes,
     google_ads_routes,
-    analytics_routes,
-    insights_routes,
+    # analytics_routes,
+    # insights_routes,
     chatbot_routes,
     user_routes,
     campaign_routes,
     recommendation_routes,
     report_routes,
     system_routes,
+    ai_insights_routes,
+    ai_optimizer_routes,
+    ai_prediction_routes,
 )
-from services.google_ads_service import fetch_campaign_metrics_for_client
+# from services.google_ads_service import fetch_campaign_metrics_for_clients
+from services.google_ads_service import fetch_and_save_campaigns
 
 # Initialize database tables and backfill optional columns for legacy DBs
 Base.metadata.create_all(bind=engine)
@@ -69,11 +73,15 @@ print(" /clients routes registered")
 app.include_router(google_ads_routes.router, prefix="/google-ads", tags=["Google Ads"])
 print(" /google-ads routes registered")
 
-app.include_router(analytics_routes.router, prefix="/analytics", tags=["AI Optimization & Predictions"])
-print(" /analytics routes registered")
+# app.include_router(analytics_routes.router, prefix="/analytics", tags=["AI Optimization & Predictions"])
+# print(" /analytics routes registered")
 
-app.include_router(insights_routes.router, prefix="/insights", tags=["AI Insights & Reports"])
-print(" /insights routes registered")
+# app.include_router(insights_routes.router, prefix="/insights", tags=["AI Insights & Reports"])
+# print(" /insights routes registered")
+
+app.include_router(ai_optimizer_routes.router, prefix="/analytics", tags=["Daily AI predictions"])
+app.include_router(ai_prediction_routes.router, prefix="/ai", tags=["customized  AI Prediction"])
+app.include_router(ai_insights_routes.router, prefix="/insights", tags=["AI Insights & Reports"])
 
 app.include_router(chatbot_routes.router, prefix="/chatbot", tags=["AI Chatbot"])
 print(" /chatbot routes registered")
@@ -135,7 +143,7 @@ def daily_google_ads_sync():
     try:
         clients = db.query(client_model.Client).all()
         for client in clients:
-            fetch_campaign_metrics_for_client(db, client.id)
+            fetch_and_save_campaigns(db, client.id)
         print(f"Google Ads sync completed for {len(clients)} clients.")
     except Exception as e:
         print("Error during Google Ads sync:", e)

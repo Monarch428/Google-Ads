@@ -2,7 +2,7 @@ from openai import OpenAI
 from config import settings
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
-from services.ai_optimizer_service import generate_optimization_suggestions
+from services.ai_optimizer_service import generate_daily_campaign_suggestions
 from services.ai_insight_service import generate_insights_from_campaign
 from models.client_model import Client
 from models.campaign_model import Campaign
@@ -41,7 +41,7 @@ def chatbot_response(db: Session, user_message: str):
                 "conversions": 30,
                 "budget": 300
             }
-            ai_result = generate_optimization_suggestions(sample_data)
+            ai_result = generate_daily_campaign_suggestions(sample_data)
             return f"📈 Optimization Report Generated:\n\n{ai_result['suggestions']}"
 
         # 📈 Check if user wants AI Insights
