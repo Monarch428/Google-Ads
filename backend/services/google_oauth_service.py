@@ -9,13 +9,17 @@ from models.google_ads_account import GoogleAdsAccount
 GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
 GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
 
-def build_oauth_consent_url(redirect_uri: str, state: Optional[str] = None) -> str:
+def build_oauth_consent_url(redirect_uri: Optional[str] = None, state: Optional[str] = None) -> str:
+    """Construct the Google OAuth consent URL for a given redirect."""
+
     client_id = os.getenv("GOOGLE_CLIENT_ID")
-    redirect_uri= os.getenv("GOOGLE_OAUTH_REDIRECT_URI", 'http://localhost:8000/google-ads/callback')
+    effective_redirect = redirect_uri or os.getenv(
+        "GOOGLE_OAUTH_REDIRECT_URI", "http://localhost:8000/google-ads/callback"
+    )
     scope = os.getenv("GOOGLE_ADS_SCOPE", "https://www.googleapis.com/auth/adwords")
     params = {
         "client_id": client_id,
-        "redirect_uri": redirect_uri,
+        "redirect_uri": effective_redirect,
         "response_type": "code",
         "scope": scope,
         "access_type": "offline",   # important to get refresh_token

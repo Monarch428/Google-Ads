@@ -15,6 +15,7 @@ export interface Client {
   status: "healthy" | "warning" | "critical";
   assignedManagerId?: string | null;
   createdById?: string | null;
+  hasGoogleOAuth?: boolean;
 }
 
 export interface Manager {
@@ -92,6 +93,7 @@ export const mockClients: Client[] = [
     clicks: 42952,
     roas: 2.78,
     status: "healthy",
+    hasGoogleOAuth: true,
   },
   {
     id: "2",
@@ -107,6 +109,7 @@ export const mockClients: Client[] = [
     clicks: 20776,
     roas: 2.44,
     status: "warning",
+    hasGoogleOAuth: true,
   },
   {
     id: "3",
@@ -122,6 +125,7 @@ export const mockClients: Client[] = [
     clicks: 13875,
     roas: 1.58,
     status: "critical",
+    hasGoogleOAuth: true,
   },
   {
     id: "4",
@@ -137,6 +141,7 @@ export const mockClients: Client[] = [
     clicks: 59738,
     roas: 2.98,
     status: "healthy",
+    hasGoogleOAuth: true,
   },
   {
     id: "5",
@@ -152,6 +157,7 @@ export const mockClients: Client[] = [
     clicks: 14952,
     roas: 2.97,
     status: "healthy",
+    hasGoogleOAuth: true,
   },
   {
     id: "6",
@@ -167,6 +173,7 @@ export const mockClients: Client[] = [
     clicks: 35310,
     roas: 2.42,
     status: "warning",
+    hasGoogleOAuth: true,
   },
 ];
 

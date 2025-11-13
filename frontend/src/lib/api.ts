@@ -1,5 +1,5 @@
 // lib/api.ts
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
 
 function normalizeHeaders(headers?: HeadersInit): Record<string, string> {
   if (!headers) {
@@ -69,6 +69,7 @@ export interface BackendClient {
   client_secret: string;
   refresh_token: string;
   login_customer_id: string | null;
+  has_google_ads_auth?: boolean;
   created_by_id?: number | null;
   assigned_manager_id?: number | null;
   created_at?: string;

@@ -28,6 +28,7 @@ import { ReportPreview } from "./report-preview";
 import { ManagerDetails } from "./manager-details";
 import { createClient } from "../lib/api";
 import { toast } from "sonner@2.0.3";
+import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
 
 type ClientFormState = {
   name: string;
@@ -95,6 +96,8 @@ export function DashboardOverview({
   );
   const [clientForm, setClientForm] = useState<ClientFormState>(() => createInitialClientForm());
   const [isSubmittingClient, setIsSubmittingClient] = useState(false);
+  const oauthPendingClients = authToken ? clients.filter((client) => !client.hasGoogleOAuth) : [];
+  const showGoogleOAuthReminder = oauthPendingClients.length > 0;
 
   const handleClientDialogChange = (open: boolean) => {
     setIsAddClientDialogOpen(open);
@@ -422,6 +425,27 @@ export function DashboardOverview({
           <Button onClick={() => setShowCreateReport(true)}>Generate Report</Button>
         </div>
       </div>
+
+      {showGoogleOAuthReminder && (
+        <Alert className="border-amber-200 bg-amber-50">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="w-5 h-5 text-amber-600 mt-1" />
+              <div>
+                <AlertTitle>Connect Google OAuth for client data</AlertTitle>
+                <AlertDescription>
+                  {oauthPendingClients.length === 1
+                    ? `${oauthPendingClients[0].name} still needs Google OAuth before live metrics and AI recommendations can sync.`
+                    : `${oauthPendingClients.length} client accounts still need Google OAuth before live metrics and recommendations can sync.`}
+                </AlertDescription>
+              </div>
+            </div>
+            <Button variant="outline" size="sm" onClick={() => onNavigate?.("accounts")}>
+              Review client connections
+            </Button>
+          </div>
+        </Alert>
+      )}
 
       {/* Alerts and Notifications */}
       <AlertsPanel alerts={mockAlerts} onAlertClick={onAlertClick} />

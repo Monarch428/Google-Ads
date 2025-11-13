@@ -155,6 +155,10 @@ function mapClients(
 
     const estimatedRevenue = conversions > 0 ? conversions * 120 : 0;
     const roas = cost > 0 && estimatedRevenue > 0 ? estimatedRevenue / cost : 0;
+    const hasGoogleOAuth =
+      typeof client.has_google_ads_auth === "boolean"
+        ? client.has_google_ads_auth
+        : Boolean(client.refresh_token);
 
     return {
       ...fallback,
@@ -176,6 +180,7 @@ function mapClients(
           : fallback.assignedManagerId,
       createdById:
         client.created_by_id != null ? String(client.created_by_id) : fallback.createdById,
+      hasGoogleOAuth,
     };
   });
 }
