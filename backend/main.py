@@ -14,7 +14,7 @@ from database import (
     ensure_user_optional_columns,
     ensure_client_assignment_columns,
 )
-from models import user_model, client_model, campaign_model
+from models import user_model, client_model, campaign_model, google_ads_account, recommendation_model, ai_insight_model
 from routes import (
     auth_routes,
     client_routes,
