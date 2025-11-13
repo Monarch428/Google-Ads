@@ -9,6 +9,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { Badge } from "./ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Textarea } from "./ui/textarea";
+import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
+import { Calendar } from "./ui/calendar";
 import {
   Building2,
   User,
@@ -22,9 +24,12 @@ import {
   Database,
   Save,
   CheckCircle,
+  Calendar as CalendarIcon,
+  RefreshCw,
+  Loader2,
 } from "lucide-react";
 import { toast } from "sonner@2.0.3";
-import { BackendUser, updateUser } from "../lib/api";
+import { BackendUser, GoogleAdsSyncResponse, fetchGoogleAdsByDate, fetchGoogleAdsToday, updateUser } from "../lib/api";
 
 type ProfileFormState = {
   firstName: string;
@@ -42,6 +47,11 @@ type CompanyFormState = {
   phone: string;
   website: string;
   address: string;
+};
+
+type CalendarDateRange = {
+  from?: Date;
+  to?: Date;
 };
 
 interface SettingsProps {
@@ -70,6 +80,22 @@ export function Settings({ user, authToken, onUserUpdated }: SettingsProps) {
     website: user.company_website ?? "",
     address: user.company_address ?? "",
   }));
+  const [manualClientId, setManualClientId] = useState<string>(() => {
+    const assigned = Array.isArray(user.assigned_client_ids)
+      ? user.assigned_client_ids
+      : [];
+    return assigned.length ? String(assigned[0]) : "";
+  });
+  const [calendarRange, setCalendarRange] = useState<CalendarDateRange>(() => {
+    const today = new Date();
+    const from = new Date();
+    from.setDate(today.getDate() - 6);
+    return { from, to: today };
+  });
+  const [isCustomSyncing, setIsCustomSyncing] = useState(false);
+  const [isDailySyncing, setIsDailySyncing] = useState(false);
+  const [lastSyncResult, setLastSyncResult] = useState<GoogleAdsSyncResponse | null>(null);
+  const [lastSyncTimestamp, setLastSyncTimestamp] = useState<string | null>(null);
 
   const handleSave = () => {
     setSaveSuccess(true);
@@ -86,6 +112,24 @@ export function Settings({ user, authToken, onUserUpdated }: SettingsProps) {
     return undefined;
   }, [authToken]);
 
+  const formatDateForApi = (value: Date) => value.toISOString().split("T")[0];
+
+  const describeRange = (range: CalendarDateRange) => {
+    if (range.from && range.to) {
+      return `${formatDateForApi(range.from)} → ${formatDateForApi(range.to)}`;
+    }
+    if (range.from) return formatDateForApi(range.from);
+    if (range.to) return formatDateForApi(range.to);
+    return "Select date range";
+  };
+
+  const formattedRangeLabel = describeRange(calendarRange);
+
+  const assignedClientPlaceholder =
+    Array.isArray(user.assigned_client_ids) && user.assigned_client_ids.length
+      ? `e.g., ${user.assigned_client_ids[0]}`
+      : "e.g., 42";
+
   useEffect(() => {
     const parts = (user.name ?? "").trim().split(/\s+/).filter(Boolean);
     setProfileForm((prev) => ({
@@ -101,6 +145,10 @@ export function Settings({ user, authToken, onUserUpdated }: SettingsProps) {
       website: user.company_website ?? "",
       address: user.company_address ?? "",
     });
+    const assigned = Array.isArray(user.assigned_client_ids)
+      ? user.assigned_client_ids
+      : [];
+    setManualClientId(assigned.length ? String(assigned[0]) : "");
   }, [user]);
 
   const handleProfileInputChange = (field: keyof ProfileFormState) =>
@@ -114,6 +162,112 @@ export function Settings({ user, authToken, onUserUpdated }: SettingsProps) {
       const value = event.target.value;
       setCompanyForm((prev) => ({ ...prev, [field]: value }));
     };
+
+  const updateSyncSummary = (result: GoogleAdsSyncResponse) => {
+    setLastSyncResult(result);
+    setLastSyncTimestamp(new Date().toISOString());
+  };
+
+  const ensureClientId = () => {
+    if (!manualClientId.trim()) {
+      toast.error("Client ID required", {
+        description: "Enter the internal client ID before calling the Google Ads sync APIs.",
+      });
+      return false;
+    }
+    return true;
+  };
+
+  const ensureAuthToken = () => {
+    if (!effectiveToken) {
+      toast.error("Authentication required", {
+        description: "Please sign in again to trigger a manual Google Ads sync.",
+      });
+      return false;
+    }
+    return true;
+  };
+
+  const ensureCalendarRangeSelected = () => {
+    if (!calendarRange.from || !calendarRange.to) {
+      toast.error("Select a date range", {
+        description: "Use the calendar picker to choose both a start and end date.",
+      });
+      return false;
+    }
+    return true;
+  };
+
+  const handleCustomSync = async () => {
+    if (!ensureClientId() || !ensureAuthToken() || !ensureCalendarRangeSelected()) {
+      return;
+    }
+
+    setIsCustomSyncing(true);
+    const clientValue = manualClientId.trim();
+    const startDate = formatDateForApi(calendarRange.from!);
+    const endDate = formatDateForApi(calendarRange.to!);
+
+    try {
+      const response = await fetchGoogleAdsByDate(clientValue, startDate, endDate, effectiveToken);
+      if (response.error) {
+        throw new Error(response.error);
+      }
+
+      const summary: GoogleAdsSyncResponse = {
+        status: response.status ?? "success",
+        saved_records: response.saved_records,
+        message: response.message ?? `Saved ${response.saved_records ?? 0} campaign rows`,
+        period: response.period ?? `${startDate} → ${endDate}`,
+      };
+
+      updateSyncSummary(summary);
+      toast.success("Google Ads data synced", {
+        description: summary.message,
+      });
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Unable to fetch Google Ads data for the selected range.";
+      updateSyncSummary({ status: "error", error: message, period: `${startDate} → ${endDate}` });
+      toast.error("Sync failed", { description: message });
+    } finally {
+      setIsCustomSyncing(false);
+    }
+  };
+
+  const handleDailySync = async () => {
+    if (!ensureClientId() || !ensureAuthToken()) {
+      return;
+    }
+
+    setIsDailySyncing(true);
+    const clientValue = manualClientId.trim();
+    const todayLabel = formatDateForApi(new Date());
+
+    try {
+      const response = await fetchGoogleAdsToday(clientValue, effectiveToken);
+      if (response.error) {
+        throw new Error(response.error);
+      }
+
+      const summary: GoogleAdsSyncResponse = {
+        status: response.status ?? "success",
+        saved_records: response.saved_records,
+        message: response.message ?? "Daily Google Ads sync completed",
+        period: response.period ?? todayLabel,
+      };
+
+      updateSyncSummary(summary);
+      toast.success("Fetched today's data", { description: summary.message });
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Unable to fetch the most recent Google Ads data.";
+      updateSyncSummary({ status: "error", error: message, period: todayLabel });
+      toast.error("Daily sync failed", { description: message });
+    } finally {
+      setIsDailySyncing(false);
+    }
+  };
 
   const handleProfileSave = async () => {
     if (!profileForm.firstName.trim()) {
@@ -643,6 +797,128 @@ export function Settings({ user, authToken, onUserUpdated }: SettingsProps) {
                   <Database className="w-4 h-4 mr-2" />
                   Sync Now
                 </Button>
+              </div>
+
+              <Separator />
+
+              <div className="space-y-4 rounded-xl border border-slate-200 bg-slate-50/80 p-4">
+                <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-slate-900">Manual Google Ads Sync</p>
+                    <p className="text-xs text-slate-500">
+                      Use the calendar to call the customized and daily fetch APIs on demand.
+                    </p>
+                  </div>
+                  <Badge variant="outline" className="bg-white/80">
+                    <CalendarIcon className="mr-1 h-3.5 w-3.5" /> Calendar Range API
+                  </Badge>
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="manualClientId">Client ID</Label>
+                    <Input
+                      id="manualClientId"
+                      value={manualClientId}
+                      onChange={(event) => setManualClientId(event.target.value)}
+                      placeholder={assignedClientPlaceholder}
+                    />
+                    <p className="text-xs text-slate-500">
+                      Enter the internal client database ID you want to sync.
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Select date range</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className="w-full justify-start text-left font-normal"
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {formattedRangeLabel}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="p-0" align="start">
+                        <Calendar
+                          mode="range"
+                          selected={calendarRange}
+                          onSelect={(range) => setCalendarRange(range ?? {})}
+                          numberOfMonths={2}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                    <p className="text-xs text-slate-500">
+                      Calendar selections drive the <code className="font-mono text-[11px]">/google-ads/fetch-customized</code>
+                      API.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid gap-3 md:grid-cols-2">
+                  <Button
+                    onClick={handleCustomSync}
+                    disabled={isCustomSyncing || isDailySyncing}
+                    className="justify-center"
+                  >
+                    {isCustomSyncing ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                    )}
+                    Fetch calendar range
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={handleDailySync}
+                    disabled={isDailySyncing || isCustomSyncing}
+                    className="justify-center"
+                  >
+                    {isDailySyncing ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <RefreshCw className="mr-2 h-4 w-4" />
+                    )}
+                    Fetch today automatically
+                  </Button>
+                </div>
+
+                {lastSyncResult && (
+                  <div className="space-y-2 rounded-lg border border-slate-200 bg-white/90 p-3 text-sm">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="font-medium text-slate-900">
+                        {lastSyncResult.message ??
+                          (lastSyncResult.error ? "Sync failed" : "Sync completed successfully")}
+                      </div>
+                      <Badge variant={lastSyncResult.error ? "destructive" : "secondary"}>
+                        {lastSyncResult.status ?? (lastSyncResult.error ? "Error" : "Success")}
+                      </Badge>
+                    </div>
+                    <dl className="grid gap-3 text-xs text-slate-600 sm:grid-cols-3">
+                      <div>
+                        <dt className="text-[10px] uppercase tracking-wide text-slate-400">Time range</dt>
+                        <dd>{lastSyncResult.period ?? formattedRangeLabel}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-[10px] uppercase tracking-wide text-slate-400">Rows saved</dt>
+                        <dd>
+                          {typeof lastSyncResult.saved_records === "number"
+                            ? lastSyncResult.saved_records
+                            : "—"}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="text-[10px] uppercase tracking-wide text-slate-400">Last run</dt>
+                        <dd>{
+                          lastSyncTimestamp
+                            ? new Date(lastSyncTimestamp).toLocaleString()
+                            : "Just now"
+                        }</dd>
+                      </div>
+                    </dl>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>

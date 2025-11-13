@@ -32,7 +32,7 @@ from routes import (
     ai_prediction_routes,
 )
 # from services.google_ads_service import fetch_campaign_metrics_for_clients
-from services.google_ads_service import fetch_and_save_campaigns
+from services.google_ads_service import fetch_and_save_daily_campaigns
 
 # Initialize database tables and backfill optional columns for legacy DBs
 Base.metadata.create_all(bind=engine)
@@ -143,7 +143,13 @@ def daily_google_ads_sync():
     try:
         clients = db.query(client_model.Client).all()
         for client in clients:
-            fetch_and_save_campaigns(db, client.id)
+            result = fetch_and_save_daily_campaigns(db, client.id)
+            if isinstance(result, dict) and result.get("error"):
+                print(f" - Sync failed for client {client.id}: {result['error']}")
+            else:
+                print(
+                    f" - Synced client {client.id}: {result.get('message', 'completed')}"
+                )
         print(f"Google Ads sync completed for {len(clients)} clients.")
     except Exception as e:
         print("Error during Google Ads sync:", e)
