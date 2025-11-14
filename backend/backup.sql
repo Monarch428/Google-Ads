@@ -90,6 +90,7 @@ CREATE TABLE `clients` (
   `client_id` varchar(255) DEFAULT NULL,
   `client_secret` varchar(255) DEFAULT NULL,
   `refresh_token` varchar(500) DEFAULT NULL,
+  `customer_id` varchar(255) DEFAULT NULL,
   `login_customer_id` varchar(255) DEFAULT NULL,
   `created_at` datetime DEFAULT NULL,
   `updated_at` datetime DEFAULT NULL,
@@ -105,7 +106,7 @@ CREATE TABLE `clients` (
 
 LOCK TABLES `clients` WRITE;
 /*!40000 ALTER TABLE `clients` DISABLE KEYS */;
-INSERT INTO `clients` VALUES (1,'BrandingBeez','youdesign2020@gmail.com','n9_l9jHhJfk9Xtwru7MT1A','380822992004-n3lm7hbo8foscbaot7vu5e7t1eok1ta3.apps.googleusercontent.com','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','1//0gFG0RsOEXDlzCgYIARAAGBASNwF-L9IrLol3kE1LQAe1Cu49HYreKysvsQllYbpjAGTSa9VnRIyk4arm4HKZdb6QCqDX_-Puim0','439-520-1423','2025-10-31 13:15:52','2025-10-31 13:15:52');
+INSERT INTO `clients` VALUES (1,'BrandingBeez','youdesign2020@gmail.com','n9_l9jHhJfk9Xtwru7MT1A','380822992004-n3lm7hbo8foscbaot7vu5e7t1eok1ta3.apps.googleusercontent.com','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','1//0gFG0RsOEXDlzCgYIARAAGBASNwF-L9IrLol3kE1LQAe1Cu49HYreKysvsQllYbpjAGTSa9VnRIyk4arm4HKZdb6QCqDX_-Puim0',NULL,'439-520-1423','2025-10-31 13:15:52','2025-10-31 13:15:52');
 /*!40000 ALTER TABLE `clients` ENABLE KEYS */;
 UNLOCK TABLES;
 

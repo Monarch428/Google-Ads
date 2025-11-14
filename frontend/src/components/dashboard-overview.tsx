@@ -37,6 +37,7 @@ type ClientFormState = {
   client_id: string;
   client_secret: string;
   refresh_token: string;
+  customer_id: string;
   login_customer_id: string;
   assigned_manager_id: string;
 };
@@ -89,6 +90,7 @@ export function DashboardOverview({
       client_id: "",
       client_secret: "",
       refresh_token: refreshToken ?? "",
+      customer_id: "",
       login_customer_id: "",
       assigned_manager_id: "",
     }),
@@ -136,6 +138,7 @@ export function DashboardOverview({
       "client_id",
       "client_secret",
       "refresh_token",
+      "customer_id",
     ];
 
     const missingField = requiredFields.find((field) => !clientForm[field]?.trim());
@@ -155,6 +158,7 @@ export function DashboardOverview({
         client_id: clientForm.client_id.trim(),
         client_secret: clientForm.client_secret.trim(),
         refresh_token: clientForm.refresh_token.trim(),
+        customer_id: clientForm.customer_id.trim(),
         login_customer_id: clientForm.login_customer_id.trim() || null,
         assigned_manager_id: clientForm.assigned_manager_id
           ? Number(clientForm.assigned_manager_id)
@@ -307,13 +311,18 @@ export function DashboardOverview({
                         <Input
                           id="google-ads-id"
                           placeholder="e.g., 123-456-7890"
-                          value={clientForm.login_customer_id}
-                          onChange={handleClientInputChange("login_customer_id")}
+                          value={clientForm.customer_id}
+                          onChange={handleClientInputChange("customer_id")}
                         />
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="login-customer-id">Login Customer ID</Label>
-                        <Input id="login-customer-id" placeholder="e.g., 123-456-7890" />
+                        <Input
+                          id="login-customer-id"
+                          placeholder="e.g., 987-654-3210"
+                          value={clientForm.login_customer_id}
+                          onChange={handleClientInputChange("login_customer_id")}
+                        />
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="developer-token">Developer Token</Label>

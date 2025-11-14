@@ -68,6 +68,7 @@ export interface BackendClient {
   client_id: string;
   client_secret: string;
   refresh_token: string;
+  customer_id: string | null;
   login_customer_id: string | null;
   has_google_ads_auth?: boolean;
   created_by_id?: number | null;

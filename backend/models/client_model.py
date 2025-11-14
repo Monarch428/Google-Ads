@@ -14,6 +14,7 @@ class Client(Base):
     client_id = Column(String(255))
     client_secret = Column(String(255))
     refresh_token = Column(String(500))
+    customer_id = Column(String(255))
     login_customer_id = Column(String(255))
 
     created_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
