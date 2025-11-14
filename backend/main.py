@@ -4,6 +4,7 @@ from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from sqlalchemy import text
+from dotenv import load_dotenv
 from apscheduler.schedulers.background import BackgroundScheduler
 
 # Internal imports
@@ -46,6 +47,7 @@ app = FastAPI(
     version="1.4.0",
 )
 
+load_dotenv()
 # CORS setup
 app.add_middleware(
     CORSMiddleware,
@@ -158,6 +160,11 @@ def on_startup():
         print("Scheduler started successfully (runs daily at 2 AM).")
     except Exception as e:
         print("Failed to start scheduler:", e)
+
+with engine.connect() as conn:
+    conn.execute(text("ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS date DATE;"))
+    conn.commit()
+print("Done.")
 
 @app.on_event("shutdown")
 def on_shutdown():

@@ -15,7 +15,7 @@ GOOGLE_ADS_QUERY = """
     FROM campaign
     WHERE segments.date DURING LAST_7_DAYS
 """
-GOOGLE_ADS_SEARCH_URL = "https://googleads.googleapis.com/v17/customers"
+GOOGLE_ADS_SEARCH_URL = "https://googleads.googleapis.com/v22/customers"
 
 # -------------------- Logger Setup --------------------
 logger = logging.getLogger(__name__)
@@ -48,7 +48,22 @@ def refresh_access_token(
         "grant_type": "refresh_token",
     }
 
-    response = requests.post(GOOGLE_TOKEN_URL, data=payload, timeout=15)
+    logger.info("Refreshing Google access token — payload keys: %s", list(payload.keys()))
+    try:
+        response = requests.post("https://oauth2.googleapis.com/token", data=payload, timeout=15)
+    except Exception as e:
+        logger.exception("Exception while contacting Google token endpoint")
+        raise HTTPException(status_code=500, detail=f"Failed to contact Google token endpoint: {e}")
+
+    # Log status & body for debugging
+    logger.info("Google token endpoint returned status %s", response.status_code)
+    try:
+        body = response.json()
+    except Exception:
+        body = response.text
+
+    logger.info("Google token endpoint response body: %s", body)
+
     if response.status_code != 200:
         try:
             error_detail = response.json()
@@ -60,9 +75,15 @@ def refresh_access_token(
             detail=f"Failed to refresh Google token: {error_detail}",
         )
 
+    # success path
     data = response.json()
-    logger.info("✅ Access token refreshed successfully.")
-    return data["access_token"]
+    access_token = data.get("access_token")
+    if not access_token:
+        logger.error("No access_token present in Google response: %s", data)
+        raise HTTPException(status_code=400, detail=f"Failed to refresh Google token (no access_token): {data}")
+
+    logger.info("Access token refreshed successfully (expires_in=%s)", data.get("expires_in"))
+    return access_token
 
 
 # -------------------- STEP 2: RUN GOOGLE ADS QUERY --------------------

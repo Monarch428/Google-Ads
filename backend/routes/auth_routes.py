@@ -23,6 +23,19 @@ from services.auth_service import (
 from services.google_oauth_service import save_google_account
 # other model imports are used dynamically in callbacks (user_model)
 
+from services.auth_service import register_user, login_user, create_access_token, create_refresh_token, decode_token
+import requests
+import urllib.parse
+import os, secrets, json, logging
+
+# For persistence of Google refresh tokens
+from models.client_model import Client
+from models.google_ads_account import GoogleAdsAccount
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+
+# ✅ IMPORTANT: Remove prefix from router if it's added in main.py
 router = APIRouter(
     tags=["Authentication"]
 )
@@ -44,6 +57,8 @@ print(f"   REDIRECT_URI: {REDIRECT_URI}")
 
 
 def _set_session_cookies(resp: Response, access_token: str, refresh_token: str):
+    is_local = ("localhost" in (os.getenv("FRONTEND_BASE_URL", "") + os.getenv("GOOGLE_REDIRECT_URI", ""))) \
+               or ("127.0.0.1" in (os.getenv("FRONTEND_BASE_URL", "") + os.getenv("GOOGLE_REDIRECT_URI", "")))
     is_local = ("localhost" in (os.getenv("FRONTEND_BASE_URL", "") + os.getenv("GOOGLE_REDIRECT_URI", ""))) \
                or ("127.0.0.1" in (os.getenv("FRONTEND_BASE_URL", "") + os.getenv("GOOGLE_REDIRECT_URI", "")))
     cookie_args = dict(
@@ -233,12 +248,35 @@ async def google_callback(
     email = info.get("email")
     email_verified = info.get("email_verified", False)
     if not email or not email_verified:
+        logger.warning("Email unverified or missing in userinfo: %s", info)
         return RedirectResponse(f"{FRONTEND_BASE}/login?error=email_unverified")
 
     from models import user_model
     user = db.query(user_model.UserModel).filter(user_model.UserModel.email == email).first()
     if not user:
+        logger.info("User not registered in app: %s", email)
         return RedirectResponse(f"{FRONTEND_BASE}/login?error=not_registered")
+
+    # Persist refresh_token (if provided) - preferred: clients table if client exists for this email
+    try:
+        if refresh_token_google:
+            # Attempt 1: find a client with same email (clients.email)
+            client_row = db.query(Client).filter(Client.email == email).first()
+            if client_row:
+                client_row.refresh_token = refresh_token_google
+                db.commit()
+                logger.info("Saved refresh_token into clients table for client id=%s", client_row.id)
+            else:
+                # Attempt 2: if there is a google_ads_accounts row already for a client id known in your app,
+                # we cannot guess client_id from user. So log and skip creating orphan account.
+                # If you want to create google_ads_accounts for a specific client id, do so via admin UI.
+                logger.info("No client with email=%s found. Skipping auto-persist of Google refresh token.", email)
+        else:
+            logger.info("No refresh_token returned by Google (tokens keys: %s)", list(tokens.keys()))
+    except Exception as e:
+        # don't block login flow if DB persist fails
+        db.rollback()
+        logger.exception("Failed to persist refresh token to DB: %s", e)
 
     # Mint our app tokens (same as password login)
     app_access = create_access_token(
@@ -279,6 +317,7 @@ async def google_callback(
 
     resp = RedirectResponse(url=redirect_target, status_code=302)
 
+    # set cookies for frontend convenience
     is_local = "localhost" in (REDIRECT_URI or "") or "127.0.0.1" in (REDIRECT_URI or "")
     cookie_args = dict(
         httponly=True,
@@ -291,6 +330,7 @@ async def google_callback(
 
     # clear one-time state cookie
     resp.delete_cookie("oauth_state", path="/")
+    logger.info("Google OAuth callback completed for user email=%s", email)
     return resp
 
 
