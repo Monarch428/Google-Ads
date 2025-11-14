@@ -154,6 +154,7 @@ def _resolve_google_ads_credentials(db: Session, client_db_id: int):
         return {
             "refresh_token": account.refresh_token,
             "login_customer_id": account.login_customer_id,
+            "customer_id": account.customer_id,
             "developer_token": account.developer_token,
             "google_client_id": account.google_client_id,
             "google_client_secret": account.google_client_secret,
@@ -164,6 +165,7 @@ def _resolve_google_ads_credentials(db: Session, client_db_id: int):
         return {
             "refresh_token": client_record.refresh_token,
             "login_customer_id": client_record.login_customer_id,
+            "customer_id": client_record.customer_id,
             "developer_token": client_record.developer_token,
             "google_client_id": client_record.client_id,
             "google_client_secret": client_record.client_secret,
@@ -184,6 +186,7 @@ def fetch_and_save_campaigns(db: Session, client_db_id: int, start_date: str, en
 
     refresh_token = credentials["refresh_token"]
     login_customer_id = credentials.get("login_customer_id")
+    customer_id = credentials.get("customer_id")
     developer_token = credentials.get("developer_token")
 
     access_token = refresh_access_token(
@@ -192,7 +195,7 @@ def fetch_and_save_campaigns(db: Session, client_db_id: int, start_date: str, en
         google_client_secret=credentials.get("google_client_secret"),
     )
 
-    customer_id = login_customer_id or os.getenv("LOGIN_CUSTOMER_ID")
+    customer_id = customer_id or login_customer_id or os.getenv("LOGIN_CUSTOMER_ID")
     if not customer_id:
         raise HTTPException(status_code=400, detail="Missing login_customer_id for Google Ads request")
 

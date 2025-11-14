@@ -11,5 +11,6 @@ class GoogleAdsAccount(Base):
     google_client_id = Column(String(200), nullable=True)
     google_client_secret = Column(String(200), nullable=True)
     refresh_token = Column(String(500), nullable=True)
-    login_customer_id = Column(String(50), nullable=True)
+    customer_id = Column(String(255), nullable=True)
+    login_customer_id = Column(String(255), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
