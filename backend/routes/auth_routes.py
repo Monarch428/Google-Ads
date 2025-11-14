@@ -10,7 +10,6 @@ import requests
 from fastapi import APIRouter, Depends, HTTPException, status, Request, Response
 from fastapi.responses import RedirectResponse, JSONResponse
 from sqlalchemy.orm import Session
-from sqlalchemy.exc import SQLAlchemyError
 
 from database import get_db
 from schemas.user_schema import UserCreate, UserLogin, UserResponse
@@ -21,7 +20,7 @@ from services.auth_service import (
     create_refresh_token,
     decode_token,
 )
-from models.google_ads_account import GoogleAdsAccount  # fixed import
+from services.google_oauth_service import save_google_account
 # other model imports are used dynamically in callbacks (user_model)
 
 router = APIRouter(
@@ -210,22 +209,20 @@ async def google_callback(
     # Persist refresh token into google_ads_accounts when client_db_id present
     if refresh_token_google and client_db_id:
         try:
-            ga = db.query(GoogleAdsAccount).filter_by(client_id=int(client_db_id)).first()
-            if ga:
-                ga.refresh_token = refresh_token_google
-            else:
-                ga = GoogleAdsAccount(
-                    client_id=int(client_db_id),
-                    refresh_token=refresh_token_google,
-                    login_customer_id=None,
-                    developer_token=None,
-                )
-                db.add(ga)
-            db.commit()
-            print(f"✅ Persisted refresh_token into google_ads_accounts for client_id={client_db_id}")
-        except SQLAlchemyError as e:
-            db.rollback()
-            print("❌ Failed to persist refresh token to DB:", str(e))
+            save_google_account(
+                db=db,
+                client_db_id=int(client_db_id),
+                tokens={"refresh_token": refresh_token_google},
+                login_customer_id=None,
+                developer_token=os.getenv("DEVELOPER_TOKEN"),
+            )
+            print(
+                f"✅ Persisted refresh_token into google_ads_accounts for client_id={client_db_id}"
+            )
+        except HTTPException as exc:
+            print(
+                f"❌ Failed to persist refresh token to DB for client_id={client_db_id}: {exc.detail}"
+            )
 
     # Get userinfo to read verified email and proceed with app login flow
     ui_res = requests.get(USERINFO_URL, headers={"Authorization": f"Bearer {access_token_google}"}, timeout=10)
