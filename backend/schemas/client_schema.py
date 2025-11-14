@@ -9,6 +9,7 @@ class ClientBase(BaseModel):
     client_id: str
     client_secret: str
     refresh_token: str
+    customer_id: Optional[str] = None
     login_customer_id: Optional[str] = None
 
 
@@ -23,6 +24,7 @@ class ClientUpdate(BaseModel):
     client_id: Optional[str] = None
     client_secret: Optional[str] = None
     refresh_token: Optional[str] = None
+    customer_id: Optional[str] = None
     login_customer_id: Optional[str] = None
     assigned_manager_id: Optional[int] = None
 
