@@ -20,7 +20,6 @@ import {
 } from "./ui/accordion";
 import { Badge } from "./ui/badge";
 import { CheckCircle2, RotateCcw, CheckCheck, ArrowLeft, ChevronRight, Building2, Search, Filter, TrendingUp, ClipboardCheck } from "lucide-react";
-import { mockClients } from "../lib/mock-data";
 import { useData } from "../lib/data-context";
 
 interface SubChecklistItem {
@@ -179,7 +178,7 @@ export function SetupChecklist() {
   const [sortBy, setSortBy] = useState("name");
   const [checklistSearchQuery, setChecklistSearchQuery] = useState("");
   const { clients, clientsLoading } = useData();
-  const availableClients = clients.length ? clients : mockClients;
+  const availableClients = clients;
 
   // Load checklist for selected client
   useEffect(() => {
@@ -401,6 +400,23 @@ export function SetupChecklist() {
 
   // If no client is selected, show the list of clients
   if (!selectedClientId) {
+    if (!clientsLoading && availableClients.length === 0) {
+      return (
+        <div className="space-y-4">
+          <div>
+            <h1 className="text-slate-900 mb-2">Setup Checklist</h1>
+            <p className="text-sm text-slate-500">Select or add a client account to start tracking setup progress.</p>
+          </div>
+          <Card>
+            <CardContent className="py-12 text-center space-y-2">
+              <p className="text-slate-900 font-medium">No client accounts available</p>
+              <p className="text-sm text-slate-500">Add a client to begin managing their setup checklist.</p>
+            </CardContent>
+          </Card>
+        </div>
+      );
+    }
+
     // Filter and sort clients
     let filteredClients = availableClients.filter((client) => {
       const matchesSearch = client.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -606,10 +622,40 @@ export function SetupChecklist() {
   }
 
   // Show checklist for selected client
-  const selectedClient = selectedClientId
-    ? availableClients.find((c) => c.id === selectedClientId)
-    : null;
+    const selectedClient = selectedClientId
+      ? availableClients.find((c) => c.id === selectedClientId)
+      : null;
   const overallProgress = getOverallProgress();
+
+  if (!selectedClient) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center gap-4">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setSelectedClientId(null)}
+          >
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back
+          </Button>
+          <div>
+            <h1 className="text-slate-900">Setup Checklist</h1>
+            <p className="text-sm text-slate-500">Select a client account to manage their checklist.</p>
+          </div>
+        </div>
+        <Card>
+          <CardContent className="py-12 text-center space-y-2">
+            <p className="text-slate-900 font-medium">No client selected</p>
+            <p className="text-sm text-slate-500">Choose an available client to view and update their setup tasks.</p>
+            <Button variant="outline" size="sm" onClick={() => setSelectedClientId(null)}>
+              Back to clients
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   // Filter checklist items based on search
   const getFilteredChecklist = () => {
