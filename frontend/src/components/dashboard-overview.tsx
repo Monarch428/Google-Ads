@@ -15,7 +15,7 @@ import {
 } from "./ui/dialog";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
-import { mockClients, mockManagers, mockAlerts, Manager } from "../lib/mock-data";
+import { Manager } from "../lib/mock-data";
 import { useData } from "../lib/data-context";
 import { KPICard } from "./kpi-card";
 import { ClientCard } from "./client-card";
@@ -74,14 +74,8 @@ export function DashboardOverview({
     authDetails,
   } = useData();
   const isAdmin = viewerRole === "admin";
-  const displayClients = clients.length ? clients : authToken ? [] : mockClients;
-  const displayManagers = isAdmin
-    ? managers.length
-      ? managers
-      : authToken
-      ? []
-      : mockManagers
-    : [];
+  const displayClients = clients;
+  const displayManagers = isAdmin ? managers : [];
   const createInitialClientForm = useCallback(
     (): ClientFormState => ({
       name: "",
@@ -457,7 +451,7 @@ export function DashboardOverview({
       )}
 
       {/* Alerts and Notifications */}
-      <AlertsPanel alerts={mockAlerts} onAlertClick={onAlertClick} />
+      <AlertsPanel alerts={[]} onAlertClick={onAlertClick} />
 
       {/* AI Recommendations Overview */}
       <AIRecommendationOverview
@@ -496,6 +490,9 @@ export function DashboardOverview({
         <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
           {clientsLoading && (
             <div className="col-span-full text-sm text-slate-500">Loading client accounts...</div>
+          )}
+          {!clientsLoading && !displayClients.length && (
+            <div className="col-span-full text-sm text-slate-500">No client accounts added yet.</div>
           )}
           {displayClients.map((client) => (
             <ClientCard key={client.id} client={client} onClick={() => onClientClick(client.id)} />

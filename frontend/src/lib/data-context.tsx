@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { Client, Manager, mockClients, mockManagers, mockRecommendations, AIRecommendation } from "./mock-data";
+import { Client, Manager, AIRecommendation } from "./mock-data";
 import {
   fetchCampaigns,
   fetchClients,
@@ -132,11 +132,10 @@ function mapClients(
   metricsByClient: Map<number, { impressions: number; clicks: number; conversions: number; cost: number }>
 ): Client[] {
   if (!backendClients.length) {
-    return mockClients;
+    return [];
   }
 
   return backendClients.map((client, index) => {
-    const fallback = mockClients[index % mockClients.length];
     const metrics = metricsByClient.get(client.id) ?? {
       impressions: 0,
       clicks: 0,
@@ -161,9 +160,8 @@ function mapClients(
         : Boolean(client.refresh_token);
 
     return {
-      ...fallback,
       id: String(client.id),
-      name: client.name || fallback.name,
+      name: client.name || `Client ${index + 1}`,
       adSpend: Number(cost.toFixed(2)),
       conversions,
       ctr: Number(ctr.toFixed(2)),
@@ -173,13 +171,14 @@ function mapClients(
       impressions,
       clicks,
       roas: Number(roas.toFixed(2)),
-      status: deriveStatus(conversionRate, ctr, conversions, fallback.status),
+      status: deriveStatus(conversionRate, ctr, conversions, "critical"),
+      industry: client.industry || undefined,
       assignedManagerId:
         client.assigned_manager_id != null
           ? String(client.assigned_manager_id)
-          : fallback.assignedManagerId,
+          : undefined,
       createdById:
-        client.created_by_id != null ? String(client.created_by_id) : fallback.createdById,
+        client.created_by_id != null ? String(client.created_by_id) : undefined,
       hasGoogleOAuth,
     };
   });
@@ -239,32 +238,32 @@ function mapRecommendations(
   clients: Client[],
 ): AIRecommendation[] {
   if (!backendRecommendations.length) {
-    return mockRecommendations;
+    return [];
   }
 
   return backendRecommendations.map((rec, index) => {
-    const fallback = mockRecommendations[index % mockRecommendations.length];
     const client = clients.find((c) => Number(c.id) === Number(rec.client_id));
 
-    const predictedImpact = rec.predicted_impact ?? fallback.predictedImpact ?? null;
+    const predictedImpact = rec.predicted_impact ?? null;
     const impactText =
       predictedImpact !== null
         ? `${predictedImpact >= 0 ? "+" : ""}${predictedImpact.toFixed(1)}% predicted impact`
-        : fallback.impact;
+        : "No impact prediction available.";
 
     return {
-      ...fallback,
       id: String(rec.id),
-      clientId: client?.id ?? (rec.client_id != null ? String(rec.client_id) : fallback.clientId),
-      clientName: client?.name ?? fallback.clientName,
-      campaignName: rec.campaign_name ?? fallback.campaignName,
-      priority: normalizePriority(rec.priority, fallback.priority),
-      status: normalizeStatus(rec.status, fallback.status),
-      recommendation: rec.suggestion ?? fallback.recommendation,
+      clientId: client?.id ?? (rec.client_id != null ? String(rec.client_id) : undefined),
+      clientName: client?.name ?? `Client ${client?.id ?? index + 1}`,
+      campaignName: rec.campaign_name ?? "Unnamed campaign",
+      type: "optimization",
+      priority: normalizePriority(rec.priority, "medium"),
+      status: normalizeStatus(rec.status, "pending"),
+      recommendation: rec.suggestion ?? "Recommendation details unavailable.",
       impact: impactText,
-      actionProposal: rec.action_proposal ?? fallback.actionProposal ?? fallback.recommendation,
+      manager: "AI System",
+      actionProposal: rec.action_proposal ?? rec.suggestion ?? undefined,
       predictedImpact: predictedImpact ?? undefined,
-      createdAt: formatRelativeTime(rec.created_at, fallback.createdAt),
+      createdAt: formatRelativeTime(rec.created_at, "Just now"),
     };
   });
 }
@@ -289,13 +288,12 @@ function formatRole(role: string | undefined, fallbackRole: string): string {
 function mapManagers(
   backendUsers: BackendUser[],
   clients: Client[],
-  useFallback: boolean,
 ): Manager[] {
   if (!backendUsers.length) {
-    return useFallback ? mockManagers : [];
+    return [];
   }
 
-  const effectiveClients = clients.length ? clients : useFallback ? mockClients : [];
+  const effectiveClients = clients;
   const assignments = new Map<string, string[]>();
 
   for (const client of effectiveClients) {
@@ -307,8 +305,7 @@ function mapManagers(
     }
   }
 
-  return backendUsers.map((user, index) => {
-    const fallback = mockManagers[index % mockManagers.length];
+  return backendUsers.map((user) => {
     const managerId = String(user.id);
     const assignedFromUser = Array.isArray(user.assigned_client_ids)
       ? user.assigned_client_ids.map((id) => String(id))
@@ -317,14 +314,18 @@ function mapManagers(
     const assignedClientIds = assignedFromUser.length ? assignedFromUser : assignedFromClients;
 
     return {
-      ...fallback,
       id: managerId,
-      name: user.name || fallback.name,
-      email: user.email || fallback.email,
-      role: formatRole(user.role, fallback.role),
+      name: user.name || `Manager ${managerId}`,
+      email: user.email,
+      role: formatRole(user.role, "Ad Manager"),
       status: user.is_active ? "active" : "inactive",
       clientsAssigned: assignedClientIds.length,
       assignedClientIds,
+      recommendationsReviewed: 0,
+      recommendationsPending: 0,
+      recommendationsApproved: 0,
+      actionBundlesCreated: 0,
+      avgTimeToApproval: "—",
     };
   });
 }
@@ -360,7 +361,7 @@ export function DataProvider({
 
   const loadClients = useCallback(async () => {
     if (!authToken) {
-      setClients(mockClients);
+      setClients([]);
       setCampaigns([]);
       setClientsError(null);
       setClientsLoading(false);
@@ -392,7 +393,7 @@ export function DataProvider({
 
   const loadManagers = useCallback(async () => {
     if (!authToken) {
-      setManagers(mockManagers);
+      setManagers([]);
       setManagersError(null);
       setManagersLoading(false);
       return;
@@ -408,7 +409,7 @@ export function DataProvider({
     setManagersLoading(true);
     try {
       const users = await fetchUsers(authToken);
-      const mappedManagers = mapManagers(users, clients, false);
+      const mappedManagers = mapManagers(users, clients);
       setManagers(mappedManagers);
       setManagersError(null);
     } catch (error) {
@@ -422,7 +423,7 @@ export function DataProvider({
 
   const loadRecommendations = useCallback(async () => {
     if (!authToken) {
-      setRecommendations(mockRecommendations);
+      setRecommendations([]);
       setRecommendationsError(null);
       setRecommendationsLoading(false);
       return;
@@ -431,7 +432,7 @@ export function DataProvider({
     setRecommendationsLoading(true);
     try {
       const backendRecs = await fetchRecommendations(authToken);
-      const mapped = mapRecommendations(backendRecs, clients.length ? clients : mockClients);
+      const mapped = mapRecommendations(backendRecs, clients);
       setRecommendations(mapped);
       setRecommendationsError(null);
     } catch (error) {
