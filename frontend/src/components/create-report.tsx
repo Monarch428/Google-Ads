@@ -19,7 +19,6 @@ import {
   DollarSign,
   Target,
 } from "lucide-react";
-import { mockClients } from "../lib/mock-data";
 import { useData } from "../lib/data-context";
 import { toast } from "sonner@2.0.3";
 
@@ -49,7 +48,8 @@ export function CreateReport({ onBack, onGenerate }: CreateReportProps) {
   };
 
   const { clients } = useData();
-  const availableClients = clients.length ? clients : mockClients;
+  const availableClients = clients;
+  const hasClients = availableClients.length > 0;
 
   const selectedSectionsCount = Object.values(includeSections).filter(Boolean).length;
   const selectedClientData = availableClients.find(c => c.id === selectedClient);
@@ -97,9 +97,13 @@ export function CreateReport({ onBack, onGenerate }: CreateReportProps) {
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="report-client">Select Client *</Label>
-              <Select value={selectedClient} onValueChange={setSelectedClient}>
+              <Select
+                value={selectedClient}
+                onValueChange={setSelectedClient}
+                disabled={!hasClients}
+              >
                 <SelectTrigger id="report-client">
-                  <SelectValue placeholder="Choose a client..." />
+                  <SelectValue placeholder={hasClients ? "Choose a client..." : "No clients available"} />
                 </SelectTrigger>
                 <SelectContent>
                   {availableClients.map((client) => (
@@ -109,6 +113,9 @@ export function CreateReport({ onBack, onGenerate }: CreateReportProps) {
                   ))}
                 </SelectContent>
               </Select>
+              {!hasClients && (
+                <p className="text-xs text-slate-500">Add a client account before generating reports.</p>
+              )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="report-type">Report Type *</Label>

@@ -39,6 +39,7 @@ export function Accounts({ onClientClick }: AccountsProps) {
   const { clients, clientsLoading, deleteClient, viewerRole } = useData();
 
   const isAdmin = viewerRole === "admin";
+  const hasClients = clients.length > 0;
 
   const filteredClients = useMemo(() => {
     return clients.filter((client) =>
@@ -133,7 +134,7 @@ export function Accounts({ onClientClick }: AccountsProps) {
                     </TableCell>
                   </TableRow>
                 )}
-                {!clientsLoading && filteredClients.map((client) => (
+                {!clientsLoading && hasClients && filteredClients.map((client) => (
                   <TableRow
                     key={client.id}
                     className="hover:bg-slate-50"
@@ -200,11 +201,18 @@ export function Accounts({ onClientClick }: AccountsProps) {
                     </TableCell>
                   </TableRow>
                 ))}
+                {!clientsLoading && !hasClients && (
+                  <TableRow>
+                    <TableCell colSpan={8} className="text-center py-6 text-slate-500">
+                      No client accounts added yet. Connect a Google Ads account to get started.
+                    </TableCell>
+                  </TableRow>
+                )}
               </TableBody>
             </Table>
           </div>
 
-          {!clientsLoading && filteredClients.length === 0 && (
+          {!clientsLoading && hasClients && filteredClients.length === 0 && (
             <div className="text-center py-12">
               <p className="text-slate-500">No clients found matching your search</p>
             </div>
