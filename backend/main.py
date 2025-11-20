@@ -49,14 +49,7 @@ app = FastAPI(
 # CORS setup
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://localhost:5173",
-        "https://google-ads-backend-ofxo.onrender.com",
-        "https://google-ads-git-test-sathesh-projects.vercel.app",
-        "https://google-ads-indol.vercel.app",
-        "https://aaa.brandingbeez.io"
-    ],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
