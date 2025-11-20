@@ -15,7 +15,7 @@ GOOGLE_ADS_QUERY = """
     FROM campaign
     WHERE segments.date DURING LAST_7_DAYS
 """
-GOOGLE_ADS_SEARCH_URL = "https://googleads.googleapis.com/v17/customers"
+GOOGLE_ADS_SEARCH_URL = "https://googleads.googleapis.com/v22/customers"
 
 # -------------------- Logger Setup --------------------
 logger = logging.getLogger(__name__)
@@ -48,7 +48,22 @@ def refresh_access_token(
         "grant_type": "refresh_token",
     }
 
-    response = requests.post(GOOGLE_TOKEN_URL, data=payload, timeout=15)
+    logger.info("Refreshing Google access token — payload keys: %s", list(payload.keys()))
+    try:
+        response = requests.post("https://oauth2.googleapis.com/token", data=payload, timeout=15)
+    except Exception as e:
+        logger.exception("Exception while contacting Google token endpoint")
+        raise HTTPException(status_code=500, detail=f"Failed to contact Google token endpoint: {e}")
+
+    # Log status & body for debugging
+    logger.info("Google token endpoint returned status %s", response.status_code)
+    try:
+        body = response.json()
+    except Exception:
+        body = response.text
+
+    logger.info("Google token endpoint response body: %s", body)
+
     if response.status_code != 200:
         try:
             error_detail = response.json()
@@ -60,9 +75,15 @@ def refresh_access_token(
             detail=f"Failed to refresh Google token: {error_detail}",
         )
 
+    # success path
     data = response.json()
-    logger.info("✅ Access token refreshed successfully.")
-    return data["access_token"]
+    access_token = data.get("access_token")
+    if not access_token:
+        logger.error("No access_token present in Google response: %s", data)
+        raise HTTPException(status_code=400, detail=f"Failed to refresh Google token (no access_token): {data}")
+
+    logger.info("Access token refreshed successfully (expires_in=%s)", data.get("expires_in"))
+    return access_token
 
 
 # -------------------- STEP 2: RUN GOOGLE ADS QUERY --------------------
@@ -154,6 +175,7 @@ def _resolve_google_ads_credentials(db: Session, client_db_id: int):
         return {
             "refresh_token": account.refresh_token,
             "login_customer_id": account.login_customer_id,
+            "customer_id": account.customer_id,
             "developer_token": account.developer_token,
             "google_client_id": account.google_client_id,
             "google_client_secret": account.google_client_secret,
@@ -164,6 +186,7 @@ def _resolve_google_ads_credentials(db: Session, client_db_id: int):
         return {
             "refresh_token": client_record.refresh_token,
             "login_customer_id": client_record.login_customer_id,
+            "customer_id": client_record.customer_id,
             "developer_token": client_record.developer_token,
             "google_client_id": client_record.client_id,
             "google_client_secret": client_record.client_secret,
@@ -184,6 +207,7 @@ def fetch_and_save_campaigns(db: Session, client_db_id: int, start_date: str, en
 
     refresh_token = credentials["refresh_token"]
     login_customer_id = credentials.get("login_customer_id")
+    customer_id = credentials.get("customer_id")
     developer_token = credentials.get("developer_token")
 
     access_token = refresh_access_token(
@@ -192,7 +216,7 @@ def fetch_and_save_campaigns(db: Session, client_db_id: int, start_date: str, en
         google_client_secret=credentials.get("google_client_secret"),
     )
 
-    customer_id = login_customer_id or os.getenv("LOGIN_CUSTOMER_ID")
+    customer_id = customer_id or login_customer_id or os.getenv("LOGIN_CUSTOMER_ID")
     if not customer_id:
         raise HTTPException(status_code=400, detail="Missing login_customer_id for Google Ads request")
 

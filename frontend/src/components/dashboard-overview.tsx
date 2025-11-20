@@ -15,7 +15,7 @@ import {
 } from "./ui/dialog";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
-import { mockClients, mockManagers, mockAlerts, Manager } from "../lib/mock-data";
+import { Manager } from "../lib/mock-data";
 import { useData } from "../lib/data-context";
 import { KPICard } from "./kpi-card";
 import { ClientCard } from "./client-card";
@@ -37,6 +37,7 @@ type ClientFormState = {
   client_id: string;
   client_secret: string;
   refresh_token: string;
+  customer_id: string;
   login_customer_id: string;
   assigned_manager_id: string;
 };
@@ -73,14 +74,8 @@ export function DashboardOverview({
     authDetails,
   } = useData();
   const isAdmin = viewerRole === "admin";
-  const displayClients = clients.length ? clients : authToken ? [] : mockClients;
-  const displayManagers = isAdmin
-    ? managers.length
-      ? managers
-      : authToken
-      ? []
-      : mockManagers
-    : [];
+  const displayClients = clients;
+  const displayManagers = isAdmin ? managers : [];
   const createInitialClientForm = useCallback(
     (): ClientFormState => ({
       name: "",
@@ -89,6 +84,7 @@ export function DashboardOverview({
       client_id: "",
       client_secret: "",
       refresh_token: refreshToken ?? "",
+      customer_id: "",
       login_customer_id: "",
       assigned_manager_id: "",
     }),
@@ -136,6 +132,7 @@ export function DashboardOverview({
       "client_id",
       "client_secret",
       "refresh_token",
+      "customer_id",
     ];
 
     const missingField = requiredFields.find((field) => !clientForm[field]?.trim());
@@ -155,6 +152,7 @@ export function DashboardOverview({
         client_id: clientForm.client_id.trim(),
         client_secret: clientForm.client_secret.trim(),
         refresh_token: clientForm.refresh_token.trim(),
+        customer_id: clientForm.customer_id.trim(),
         login_customer_id: clientForm.login_customer_id.trim() || null,
         assigned_manager_id: clientForm.assigned_manager_id
           ? Number(clientForm.assigned_manager_id)
@@ -307,13 +305,18 @@ export function DashboardOverview({
                         <Input
                           id="google-ads-id"
                           placeholder="e.g., 123-456-7890"
-                          value={clientForm.login_customer_id}
-                          onChange={handleClientInputChange("login_customer_id")}
+                          value={clientForm.customer_id}
+                          onChange={handleClientInputChange("customer_id")}
                         />
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="login-customer-id">Login Customer ID</Label>
-                        <Input id="login-customer-id" placeholder="e.g., 123-456-7890" />
+                        <Input
+                          id="login-customer-id"
+                          placeholder="e.g., 987-654-3210"
+                          value={clientForm.login_customer_id}
+                          onChange={handleClientInputChange("login_customer_id")}
+                        />
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="developer-token">Developer Token</Label>
@@ -448,7 +451,7 @@ export function DashboardOverview({
       )}
 
       {/* Alerts and Notifications */}
-      <AlertsPanel alerts={mockAlerts} onAlertClick={onAlertClick} />
+      <AlertsPanel alerts={[]} onAlertClick={onAlertClick} />
 
       {/* AI Recommendations Overview */}
       <AIRecommendationOverview
@@ -487,6 +490,9 @@ export function DashboardOverview({
         <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
           {clientsLoading && (
             <div className="col-span-full text-sm text-slate-500">Loading client accounts...</div>
+          )}
+          {!clientsLoading && !displayClients.length && (
+            <div className="col-span-full text-sm text-slate-500">No client accounts added yet.</div>
           )}
           {displayClients.map((client) => (
             <ClientCard key={client.id} client={client} onClick={() => onClientClick(client.id)} />

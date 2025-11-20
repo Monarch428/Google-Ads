@@ -4,6 +4,9 @@ import requests
 from urllib.parse import urlencode
 from sqlalchemy.orm import Session
 from typing import Optional
+from fastapi import HTTPException
+
+from models.client_model import Client
 from models.google_ads_account import GoogleAdsAccount
 
 GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
@@ -50,7 +53,13 @@ def exchange_code_for_tokens(code: str, redirect_uri: str) -> dict:
     return resp.json()  # contains access_token, expires_in, refresh_token (if granted), scope, token_type
 
 
-def save_google_account(db: Session, client_db_id: int, tokens: dict, login_customer_id: Optional[str] = None, developer_token: Optional[str] = None):
+def save_google_account(
+    db: Session,
+    client_db_id: int,
+    tokens: dict,
+    login_customer_id: Optional[str] = None,
+    developer_token: Optional[str] = None,
+):
     """
     Upsert GoogleAdsAccount record storing refresh_token and related info.
     """
@@ -58,12 +67,24 @@ def save_google_account(db: Session, client_db_id: int, tokens: dict, login_cust
     google_client_id = os.getenv("GOOGLE_CLIENT_ID")
     google_client_secret = os.getenv("GOOGLE_CLIENT_SECRET")
 
-    existing = db.query(GoogleAdsAccount).filter(GoogleAdsAccount.client_id == client_db_id).first()
+    client_record = db.query(Client).filter(Client.id == client_db_id).first()
+    if not client_record:
+        raise HTTPException(status_code=404, detail="Client not found for Google Ads linking")
+
+    customer_id = client_record.customer_id
+    login_customer_from_client = client_record.login_customer_id
+    effective_login_customer_id = login_customer_id or login_customer_from_client
+
+    existing = (
+        db.query(GoogleAdsAccount)
+        .filter(GoogleAdsAccount.client_id == client_db_id)
+        .first()
+    )
     if existing:
         if refresh_token:
             existing.refresh_token = refresh_token
-        if login_customer_id:
-            existing.login_customer_id = login_customer_id
+        existing.login_customer_id = effective_login_customer_id
+        existing.customer_id = customer_id
         if developer_token:
             existing.developer_token = developer_token
         existing.google_client_id = google_client_id
@@ -75,7 +96,8 @@ def save_google_account(db: Session, client_db_id: int, tokens: dict, login_cust
             google_client_id=google_client_id,
             google_client_secret=google_client_secret,
             refresh_token=refresh_token,
-            login_customer_id=login_customer_id
+            login_customer_id=effective_login_customer_id,
+            customer_id=customer_id,
         )
         db.add(account)
     db.commit()
