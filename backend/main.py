@@ -51,7 +51,7 @@ load_dotenv()
 # CORS setup
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["https://aaa.brandingbeez.io", "http://localhost:3000", "http://localhost:5173", "https://google-ads-indol.vercel.app"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
