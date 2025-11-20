@@ -1,5 +1,5 @@
 // lib/api.ts
-export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "https://google-ads-w6ag.onrender.com";
 
 function normalizeHeaders(headers?: HeadersInit): Record<string, string> {
   if (!headers) {
