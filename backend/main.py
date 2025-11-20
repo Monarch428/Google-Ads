@@ -54,7 +54,8 @@ app.add_middleware(
         "http://localhost:5173",
         "https://google-ads-backend-ofxo.onrender.com",
         "https://google-ads-git-test-sathesh-projects.vercel.app",
-        "https://google-ads-indol.vercel.app"
+        "https://google-ads-indol.vercel.app",
+        "https://aaa.brandingbeez.io"
     ],
     allow_credentials=True,
     allow_methods=["*"],
