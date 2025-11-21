@@ -17,7 +17,7 @@ def build_oauth_consent_url(redirect_uri: Optional[str] = None, state: Optional[
 
     client_id = os.getenv("GOOGLE_CLIENT_ID")
     effective_redirect = redirect_uri or os.getenv(
-        "GOOGLE_OAUTH_REDIRECT_URI", "http://localhost:8000/google-ads/callback"
+        "GOOGLE_OAUTH_REDIRECT_URI", "https://google-ads-w6ag.onrender.com/google-ads/callback"
     )
     scope = os.getenv("GOOGLE_ADS_SCOPE", "https://www.googleapis.com/auth/adwords")
     params = {
