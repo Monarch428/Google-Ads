@@ -1,7 +1,7 @@
 import os
 import requests
 from sqlalchemy.orm import Session
-from datetime import date
+from datetime import date, datetime
 import logging
 from fastapi import HTTPException
 from models.google_ads_account import GoogleAdsAccount
@@ -114,6 +114,59 @@ def run_google_ads_query(access_token: str, customer_id: str, query: str, develo
 
 
 # -------------------- STEP 3: SAVE CAMPAIGN DATA --------------------
+# def save_campaign_data(db: Session, client_db_id: int, response_data):
+#     """
+#     Parse Google Ads API data and save/update Campaign records.
+#     """
+#     saved_count = 0
+
+#     for batch in response_data:
+#         for row in batch.get("results", []):
+#             cname = row["campaign"]["name"]
+#             impressions = int(row["metrics"].get("impressions", 0))
+#             clicks = int(row["metrics"].get("clicks", 0))
+#             conversions = int(row["metrics"].get("conversions", 0))
+#             cost_micros = int(row["metrics"].get("costMicros", 0))
+#             campaign_date = row["segments"]["date"]
+
+#             existing = (
+#                 db.query(Campaign)
+#                 .filter(
+#                     Campaign.name == cname,
+#                     Campaign.client_id == client_db_id,
+#                     Campaign.date == campaign_date,
+#                 )
+#                 .first()
+#             )
+
+#             if existing:
+#                 existing.impressions = impressions
+#                 existing.clicks = clicks
+#                 existing.conversions = conversions
+#                 existing.cost = cost_micros / 1_000_000
+#             else:
+#                 new_campaign = Campaign(
+#                     client_id=client_db_id,
+#                     name=cname,
+#                     impressions=impressions,
+#                     clicks=clicks,
+#                     conversions=conversions,
+#                     cost=cost_micros / 1_000_000,
+#                     date=campaign_date,
+#                 )
+#                 db.add(new_campaign)
+#                 saved_count += 1
+
+#     db.commit()
+#     return saved_count
+
+def _parse_ga_date(date_str: str):
+    """
+    Google Ads segments.date comes as 'YYYY-MM-DD'.
+    Convert it to a Python date object to match Column(Date).
+    """
+    return datetime.strptime(date_str, "%Y-%m-%d").date()
+
 def save_campaign_data(db: Session, client_db_id: int, response_data):
     """
     Parse Google Ads API data and save/update Campaign records.
@@ -127,8 +180,12 @@ def save_campaign_data(db: Session, client_db_id: int, response_data):
             clicks = int(row["metrics"].get("clicks", 0))
             conversions = int(row["metrics"].get("conversions", 0))
             cost_micros = int(row["metrics"].get("costMicros", 0))
-            campaign_date = row["segments"]["date"]
 
+            # GA returns '2024-03-14' as string
+            campaign_date_str = row["segments"]["date"]
+            campaign_date = _parse_ga_date(campaign_date_str)  # <-- convert to date
+
+            # ✅ compare Date column to a date object (no more VARCHAR)
             existing = (
                 db.query(Campaign)
                 .filter(
@@ -142,7 +199,9 @@ def save_campaign_data(db: Session, client_db_id: int, response_data):
             if existing:
                 existing.impressions = impressions
                 existing.clicks = clicks
-                existing.conversions = conversions
+                # only do this if you actually have a conversions column in the model
+                if hasattr(existing, "conversions"):
+                    existing.conversions = conversions
                 existing.cost = cost_micros / 1_000_000
             else:
                 new_campaign = Campaign(
@@ -150,10 +209,13 @@ def save_campaign_data(db: Session, client_db_id: int, response_data):
                     name=cname,
                     impressions=impressions,
                     clicks=clicks,
-                    conversions=conversions,
                     cost=cost_micros / 1_000_000,
-                    date=campaign_date,
+                    date=campaign_date,  # ✅ store as date object
                 )
+                # only set if model has this column
+                if hasattr(new_campaign, "conversions"):
+                    new_campaign.conversions = conversions
+
                 db.add(new_campaign)
                 saved_count += 1
 
