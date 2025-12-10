@@ -33,14 +33,17 @@ import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
 type ClientFormState = {
   name: string;
   email: string;
-  developer_token: string;
+  // developer_token: string;
   client_id: string;
   client_secret: string;
   refresh_token: string;
   customer_id: string;
-  login_customer_id: string;
+  // login_customer_id: string;
   assigned_manager_id: string;
 };
+
+const STATIC_DEVELOPER_TOKEN = import.meta.env.VITE_DEVELOPER_TOKEN ?? "";
+const STATIC_LOGIN_CUSTOMER_ID = import.meta.env.VITE_LOGIN_CUSTOMER_ID ?? "";
 
 interface DashboardOverviewProps {
   onClientClick: (clientId: string) => void;
@@ -80,12 +83,12 @@ export function DashboardOverview({
     (): ClientFormState => ({
       name: "",
       email: "",
-      developer_token: "",
+      // developer_token: "",
       client_id: "",
       client_secret: "",
       refresh_token: refreshToken ?? "",
       customer_id: "",
-      login_customer_id: "",
+      // login_customer_id: "",
       assigned_manager_id: "",
     }),
     [refreshToken],
@@ -125,10 +128,24 @@ export function DashboardOverview({
       return;
     }
 
+    if (!STATIC_DEVELOPER_TOKEN) {
+      toast.error("Configuration required", {
+        description: "Developer token is missing. Please configure VITE_DEVELOPER_TOKEN.",
+      });
+      return;
+    }
+
+    if (!STATIC_LOGIN_CUSTOMER_ID) {
+      toast.error("Configuration required", {
+        description: "Login customer ID is missing. Please configure VITE_LOGIN_CUSTOMER_ID.",
+      });
+      return;
+    }
+
     const requiredFields: Array<keyof ClientFormState> = [
       "name",
       "email",
-      "developer_token",
+      // "developer_token",
       "client_id",
       "client_secret",
       "refresh_token",
@@ -145,15 +162,20 @@ export function DashboardOverview({
 
     setIsSubmittingClient(true);
     try {
+      const developerToken = STATIC_DEVELOPER_TOKEN.trim();
+      const loginCustomerId = STATIC_LOGIN_CUSTOMER_ID.trim();
+
       const payload = {
         name: clientForm.name.trim(),
         email: clientForm.email.trim(),
-        developer_token: clientForm.developer_token.trim(),
+        // developer_token: clientForm.developer_token.trim(),
+        developer_token: developerToken,
         client_id: clientForm.client_id.trim(),
         client_secret: clientForm.client_secret.trim(),
         refresh_token: clientForm.refresh_token.trim(),
         customer_id: clientForm.customer_id.trim(),
-        login_customer_id: clientForm.login_customer_id.trim() || null,
+        // login_customer_id: clientForm.login_customer_id.trim() || null,
+        login_customer_id: loginCustomerId,
         assigned_manager_id: clientForm.assigned_manager_id
           ? Number(clientForm.assigned_manager_id)
           : undefined,
@@ -309,7 +331,7 @@ export function DashboardOverview({
                           onChange={handleClientInputChange("customer_id")}
                         />
                       </div>
-                      <div className="space-y-2">
+                      {/* <div className="space-y-2">
                         <Label htmlFor="login-customer-id">Login Customer ID</Label>
                         <Input
                           id="login-customer-id"
@@ -327,7 +349,7 @@ export function DashboardOverview({
                           value={clientForm.developer_token}
                           onChange={handleClientInputChange("developer_token")}
                         />
-                      </div>
+                      </div> */}
                       <div className="space-y-2">
                         <Label htmlFor="client-id">Client ID</Label>
                         <Input
