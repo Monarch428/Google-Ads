@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Checkbox } from "./ui/checkbox";
 import { Badge } from "./ui/badge";
 import { Separator } from "./ui/separator";
+import { DatePicker } from "./ui/date-range-picker";
 import {
   ArrowLeft,
   Package,
@@ -32,6 +33,7 @@ export function CreateBundle({ onBack, onSave, preSelectedClientId }: CreateBund
   const [selectedClient, setSelectedClient] = useState<string>(preSelectedClientId || "");
   const [selectedRecommendations, setSelectedRecommendations] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [targetDate, setTargetDate] = useState<Date | undefined>();
   const { clients, recommendations, recommendationsLoading, recommendationsError, authToken } = useData();
   const availableClients = clients.length ? clients : mockClients;
 
@@ -175,7 +177,11 @@ export function CreateBundle({ onBack, onSave, preSelectedClientId }: CreateBund
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="target-date">Target Completion Date</Label>
-              <Input id="target-date" type="date" />
+              <DatePicker
+                value={targetDate}
+                onChange={setTargetDate}
+                placeholder="Set a target date"
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="priority">Priority Level</Label>

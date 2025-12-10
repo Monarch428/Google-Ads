@@ -1,21 +1,15 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { CalendarIcon, Loader2, RefreshCw } from "lucide-react";
-import { DateRange } from "react-day-picker@8.10.1";
+import type { DateRange } from "react-day-picker@8.10.1";
 import { Button } from "./ui/button";
+import { DateRangePicker } from "./ui/date-range-picker";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
-import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
-import { Calendar } from "./ui/calendar";
 import { cn } from "./ui/utils";
 import { useData } from "../lib/data-context";
 import { toast } from "sonner@2.0.3";
 
 function formatForApi(date: Date) {
   return date.toISOString().slice(0, 10);
-}
-
-function formatDisplay(date?: Date) {
-  if (!date) return "";
-  return date.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
 }
 
 const SIX_DAYS_IN_MS = 6 * 24 * 60 * 60 * 1000;
@@ -58,13 +52,6 @@ export function GoogleAdsSyncControls({
       setSelectedClientId(clients[0].id);
     }
   }, [clients, selectedClientId]);
-
-  const formattedRangeLabel = useMemo(() => {
-    if (!dateRange?.from || !dateRange?.to) {
-      return "Pick a date range";
-    }
-    return `${formatDisplay(dateRange.from)} → ${formatDisplay(dateRange.to)}`;
-  }, [dateRange]);
 
   const buttonSize = size === "compact" ? "sm" : "default";
   const disabled = !selectedClientId || clientsLoading || !authToken;
@@ -144,31 +131,12 @@ export function GoogleAdsSyncControls({
             ))}
           </SelectContent>
         </Select>
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button
-              variant="outline"
-              className={cn(
-                "justify-start text-left font-normal",
-                size === "compact" ? "h-9 text-xs" : "min-w-[220px]",
-                !dateRange?.from && "text-muted-foreground",
-              )}
-              disabled={disabled}
-            >
-              <CalendarIcon className="mr-2 h-4 w-4" />
-              {formattedRangeLabel}
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-auto p-0" align="start">
-            <Calendar
-              mode="range"
-              selected={dateRange}
-              defaultMonth={dateRange?.from}
-              onSelect={setDateRange}
-              numberOfMonths={2}
-            />
-          </PopoverContent>
-        </Popover>
+        <DateRangePicker
+          value={dateRange}
+          onChange={setDateRange}
+          placeholder="Pick a custom range"
+          className={cn(size === "compact" && "h-10 min-w-[240px] text-xs")}
+        />
       </div>
       <div className="flex flex-wrap items-center gap-3">
         <Button

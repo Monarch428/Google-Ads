@@ -1,4 +1,5 @@
 import { useState } from "react";
+import type { DateRange } from "react-day-picker@8.10.1";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -11,7 +12,6 @@ import { Badge } from "./ui/badge";
 import {
   ArrowLeft,
   FileText,
-  Calendar,
   BarChart3,
   CheckCircle,
   Eye,
@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { useData } from "../lib/data-context";
 import { toast } from "sonner@2.0.3";
+import { DateRangePicker } from "./ui/date-range-picker";
 
 interface CreateReportProps {
   onBack: () => void;
@@ -38,6 +39,10 @@ export function CreateReport({ onBack, onGenerate }: CreateReportProps) {
     deviceAnalysis: true,
     aiRecommendations: true,
     actionItems: true,
+  });
+  const [reportRange, setReportRange] = useState<DateRange | undefined>({
+    from: new Date("2025-10-01"),
+    to: new Date("2025-10-31"),
   });
 
   const handleSectionToggle = (section: string) => {
@@ -133,15 +138,13 @@ export function CreateReport({ onBack, onGenerate }: CreateReportProps) {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="start-date">Start Date *</Label>
-              <Input id="start-date" type="date" defaultValue="2025-10-01" />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="end-date">End Date *</Label>
-              <Input id="end-date" type="date" defaultValue="2025-10-31" />
-            </div>
+          <div className="space-y-2">
+            <Label htmlFor="report-dates">Reporting Period *</Label>
+            <DateRangePicker
+              value={reportRange}
+              onChange={setReportRange}
+              placeholder="Select a reporting window"
+            />
           </div>
 
           <div className="space-y-2">
