@@ -34,8 +34,8 @@ type ClientFormState = {
   name: string;
   email: string;
   // developer_token: string;
-  client_id: string;
-  client_secret: string;
+  // client_id: string;
+  // client_secret: string;
   refresh_token: string;
   customer_id: string;
   // login_customer_id: string;
@@ -44,6 +44,8 @@ type ClientFormState = {
 
 const STATIC_DEVELOPER_TOKEN = import.meta.env.VITE_DEVELOPER_TOKEN ?? "";
 const STATIC_LOGIN_CUSTOMER_ID = import.meta.env.VITE_LOGIN_CUSTOMER_ID ?? "";
+const STATIC_CLIENT_ID = import.meta.env.VITE_CLIENT_ID ?? "";
+const STATIC_CLIENT_SECRET = import.meta.env.VITE_CLIENT_SECRET ?? "";
 
 interface DashboardOverviewProps {
   onClientClick: (clientId: string) => void;
@@ -84,8 +86,8 @@ export function DashboardOverview({
       name: "",
       email: "",
       // developer_token: "",
-      client_id: "",
-      client_secret: "",
+      // client_id: "",
+      // client_secret: "",
       refresh_token: refreshToken ?? "",
       customer_id: "",
       // login_customer_id: "",
@@ -95,6 +97,7 @@ export function DashboardOverview({
   );
   const [clientForm, setClientForm] = useState<ClientFormState>(() => createInitialClientForm());
   const [isSubmittingClient, setIsSubmittingClient] = useState(false);
+  const [customerIdError, setCustomerIdError] = useState<string | null>(null);
   const oauthPendingClients = authToken ? clients.filter((client) => !client.hasGoogleOAuth) : [];
   const showGoogleOAuthReminder = oauthPendingClients.length > 0;
 
@@ -104,12 +107,29 @@ export function DashboardOverview({
       setClientForm((prev) => ({ ...prev, refresh_token: refreshToken ?? "" }));
     } else {
       setClientForm(createInitialClientForm());
+      setCustomerIdError(null);
     }
   };
 
   const handleClientInputChange = (field: keyof ClientFormState) =>
     (event: ChangeEvent<HTMLInputElement>) => {
       const value = event.target.value;
+       if (field === "customer_id") {
+        const sanitizedValue = value.replace(/\D/g, "");
+
+        if (!sanitizedValue) {
+          setCustomerIdError(null);
+        } else if (value.includes("-")) {
+          setCustomerIdError("Please remove \"-\" and enter only numbers.");
+        } else if (/\D/.test(value)) {
+          setCustomerIdError("Customer ID must contain numbers only.");
+        } else {
+          setCustomerIdError(null);
+        }
+
+        setClientForm((prev) => ({ ...prev, [field]: sanitizedValue }));
+        return;
+      }
       setClientForm((prev) => ({ ...prev, [field]: value }));
     };
 
@@ -142,12 +162,19 @@ export function DashboardOverview({
       return;
     }
 
+     if (!STATIC_CLIENT_ID || !STATIC_CLIENT_SECRET) {
+      toast.error("Configuration required", {
+        description: "OAuth client ID/secret are missing. Please configure VITE_CLIENT_ID and VITE_CLIENT_SECRET.",
+      });
+      return;
+    }
+
     const requiredFields: Array<keyof ClientFormState> = [
       "name",
       "email",
       // "developer_token",
-      "client_id",
-      "client_secret",
+      // "client_id",
+      // "client_secret",
       "refresh_token",
       "customer_id",
     ];
@@ -170,8 +197,10 @@ export function DashboardOverview({
         email: clientForm.email.trim(),
         // developer_token: clientForm.developer_token.trim(),
         developer_token: developerToken,
-        client_id: clientForm.client_id.trim(),
-        client_secret: clientForm.client_secret.trim(),
+        // client_id: clientForm.client_id.trim(),
+        // client_secret: clientForm.client_secret.trim(),
+        client_id: STATIC_CLIENT_ID,
+        client_secret: STATIC_CLIENT_SECRET,
         refresh_token: clientForm.refresh_token.trim(),
         customer_id: clientForm.customer_id.trim(),
         // login_customer_id: clientForm.login_customer_id.trim() || null,
@@ -322,14 +351,21 @@ export function DashboardOverview({
                   <div className="col-span-2 pt-2">
                     <h3 className="text-sm text-slate-700 mb-3">Google Ads API Credentials</h3>
                     <div className="grid grid-cols-2 gap-x-6 gap-y-4">
+                      <div className="col-span-2 rounded-md border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">
+                        OAuth credentials are managed by your workspace and applied automatically when creating
+                        clients. The configured client ID and secret will be used for all new accounts.
+                      </div>
                       <div className="space-y-2">
                         <Label htmlFor="google-ads-id">Google Ads Customer ID</Label>
                         <Input
                           id="google-ads-id"
-                          placeholder="e.g., 123-456-7890"
+                          placeholder="e.g., 1234567890"
                           value={clientForm.customer_id}
                           onChange={handleClientInputChange("customer_id")}
                         />
+                        {customerIdError && (
+                          <p className="text-xs text-destructive">{customerIdError}</p>
+                        )}
                       </div>
                       {/* <div className="space-y-2">
                         <Label htmlFor="login-customer-id">Login Customer ID</Label>
@@ -350,7 +386,7 @@ export function DashboardOverview({
                           onChange={handleClientInputChange("developer_token")}
                         />
                       </div> */}
-                      <div className="space-y-2">
+                      {/* <div className="space-y-2">
                         <Label htmlFor="client-id">Client ID</Label>
                         <Input
                           id="client-id"
@@ -368,7 +404,7 @@ export function DashboardOverview({
                           value={clientForm.client_secret}
                           onChange={handleClientInputChange("client_secret")}
                         />
-                      </div>
+                      </div> */}
                       <div className="space-y-2">
                         <Label htmlFor="refresh-token">Refresh Token</Label>
                         <Input
