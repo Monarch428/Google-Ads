@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { format, isValid, parse } from "date-fns";
-import type { DateRange } from "react-day-picker@8.10.1";
+import type { DateRange } from "react-day-picker";
 import { CalendarIcon } from "lucide-react";
 
 import { Button } from "./button";
@@ -44,6 +44,7 @@ export function DateRangePicker({
   const [endInput, setEndInput] = useState<string>(
     value?.to ? format(value.to, "yyyy-MM-dd") : "",
   );
+  const [open, setOpen] = useState(false); // control popover
 
   useEffect(() => {
     setRange(value);
@@ -108,8 +109,34 @@ export function DateRangePicker({
     onChange?.(undefined);
   };
 
+  const handleConfirm = () => {
+    // use either current range or try to parse raw inputs
+    const from =
+      range?.from || (startInput ? parseInput(startInput) : undefined);
+    const to = range?.to || (endInput ? parseInput(endInput) : undefined);
+
+    if (!from || !to) {
+      // simple popup for missing data – you can swap this to your toast if needed
+      window.alert("Please select both a start date and an end date.");
+      return;
+    }
+
+    let finalFrom = from;
+    let finalTo = to;
+    if (finalTo < finalFrom) {
+      [finalFrom, finalTo] = [finalTo, finalFrom];
+    }
+
+    const finalRange: DateRange = { from: finalFrom, to: finalTo };
+    setRange(finalRange);
+    setStartInput(format(finalFrom, "yyyy-MM-dd"));
+    setEndInput(format(finalTo, "yyyy-MM-dd"));
+    onChange?.(finalRange);
+    setOpen(false); // close popover
+  };
+
   return (
-    <Popover>
+    <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button
           variant="outline"
@@ -124,7 +151,7 @@ export function DateRangePicker({
         </Button>
       </PopoverTrigger>
       <PopoverContent
-        className="w-[min(100vw-2rem,640px)] rounded-xl border border-slate-100 bg-white p-4 shadow-xl"
+        className="w-[min(100vw-2rem,720px)] rounded-xl border border-slate-100 bg-white p-4 shadow-xl"
         align="start"
       >
         <div className="flex flex-col gap-4">
@@ -193,6 +220,13 @@ export function DateRangePicker({
                 className="w-full bg-transparent p-0"
               />
             </div>
+          </div>
+
+          {/* ✅ Set button under the calendars */}
+          <div className="flex justify-end">
+            <Button size="sm" onClick={handleConfirm}>
+              Set dates
+            </Button>
           </div>
         </div>
       </PopoverContent>

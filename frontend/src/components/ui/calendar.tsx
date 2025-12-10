@@ -1,8 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react@0.487.0";
-import { DayPicker } from "react-day-picker@8.10.1";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import { DayPicker } from "react-day-picker";
 
 import { cn } from "./utils";
 import { buttonVariants } from "./button";
@@ -16,60 +16,83 @@ function Calendar({
   return (
     <DayPicker
       showOutsideDays={showOutsideDays}
-      className={cn(
-        "p-3 text-slate-900",
-        "[&_caption]:rounded-xl [&_caption]:bg-gradient-to-r [&_caption]:from-purple-100 [&_caption]:to-indigo-100 [&_caption]:px-4 [&_caption]:py-2",
-        className,
-      )}
+      className={cn("w-full p-3 text-slate-900", className)}
       classNames={{
-        months: "flex flex-col sm:flex-row gap-3",
-        month: "flex flex-col gap-4 rounded-xl border border-slate-100 bg-white/80 p-3 shadow-sm",
+        /* layout: make both months stretch */
+        months:
+          "flex w-full flex-col gap-4 sm:flex-row sm:gap-8 sm:justify-between",
+        month:
+          "flex-1 flex flex-col gap-3 rounded-xl border border-slate-100 bg-white/90 p-4 shadow-sm",
+
         caption:
-          "flex justify-center pt-1 relative items-center w-full text-slate-800",
-        caption_label: "text-sm font-semibold tracking-wide",
-        nav: "flex items-center gap-1 text-slate-600",
+          "relative flex w-full items-center justify-center pt-1 text-slate-800 [&>div]:w-full",
+        caption_label:
+          "w-full rounded-lg bg-gradient-to-r from-purple-100 to-indigo-100 px-4 py-2 text-sm font-semibold tracking-wide text-slate-900 text-center",
+        nav: "absolute inset-y-0 right-3 flex items-center gap-1 text-slate-600",
         nav_button: cn(
           buttonVariants({ variant: "outline" }),
-          "size-7 rounded-lg border-slate-200 bg-white p-0 opacity-70 shadow-sm hover:opacity-100",
+          "size-7 rounded-lg border-slate-200 bg-white p-0 opacity-80 shadow-sm hover:opacity-100"
         ),
-        nav_button_previous: "absolute left-1",
-        nav_button_next: "absolute right-1",
-        table: "w-full border-collapse space-x-1",
-        head_row: "flex text-slate-500",
+        nav_button_previous: "absolute left-3 inset-y-0 my-auto",
+        nav_button_next: "absolute right-3 inset-y-0 my-auto",
+
+        /* table grid – 7 equal columns, with gaps */
+        table: "w-full border-collapse border-spacing-0",
+        head_row: "grid grid-cols-7 gap-x-2 mb-1",
         head_cell:
-          "rounded-md w-8 font-medium text-[0.8rem] uppercase tracking-wide",
-        row: "flex w-full mt-2",
+          "flex h-8 items-center justify-center text-center text-[0.7rem] font-medium uppercase tracking-wide text-slate-500",
+        row: "mt-1 grid grid-cols-7 gap-x-2 gap-y-2",
         cell: cn(
-          "relative p-0 text-center text-sm focus-within:relative focus-within:z-20 [&:has([aria-selected])]:bg-accent [&:has([aria-selected].day-range-end)]:rounded-r-md",
+          "relative flex items-center justify-center h-10 p-0 text-center text-sm focus-within:relative focus-within:z-20",
           props.mode === "range"
-            ? "[&:has(>.day-range-end)]:rounded-r-md [&:has(>.day-range-start)]:rounded-l-md first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md"
-            : "[&:has([aria-selected])]:rounded-md",
+            ? "[&:has([aria-selected])]:bg-purple-50 first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md"
+            : "[&:has([aria-selected])]:rounded-md [&:has([aria-selected])]:bg-purple-100"
         ),
+
+        /* day buttons */
         day: cn(
           buttonVariants({ variant: "ghost" }),
-          "size-8 p-0 font-medium aria-selected:opacity-100 text-slate-700",
+          "h-10 w-10 p-0 font-medium text-slate-700 transition-transform duration-150 hover:scale-110"
         ),
-        day_range_start:
-          "day-range-start aria-selected:bg-primary aria-selected:text-primary-foreground",
-        day_range_end:
-          "day-range-end aria-selected:bg-primary aria-selected:text-primary-foreground",
+
         day_selected:
-          "bg-gradient-to-br from-purple-500 to-indigo-500 text-white shadow-sm hover:from-purple-500 hover:to-indigo-500 focus-visible:ring-2 focus-visible:ring-purple-200",
-        day_today: "bg-purple-50 text-purple-700 font-semibold",
+  "bg-green-500 text-black shadow-sm hover:bg-green-500 focus-visible:ring-2 focus-visible:ring-green-200",
+
+
+
+        day_range_start:
+  "day-range-start aria-selected:rounded-l-md aria-selected:bg-green-500 aria-selected:text-black",
+
+        day_range_end:
+  "day-range-end aria-selected:rounded-r-md aria-selected:bg-green-500 aria-selected:text-black",
+
+  day_range_middle:
+  "aria-selected:bg-green-100 aria-selected:text-black",
+  
+        day_today:
+          "border border-purple-400 text-purple-900 font-semibold bg-purple-100",
         day_outside:
-          "day-outside text-muted-foreground aria-selected:text-muted-foreground",
-        day_disabled: "text-muted-foreground opacity-50",
+          "day-outside text-slate-300 aria-selected:text-slate-300 aria-selected:bg-purple-100/40",
+        day_disabled: "text-slate-300 opacity-50",
+
+        /* 👉 range colors – make middle & edges very visible */
+        day_range_start:
+          "day-range-start aria-selected:rounded-l-md aria-selected:bg-gradient-to-br aria-selected:from-purple-500 aria-selected:to-indigo-500 aria-selected:text-white",
+        day_range_end:
+          "day-range-end aria-selected:rounded-r-md aria-selected:bg-gradient-to-br aria-selected:from-purple-500 aria-selected:to-indigo-500 aria-selected:text-white",
         day_range_middle:
-          "aria-selected:bg-purple-50 aria-selected:text-purple-700",
+          "aria-selected:bg-purple-200 aria-selected:text-purple-900",
+
         day_hidden: "invisible",
+
         ...classNames,
       }}
       components={{
-        IconLeft: ({ className, ...props }) => (
-          <ChevronLeft className={cn("size-4", className)} {...props} />
+        IconLeft: ({ className, ...iconProps }) => (
+          <ChevronLeft className={cn("size-4", className)} {...iconProps} />
         ),
-        IconRight: ({ className, ...props }) => (
-          <ChevronRight className={cn("size-4", className)} {...props} />
+        IconRight: ({ className, ...iconProps }) => (
+          <ChevronRight className={cn("size-4", className)} {...iconProps} />
         ),
       }}
       {...props}
