@@ -42,6 +42,7 @@ type ClientFormState = {
   // login_customer_id: string;
   assigned_manager_id: string;
   currency_code: string;
+  monthly_budget: string;
 };
 
 const STATIC_DEVELOPER_TOKEN = import.meta.env.VITE_DEVELOPER_TOKEN ?? "";
@@ -95,6 +96,7 @@ export function DashboardOverview({
       // login_customer_id: "",
       assigned_manager_id: "",
       currency_code: "USD",
+      monthly_budget: "",
     }),
     [refreshToken],
   );
@@ -241,16 +243,6 @@ export function DashboardOverview({
     if (token.length <= 12) return token;
     return `${token.slice(0, 6)}…${token.slice(-4)}`;
   }, []);
-
-  const currencyOptions = [
-    "USD",
-    "EUR",
-    "GBP",
-    "AUD",
-    "CAD",
-    "INR",
-    "JPY",
-  ];
 
   if (showCreateReport) {
     return (
@@ -461,18 +453,18 @@ export function DashboardOverview({
                       <div className="space-y-2">
                         <Label htmlFor="account-currency">Account Currency</Label>
                         <Select
-                          value={clientForm.account_currency}
+                          value={clientForm.currency_code}
                           onValueChange={(value) =>
-                            setClientForm((prev) => ({ ...prev, account_currency: value }))
+                            setClientForm((prev) => ({ ...prev, currency_code: value }))
                           }
                         >
                           <SelectTrigger id="account-currency">
                             <SelectValue placeholder="Select currency..." />
                           </SelectTrigger>
                           <SelectContent>
-                            {currencyOptions.map((currency) => (
-                              <SelectItem key={currency} value={currency}>
-                                {currency}
+                            {currencyOptions.map((option) => (
+                              <SelectItem key={option.code} value={option.code}>
+                                {option.name} ({option.symbol} {option.code})
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -480,7 +472,7 @@ export function DashboardOverview({
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="monthly-budget">
-                          Monthly Budget ({clientForm.account_currency || "Currency"})
+                          Monthly Budget ({clientForm.currency_code || "Currency"})
                         </Label>
                         <Input
                           id="monthly-budget"
@@ -504,26 +496,6 @@ export function DashboardOverview({
                             <SelectItem value="healthcare">Healthcare</SelectItem>
                             <SelectItem value="education">Education</SelectItem>
                             <SelectItem value="other">Other</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="currency">Account Currency</Label>
-                      <Select
-                        value={clientForm.currency_code}
-                        onValueChange={(value) =>
-                          setClientForm((prev) => ({ ...prev, currency_code: value }))
-                        }
-                      >
-                        <SelectTrigger id="currency">
-                          <SelectValue placeholder="Select currency..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {currencyOptions.map((option) => (
-                            <SelectItem key={option.code} value={option.code}>
-                              {option.name} ({option.symbol} {option.code})
-                            </SelectItem>
-                          ))}
                         </SelectContent>
                       </Select>
                     </div>
