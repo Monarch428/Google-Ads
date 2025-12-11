@@ -60,8 +60,8 @@ def _attach_google_ads_status(db: Session, clients: Sequence[Client]) -> Sequenc
     return clients
 
 
-def _combine_customer_ids(customer_id: str | None, customer_ids: Sequence[str] | None) -> str | None:
-    """Merge single and multiple customer ID inputs into a canonical comma string."""
+def _normalize_customer_id_list(customer_id: str | None, customer_ids: Sequence[str] | None) -> list[str]:
+    """Merge single/multiple inputs into a de-duplicated list of digit-only IDs."""
 
     combined: list[str] = []
 
@@ -82,7 +82,7 @@ def _combine_customer_ids(customer_id: str | None, customer_ids: Sequence[str] |
     _add_values(customer_ids)
 
     if not combined:
-        return None
+        return []
 
     # remove duplicates while preserving order
     deduped: list[str] = []
@@ -92,18 +92,27 @@ def _combine_customer_ids(customer_id: str | None, customer_ids: Sequence[str] |
             seen.add(value)
             deduped.append(value)
 
-    return ",".join(deduped)
+    return deduped
 
 
 def _attach_customer_ids(clients: Sequence[Client]) -> Sequence[Client]:
-    """Expose comma-delimited customer_id column as a list on the response models."""
+    """Expose stored customer IDs as a list on the response models."""
 
     for client in clients:
         if not client:
             continue
-        raw = getattr(client, "customer_id", None) or ""
-        parsed = [cid.strip() for cid in raw.split(",") if cid.strip()]
+        if getattr(client, "customer_ids", None):
+            parsed = [
+                "".join(ch for ch in str(cid) if ch.isdigit())
+                for cid in getattr(client, "customer_ids")
+                if str(cid).strip()
+            ]
+        else:
+            raw = getattr(client, "customer_id", None) or ""
+            parsed = [cid.strip() for cid in raw.split(",") if cid.strip()]
+
         setattr(client, "customer_ids", parsed)
+        client.customer_id = parsed[0] if parsed else None
     return clients
 
 
@@ -117,10 +126,11 @@ def create_client(db: Session, client_data: ClientCreate, created_by: UserModel)
     payload = client_data.model_dump(exclude_unset=True).copy()
     assigned_manager_id = payload.pop("assigned_manager_id", None)
 
-    # Support multiple customer IDs while preserving backward compatibility
-    payload["customer_id"] = _combine_customer_ids(
+    normalized_customer_ids = _normalize_customer_id_list(
         payload.get("customer_id"), payload.pop("customer_ids", None)
     )
+    payload["customer_ids"] = normalized_customer_ids or []
+    payload["customer_id"] = normalized_customer_ids[0] if normalized_customer_ids else None
 
     payload["currency_code"] = (payload.get("currency_code") or "USD").upper()
 
@@ -181,10 +191,12 @@ def update_client(db: Session, client_id: int, update_data: ClientUpdate) -> Cli
         client.assigned_manager_id = assigned_manager_id
 
     if "customer_ids" in payload or "customer_id" in payload:
-        payload["customer_id"] = _combine_customer_ids(
+        normalized_customer_ids = _normalize_customer_id_list(
             payload.get("customer_id"), payload.pop("customer_ids", None)
         )
-
+        client.customer_ids = normalized_customer_ids or []
+        client.customer_id = normalized_customer_ids[0] if normalized_customer_ids else None
+        
     for key, value in payload.items():
         setattr(client, key, value)
 

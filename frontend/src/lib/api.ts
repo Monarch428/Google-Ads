@@ -68,9 +68,10 @@ export interface BackendClient {
   client_id: string;
   client_secret: string;
   refresh_token: string;
-  customer_id: string | null;
+  customer_id?: string | null;
   customer_ids?: string[] | null;
   login_customer_id: string | null;
+  industry?: string | null;
   currency_code?: string | null;
   has_google_ads_auth?: boolean;
   created_by_id?: number | null;
@@ -332,12 +333,17 @@ export function fetchGoogleAdsRange(
   startDate: string,
   endDate: string,
   token?: string,
+  customerId?: string,
 ) {
   const params = new URLSearchParams({
     client_id: String(clientId),
     start_date: startDate,
     end_date: endDate,
   });
+
+  if (customerId) {
+    params.append("customer_id", customerId);
+  }
 
   const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
 
@@ -347,8 +353,11 @@ export function fetchGoogleAdsRange(
   });
 }
 
-export function fetchGoogleAdsDaily(clientId: number | string, token?: string) {
+export function fetchGoogleAdsDaily(clientId: number | string, token?: string, customerId?: string) {
   const params = new URLSearchParams({ client_id: String(clientId) });
+  if (customerId) {
+    params.append("customer_id", customerId);
+  }
   const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
 
   return apiFetch<GoogleAdsSyncResponse>(`/google-ads/fetch-daily?${params.toString()}`, {

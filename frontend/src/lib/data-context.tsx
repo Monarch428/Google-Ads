@@ -61,10 +61,11 @@ type DataContextValue = {
   authDetails: AuthDetails | null;
   syncGoogleAdsRange: (
     clientId: string,
+    customerId: string,
     startDate: string,
     endDate: string,
   ) => Promise<GoogleAdsSyncResponse>;
-  syncGoogleAdsDaily: (clientId: string) => Promise<GoogleAdsSyncResponse>;
+  syncGoogleAdsDaily: (clientId: string, customerId: string) => Promise<GoogleAdsSyncResponse>;
 };
 
 const DataContext = createContext<DataContextValue | undefined>(undefined);
@@ -540,13 +541,13 @@ export function DataProvider({
   );
 
   const handleSyncGoogleAdsRange = useCallback(
-    async (clientId: string, startDate: string, endDate: string) => {
+    async (clientId: string, customerId: string, startDate: string, endDate: string) => {
       if (!authToken) {
         throw new Error("Sign in to sync Google Ads data");
       }
 
       try {
-        const response = await fetchGoogleAdsRange(clientId, startDate, endDate, authToken);
+        const response = await fetchGoogleAdsRange(clientId, startDate, endDate, authToken, customerId);
         await Promise.all([loadClients(), loadRecommendations()]);
         return response;
       } catch (error) {
@@ -558,13 +559,13 @@ export function DataProvider({
   );
 
   const handleSyncGoogleAdsDaily = useCallback(
-    async (clientId: string) => {
+    async (clientId: string, customerId: string) => {
       if (!authToken) {
         throw new Error("Sign in to sync Google Ads data");
       }
 
       try {
-        const response = await fetchGoogleAdsDaily(clientId, authToken);
+        const response = await fetchGoogleAdsDaily(clientId, authToken, customerId);
         await Promise.all([loadClients(), loadRecommendations()]);
         return response;
       } catch (error) {

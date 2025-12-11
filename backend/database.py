@@ -2,6 +2,7 @@
 from sqlalchemy import create_engine, text, inspect
 from sqlalchemy.orm import sessionmaker, declarative_base
 from config import settings
+import json
  
 
 # Create SQLAlchemy Engine
@@ -34,6 +35,8 @@ _CLIENT_OPTIONAL_COLUMNS = {
     # Ensure currency is present on legacy databases so account currency
     # selection works without manual migrations.
     "currency_code": "VARCHAR(10) DEFAULT 'USD'",
+    # Store multiple customer IDs as JSON for Google Ads account linking
+    "customer_ids": "JSON",
 }
 
 
@@ -88,6 +91,43 @@ def ensure_client_assignment_columns() -> None:
         for column_name in missing_columns:
             ddl = f"ALTER TABLE clients ADD COLUMN {column_name} {_CLIENT_OPTIONAL_COLUMNS[column_name]} NULL"
             connection.execute(text(ddl))
+
+def backfill_customer_ids_column() -> None:
+    """Populate the JSON customer_ids column from legacy comma strings."""
+
+    inspector = inspect(engine)
+    if not inspector.has_table("clients"):
+        return
+
+    column_names = {col["name"] for col in inspector.get_columns("clients")}
+    if "customer_ids" not in column_names:
+        return
+
+    with engine.begin() as connection:
+        results = connection.execute(
+            text("SELECT id, customer_id, customer_ids FROM clients")
+        )
+
+        for row in results:
+            mapping = row._mapping
+            if mapping.get("customer_ids") is not None:
+                continue
+
+            raw_value = mapping.get("customer_id") or ""
+            parsed = [
+                "".join(ch for ch in str(cid).strip() if ch.isdigit())
+                for cid in str(raw_value).split(",")
+                if str(cid).strip()
+            ]
+            cleaned = [cid for cid in parsed if cid]
+
+            if not cleaned:
+                continue
+
+            connection.execute(
+                text("UPDATE clients SET customer_ids = :customer_ids WHERE id = :id"),
+                {"customer_ids": json.dumps(cleaned), "id": mapping.get("id")},
+            )
 
 
 # FastAPI Dependency for DB session

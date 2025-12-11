@@ -71,7 +71,9 @@ def save_google_account(
     if not client_record:
         raise HTTPException(status_code=404, detail="Client not found for Google Ads linking")
 
-    customer_id = client_record.customer_id
+    # customer_id = client_record.customer_id
+    customer_ids = getattr(client_record, "customer_ids", None) or []
+    customer_id = customer_ids[0] if customer_ids else client_record.customer_id
     login_customer_from_client = client_record.login_customer_id
     effective_login_customer_id = login_customer_id or login_customer_from_client
 

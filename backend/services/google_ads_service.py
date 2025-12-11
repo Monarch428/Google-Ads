@@ -224,8 +224,41 @@ def save_campaign_data(db: Session, client_db_id: int, response_data):
 
 
 # -------------------- STEP 4A: CALENDAR (Custom Date Range) --------------------
-def _resolve_google_ads_credentials(db: Session, client_db_id: int):
+def _select_customer_id(client_record: Client, override: str | None) -> str | None:
+    """Validate and pick the customer ID to use for API calls."""
+
+    normalized_override = "".join(ch for ch in str(override) if ch.isdigit()) if override else None
+
+    stored_ids: list[str] = []
+    if getattr(client_record, "customer_ids", None):
+        stored_ids = [
+            "".join(ch for ch in str(cid) if ch.isdigit())
+            for cid in client_record.customer_ids
+            if str(cid).strip()
+        ]
+    elif client_record.customer_id:
+        digits_only = "".join(ch for ch in str(client_record.customer_id) if ch.isdigit())
+        if digits_only:
+            stored_ids.append(digits_only)
+
+    if normalized_override:
+        if stored_ids and normalized_override not in stored_ids:
+            raise HTTPException(
+                status_code=400,
+                detail="Selected customer ID is not linked to this client",
+            )
+        return normalized_override
+
+    if stored_ids:
+        return stored_ids[0]
+
+    return None
+
+
+def _resolve_google_ads_credentials(db: Session, client_db_id: int, customer_id: str | None = None):
     """Return all Google Ads credentials associated with a client."""
+
+    client_record = db.query(Client).filter(Client.id == client_db_id).first()
 
     account = (
         db.query(GoogleAdsAccount)
@@ -233,22 +266,28 @@ def _resolve_google_ads_credentials(db: Session, client_db_id: int):
         .first()
     )
 
+    selected_customer_id = (
+        _select_customer_id(client_record, customer_id)
+        if client_record
+        else ("".join(ch for ch in str(customer_id) if ch.isdigit()) if customer_id else None)
+    )
+
     if account and account.refresh_token:
         return {
             "refresh_token": account.refresh_token,
             "login_customer_id": account.login_customer_id,
-            "customer_id": account.customer_id,
+            "customer_id": selected_customer_id or account.customer_id,
             "developer_token": account.developer_token,
             "google_client_id": account.google_client_id,
             "google_client_secret": account.google_client_secret,
         }
 
-    client_record = db.query(Client).filter(Client.id == client_db_id).first()
+    # client_record = db.query(Client).filter(Client.id == client_db_id).first()
     if client_record and client_record.refresh_token:
         return {
             "refresh_token": client_record.refresh_token,
             "login_customer_id": client_record.login_customer_id,
-            "customer_id": client_record.customer_id,
+            "customer_id": selected_customer_id,
             "developer_token": client_record.developer_token,
             "google_client_id": client_record.client_id,
             "google_client_secret": client_record.client_secret,
@@ -257,13 +296,13 @@ def _resolve_google_ads_credentials(db: Session, client_db_id: int):
     return None
 
 
-def fetch_and_save_campaigns(db: Session, client_db_id: int, start_date: str, end_date: str):
+def fetch_and_save_campaigns(db: Session, client_db_id: int, start_date: str, end_date: str, customer_id: str | None = None):
     """
     Fetch Google Ads campaign data for a user-selected date range.
     """
     logger.info(f"📅 Fetching Google Ads data for {client_db_id} ({start_date} → {end_date})")
 
-    credentials = _resolve_google_ads_credentials(db, client_db_id)
+    credentials = _resolve_google_ads_credentials(db, client_db_id, customer_id)
     if not credentials:
         return {"error": "❌ No connected Google Ads account or missing refresh token"}
 
@@ -316,14 +355,14 @@ def fetch_and_save_campaigns(db: Session, client_db_id: int, start_date: str, en
 
 
 # -------------------- STEP 4B: DAILY AUTO FETCH --------------------
-def fetch_and_save_daily_campaigns(db: Session, client_db_id: int):
+def fetch_and_save_daily_campaigns(db: Session, client_db_id: int, customer_id: str | None = None):
     """
     ✅ Automatically fetch today's Google Ads data (based on current date)
     """
     today = date.today().strftime("%Y-%m-%d")
     logger.info(f"📆 Auto fetching Google Ads data for {today}")
 
-    return fetch_and_save_campaigns(db, client_db_id, today, today)
+    return fetch_and_save_campaigns(db, client_db_id, today, today, customer_id)
 
 
 # -------------------- STEP 5: FRONTEND / API INTEGRATION --------------------

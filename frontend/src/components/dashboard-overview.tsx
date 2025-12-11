@@ -27,7 +27,7 @@ import { CreateReport } from "./create-report";
 import { ReportPreview } from "./report-preview";
 import { ManagerDetails } from "./manager-details";
 import { createClient } from "../lib/api";
-import { toast } from "sonner@2.0.3";
+import { Toaster, toast } from "sonner";
 import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
 import { currencyOptions } from "../lib/currencies";
 
@@ -244,7 +244,7 @@ export function DashboardOverview({
         client_id: STATIC_CLIENT_ID,
         client_secret: STATIC_CLIENT_SECRET,
         refresh_token: clientForm.refresh_token.trim(),
-        customer_id: sanitizedCustomerIds.join(","),
+        // customer_id: sanitizedCustomerIds.join(","),
         customer_ids: sanitizedCustomerIds,
         // login_customer_id: clientForm.login_customer_id.trim() || null,
         login_customer_id: loginCustomerId,
@@ -504,7 +504,7 @@ export function DashboardOverview({
                         <Label htmlFor="assign-manager">Assign Ad Manager</Label>
                         <Select
                           value={clientForm.assigned_manager_id}
-                          onValueChange={(value) =>
+                          onValueChange={(value: string) =>
                             setClientForm((prev) => ({ ...prev, assigned_manager_id: value }))
                           }
                           disabled={!displayManagers.length}
@@ -525,7 +525,7 @@ export function DashboardOverview({
                         <Label htmlFor="account-currency">Account Currency</Label>
                         <Select
                           value={clientForm.currency_code}
-                          onValueChange={(value) =>
+                          onValueChange={(value: string) =>
                             setClientForm((prev) => ({ ...prev, currency_code: value }))
                           }
                         >

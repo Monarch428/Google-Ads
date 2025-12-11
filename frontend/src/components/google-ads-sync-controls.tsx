@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
 import { CalendarIcon, Loader2, RefreshCw } from "lucide-react";
-import type { DateRange } from "react-day-picker@8.10.1";
+import type { DateRange } from "react-day-picker";
 import { Button } from "./ui/button";
 import { DateRangePicker } from "./ui/date-range-picker";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { cn } from "./ui/utils";
 import { useData } from "../lib/data-context";
-import { toast } from "sonner@2.0.3";
+import { Toaster, toast } from "sonner";
 
 function formatForApi(date: Date) {
   return date.toISOString().slice(0, 10);
@@ -38,10 +38,13 @@ export function GoogleAdsSyncControls({
     authToken,
   } = useData();
   const [selectedClientId, setSelectedClientId] = useState<string>("");
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string>("");
   const [dateRange, setDateRange] = useState<DateRange | undefined>(defaultRange);
   const [isRangeLoading, setIsRangeLoading] = useState(false);
   const [isDailyLoading, setIsDailyLoading] = useState(false);
   const [statusMessage, setStatusMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const selectedClient = clients.find((client) => client.id === selectedClientId);
+  const availableCustomerIds = selectedClient?.customerIds ?? [];
 
   useEffect(() => {
     if (!clients.length) {
@@ -53,12 +56,30 @@ export function GoogleAdsSyncControls({
     }
   }, [clients, selectedClientId]);
 
+  useEffect(() => {
+    const client = clients.find((entry) => entry.id === selectedClientId);
+    const ids = client?.customerIds ?? [];
+
+    if (!ids.length) {
+      setSelectedCustomerId("");
+      return;
+    }
+
+    if (!ids.includes(selectedCustomerId)) {
+      setSelectedCustomerId(ids[0]);
+    }
+  }, [clients, selectedClientId, selectedCustomerId]);
+
   const buttonSize = size === "compact" ? "sm" : "default";
-  const disabled = !selectedClientId || clientsLoading || !authToken;
+  const disabled = !selectedClientId || !selectedCustomerId || clientsLoading || !authToken;
 
   const handleRangeSync = async () => {
     if (!selectedClientId) {
       toast.error("Select a client", { description: "Choose a Google Ads account to sync." });
+      return;
+    }
+    if (!selectedCustomerId) {
+      toast.error("Select a customer ID", { description: "Choose which customer ID to sync." });
       return;
     }
     if (!dateRange?.from || !dateRange?.to) {
@@ -70,6 +91,7 @@ export function GoogleAdsSyncControls({
     try {
       const response = await syncGoogleAdsRange(
         selectedClientId,
+        selectedCustomerId,
         formatForApi(dateRange.from),
         formatForApi(dateRange.to),
       );
@@ -90,10 +112,14 @@ export function GoogleAdsSyncControls({
       toast.error("Select a client", { description: "Choose a Google Ads account to sync." });
       return;
     }
+    if (!selectedCustomerId) {
+      toast.error("Select a customer ID", { description: "Choose which customer ID to sync." });
+      return;
+    }
     setIsDailyLoading(true);
     setStatusMessage(null);
     try {
-      const response = await syncGoogleAdsDaily(selectedClientId);
+      const response = await syncGoogleAdsDaily(selectedClientId, selectedCustomerId);
       const message = response.message || `Fetched today's ${contextLabel}.`;
       setStatusMessage({ type: "success", text: message });
       toast.success("Daily Google Ads sync started", { description: message });
@@ -127,6 +153,22 @@ export function GoogleAdsSyncControls({
             {clients.map((client) => (
               <SelectItem key={client.id} value={client.id}>
                 {client.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select
+          value={selectedCustomerId}
+          onValueChange={setSelectedCustomerId}
+          disabled={clientsLoading || !availableCustomerIds.length}
+        >
+          <SelectTrigger className={cn("min-w-[200px]", size === "compact" && "h-9 text-xs")}>
+            <SelectValue placeholder={clientsLoading ? "Loading customer IDs..." : "Select customer ID"} />
+          </SelectTrigger>
+          <SelectContent>
+            {availableCustomerIds.map((id) => (
+              <SelectItem key={id} value={id}>
+                {id}
               </SelectItem>
             ))}
           </SelectContent>

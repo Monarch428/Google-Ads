@@ -23,7 +23,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "./ui/alert-dialog";
-import { toast } from "sonner@2.0.3";
+import { Toaster, toast } from "sonner";
 import { GoogleAdsSyncControls } from "./google-ads-sync-controls";
 import { API_BASE_URL } from "../lib/api";
 import { formatCurrency } from "../lib/currencies";
@@ -110,7 +110,7 @@ export function Accounts({ onClientClick }: AccountsProps) {
     try {
       await updateClient(clientPendingEdit.id, {
         customer_ids: sanitizedIds,
-        customer_id: sanitizedIds.join(","),
+        // customer_id: sanitizedIds.join(","),
       });
       toast.success("Client updated", {
         description: "Customer IDs saved successfully.",
@@ -307,7 +307,7 @@ export function Accounts({ onClientClick }: AccountsProps) {
 
       <Dialog
         open={isEditDialogOpen}
-        onOpenChange={(open) => {
+        onOpenChange={(open: boolean) => {
           setIsEditDialogOpen(open);
           if (!open) {
             setClientPendingEdit(null);
@@ -399,7 +399,7 @@ export function Accounts({ onClientClick }: AccountsProps) {
 
     <AlertDialog
       open={isDeleteDialogOpen}
-      onOpenChange={(open) => {
+      onOpenChange={(open: boolean) => {
         setIsDeleteDialogOpen(open);
           if (!open && !isDeleting) {
             setClientPendingDelete(null);
@@ -434,7 +434,7 @@ export function Accounts({ onClientClick }: AccountsProps) {
                     description: `${clientPendingDelete.name} has been removed from your managed accounts.`,
                   });
                 } catch (error) {
-                  const message = error instanceof Error ? err.message : "Failed to delete client";
+                  const message = error instanceof Error ? error.message : "Failed to delete client";
                   toast.error("Unable to delete client", { description: message });
                 } finally {
                   setIsDeleting(false);

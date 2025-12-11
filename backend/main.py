@@ -14,6 +14,7 @@ from database import (
     engine,
     ensure_user_optional_columns,
     ensure_client_assignment_columns,
+    backfill_customer_ids_column,
 )
 from models import user_model, client_model, campaign_model, google_ads_account, recommendation_model, ai_insight_model
 from routes import (
@@ -39,6 +40,7 @@ from services.google_ads_service import fetch_and_save_campaigns
 Base.metadata.create_all(bind=engine)
 ensure_user_optional_columns()
 ensure_client_assignment_columns()
+backfill_customer_ids_column()
 
 # Initialize FastAPI app
 app = FastAPI(
