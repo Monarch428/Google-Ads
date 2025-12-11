@@ -18,6 +18,8 @@ export interface Client {
   assignedManagerId?: string | null;
   createdById?: string | null;
   hasGoogleOAuth?: boolean;
+  customerId?: string | null;
+  loginCustomerId?: string | null;
 }
 
 export interface Manager {

@@ -193,6 +193,8 @@ function mapClients(
       createdById:
         client.created_by_id != null ? String(client.created_by_id) : undefined,
       hasGoogleOAuth,
+      customerId: client.customer_id ?? undefined,
+      loginCustomerId: client.login_customer_id ?? undefined,
     };
   });
 }

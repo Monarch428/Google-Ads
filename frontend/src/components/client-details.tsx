@@ -103,7 +103,11 @@ const createMonthConfig = (monthKey: string) => {
 };
 export function ClientDetails({ clientId, onBack }: ClientDetailsProps) {
   const { clients, campaigns, clientsLoading } = useData();
-  const client = clients.find(c => c.id === clientId);
+  const [activeClientId, setActiveClientId] = useState(clientId);
+  const client = useMemo(
+    () => clients.find((c) => c.id === activeClientId),
+    [activeClientId, clients]
+  );
   const [selectedMonth, setSelectedMonth] = useState<string>(() => {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
@@ -116,6 +120,10 @@ export function ClientDetails({ clientId, onBack }: ClientDetailsProps) {
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "instant" });
   }, []);
+
+  useEffect(() => {
+    setActiveClientId(clientId);
+  }, [clientId]);
   const [isDayDetailsOpen, setIsDayDetailsOpen] = useState(false);
   const [selectedBundleId, setSelectedBundleId] = useState<string | null>(null);
   const [isCreatingBundle, setIsCreatingBundle] = useState(false);
@@ -129,6 +137,13 @@ export function ClientDetails({ clientId, onBack }: ClientDetailsProps) {
   const [newTaskImpact, setNewTaskImpact] = useState("");
   const [newTaskCampaign, setNewTaskCampaign] = useState("");
   const [selectedCampaignIds, setSelectedCampaignIds] = useState<string[]>(["overall"]);
+
+  useEffect(() => {
+    setSelectedCampaignIds(["overall"]);
+    setSelectedDay(null);
+    setIsDayDetailsOpen(false);
+    setMonthlyData([]);
+  }, [activeClientId]);
 
   const monthOptions = useMemo(() => {
     const now = new Date();
@@ -144,6 +159,8 @@ export function ClientDetails({ clientId, onBack }: ClientDetailsProps) {
 
   const actionBundles: ActionBundle[] = [];
   const activityLogs: ActivityLog[] = [];
+
+  const displayedCustomerId = client.customerId || client.loginCustomerId || "Not set";
 
   const handleMonthChange = (month: string) => {
     setSelectedMonth(month);
@@ -220,6 +237,20 @@ export function ClientDetails({ clientId, onBack }: ClientDetailsProps) {
   const campaignsForClient = useMemo(
     () => campaigns.filter((campaign) => campaign.clientId === client.id),
     [campaigns, client.id]
+  );
+
+  const accountOptions = useMemo(
+    () =>
+      clients.map((account) => ({
+        value: account.id,
+        label: account.customerId || account.loginCustomerId || account.name,
+        description: account.customerId
+          ? `${account.name} • ${account.customerId}`
+          : account.loginCustomerId
+            ? `${account.name} • ${account.loginCustomerId}`
+            : account.name,
+      })),
+    [clients]
   );
 
   useEffect(() => {
@@ -927,25 +958,43 @@ export function ClientDetails({ clientId, onBack }: ClientDetailsProps) {
     <>
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="sm" onClick={onBack}>
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Accounts
-          </Button>
-          <div>
-            <h1 className="text-slate-900">{client.name}</h1>
-            <p className="text-slate-500">{client.industry}</p>
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <Button variant="ghost" size="sm" onClick={onBack}>
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back to Accounts
+            </Button>
+            <div>
+              <h1 className="text-slate-900">{client.name}</h1>
+              <p className="text-slate-500">{client.industry}</p>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="grid gap-1">
+              <span className="text-xs font-medium text-slate-500">Google Ads customer ID</span>
+              <Select value={activeClientId} onValueChange={setActiveClientId}>
+                <SelectTrigger className="w-[260px]">
+                  <SelectValue placeholder="Select account" />
+                </SelectTrigger>
+                <SelectContent>
+                  {accountOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.description}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-slate-500">Currently showing {displayedCustomerId}</p>
+            </div>
+            <Badge className={
+              client.status === "healthy" ? "bg-green-600" :
+              client.status === "warning" ? "bg-yellow-500" :
+              "bg-red-600"
+            }>
+              {client.status}
+            </Badge>
           </div>
         </div>
-        <Badge className={
-          client.status === "healthy" ? "bg-green-600" :
-          client.status === "warning" ? "bg-yellow-500" :
-          "bg-red-600"
-        }>
-          {client.status}
-        </Badge>
-      </div>
 
       {/* Key Performance Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
