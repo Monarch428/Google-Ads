@@ -17,7 +17,6 @@ import {
   TooltipTrigger,
 } from "./ui/tooltip";
 import { ArrowLeft, CheckCircle2, Clock, AlertCircle, Calendar as CalendarIcon, Target, TrendingUp, DollarSign, Users, Package, Play, Lightbulb, XCircle, Download, Settings, MessageSquare, User, FileText, Sparkles, Plus } from "lucide-react";
-import { mockClients, mockActionBundles } from "../lib/mock-data";
 import { useData } from "../lib/data-context";
 import { ClientChatbotInline } from "./client-chatbot-inline";
 import { CreateBundle } from "./create-bundle";
@@ -61,6 +60,16 @@ interface Task {
   };
 }
 
+interface ActionBundle {
+  id: string;
+  clientName: string;
+  managerName: string;
+  recommendationsCount: number;
+  status: "pending" | "in-progress" | "completed";
+  createdAt: string;
+  estimatedImpact: string;
+}
+
 // Month configuration
 const numberFormatter = new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 });
 const currencyFormatterWithCents = new Intl.NumberFormat("en-US", {
@@ -74,204 +83,30 @@ const percentFormatter = new Intl.NumberFormat("en-US", {
   maximumFractionDigits: 2,
 });
 
-const monthConfigs = {
-  "2025-10": { name: "October 2025", days: 31, startDay: 3, currentDay: 30 },
-  "2025-09": { name: "September 2025", days: 30, startDay: 1, currentDay: 30 },
-  "2025-08": { name: "August 2025", days: 31, startDay: 5, currentDay: 31 },
-  "2025-07": { name: "July 2025", days: 31, startDay: 2, currentDay: 31 },
-  "2025-06": { name: "June 2025", days: 30, startDay: 0, currentDay: 30 },
-  "2025-05": { name: "May 2025", days: 31, startDay: 4, currentDay: 31 },
+const createMonthConfig = (monthKey: string) => {
+  const [year, month] = monthKey.split("-").map(Number);
+  const startDate = new Date(year, month - 1, 1);
+  const days = new Date(year, month, 0).getDate();
+  const startDay = startDate.getDay();
+  const now = new Date();
+  const isCurrentMonth = now.getFullYear() === year && now.getMonth() === month - 1;
+
+  return {
+    name: startDate.toLocaleDateString("en-US", { month: "long", year: "numeric" }),
+    days,
+    startDay,
+    currentDay: isCurrentMonth ? now.getDate() : days,
+  };
 };
-
-// Generate mock data for a specific month
-const generateMonthlyData = (monthKey: string): DayStatus[] => {
-  const config = monthConfigs[monthKey as keyof typeof monthConfigs];
-  const data: DayStatus[] = [];
-  
-  for (let i = 1; i <= config.days; i++) {
-    let status: "completed" | "pending" | "critical" | "none" | "sunday";
-    let tasksCompleted = 0;
-    let totalTasks = 0;
-    
-    // Calculate day of week (0 = Sunday, 1 = Monday, etc.)
-    const dayOfWeek = (config.startDay + i - 1) % 7;
-    
-    // Check if it's Sunday
-    if (dayOfWeek === 0) {
-      status = "sunday";
-    } else if (i <= config.currentDay - 1) {
-      // Past days have status
-      const random = Math.random();
-      if (random > 0.7) {
-        status = "completed";
-        tasksCompleted = Math.floor(Math.random() * 3) + 3;
-        totalTasks = tasksCompleted;
-      } else if (random > 0.4) {
-        status = "pending";
-        totalTasks = Math.floor(Math.random() * 4) + 2;
-        tasksCompleted = Math.floor(totalTasks * 0.6);
-      } else {
-        status = "critical";
-        totalTasks = Math.floor(Math.random() * 5) + 3;
-        tasksCompleted = Math.floor(totalTasks * 0.3);
-      }
-    } else {
-      // Future days
-      status = "none";
-    }
-    
-    data.push({ date: i, status, tasksCompleted, totalTasks });
-  }
-  
-  return data;
-};
-
-// Generate tasks for a specific day
-const generateTasksForDay = (day: number, dayStatus: DayStatus): Task[] => {
-  const tasks: Task[] = [];
-  const taskTemplates = [
-    { title: "Review keyword performance", description: "Analyze top performing keywords and adjust bids", category: "optimization" as const },
-    { title: "Update ad copy", description: "Refresh ad creative for better engagement", category: "optimization" as const },
-    { title: "Monitor CPA trends", description: "Track cost per acquisition changes", category: "monitoring" as const },
-    { title: "Adjust bidding strategy", description: "Optimize bids based on performance data", category: "bidding" as const },
-    { title: "Generate performance report", description: "Create daily performance summary", category: "reporting" as const },
-    { title: "Check conversion tracking", description: "Verify conversion pixel functionality", category: "monitoring" as const },
-    { title: "Optimize landing pages", description: "Review and improve landing page performance", category: "optimization" as const },
-    { title: "Add negative keywords", description: "Identify and add negative keywords to reduce waste", category: "optimization" as const },
-  ];
-
-  const users = ["Sarah Johnson", "Mike Chen", "Emily Rodriguez", "AI System"];
-  
-  for (let i = 0; i < dayStatus.totalTasks; i++) {
-    const template = taskTemplates[i % taskTemplates.length];
-    const isCompleted = i < dayStatus.tasksCompleted;
-    
-    tasks.push({
-      id: `task-${day}-${i}`,
-      title: template.title,
-      description: template.description,
-      status: isCompleted ? "completed" : dayStatus.status,
-      priority: i % 3 === 0 ? "high" : i % 2 === 0 ? "medium" : "low",
-      category: template.category,
-      assignedTo: users[i % users.length],
-      completedAt: isCompleted ? `${Math.floor(Math.random() * 12) + 1}:${String(Math.floor(Math.random() * 60)).padStart(2, '0')} ${Math.random() > 0.5 ? 'AM' : 'PM'}` : undefined,
-      metrics: isCompleted ? {
-        impressions: Math.floor(Math.random() * 5000) + 1000,
-        clicks: Math.floor(Math.random() * 200) + 50,
-        conversions: Math.floor(Math.random() * 30) + 5,
-        spend: Math.floor(Math.random() * 500) + 100,
-      } : undefined,
-    });
-  }
-  
-  return tasks;
-};
-
-const mockActivityLogs: ActivityLog[] = [
-  {
-    id: "1",
-    date: "Oct 30, 2025",
-    time: "09:15 AM",
-    action: "Updated keyword bids for Q4 Campaign - Increased CPC by 12%",
-    user: "Sarah Johnson",
-    type: "optimization"
-  },
-  {
-    id: "2",
-    date: "Oct 30, 2025",
-    time: "08:30 AM",
-    action: "Generated Weekly Performance Report",
-    user: "System",
-    type: "report"
-  },
-  {
-    id: "3",
-    date: "Oct 29, 2025",
-    time: "04:45 PM",
-    action: "Critical Alert: CPA spike detected (+23%) - Investigation started",
-    user: "AI System",
-    type: "alert"
-  },
-  {
-    id: "4",
-    date: "Oct 29, 2025",
-    time: "02:20 PM",
-    action: "Added 15 negative keywords to reduce wasted spend",
-    user: "Mike Chen",
-    type: "optimization"
-  },
-  {
-    id: "5",
-    date: "Oct 29, 2025",
-    time: "11:00 AM",
-    action: "Updated ad copy for mobile campaigns",
-    user: "Sarah Johnson",
-    type: "update"
-  },
-  {
-    id: "6",
-    date: "Oct 28, 2025",
-    time: "03:30 PM",
-    action: "Paused underperforming ad groups (ROAS < 1.5)",
-    user: "Mike Chen",
-    type: "optimization"
-  },
-  {
-    id: "7",
-    date: "Oct 28, 2025",
-    time: "10:15 AM",
-    action: "Budget reallocation: Shifted $2,500 to high-performing campaigns",
-    user: "Sarah Johnson",
-    type: "update"
-  },
-  {
-    id: "8",
-    date: "Oct 27, 2025",
-    time: "05:00 PM",
-    action: "Generated Monthly Performance Report",
-    user: "System",
-    type: "report"
-  },
-  {
-    id: "9",
-    date: "Oct 27, 2025",
-    time: "01:45 PM",
-    action: "Launched new ad creative set for A/B testing",
-    user: "Emily Rodriguez",
-    type: "update"
-  },
-  {
-    id: "10",
-    date: "Oct 26, 2025",
-    time: "09:30 AM",
-    action: "Warning: CTR drop detected (-8%) in Search campaign",
-    user: "AI System",
-    type: "alert"
-  },
-  {
-    id: "11",
-    date: "Oct 25, 2025",
-    time: "02:15 PM",
-    action: "Expanded target audience for Shopping campaigns",
-    user: "Mike Chen",
-    type: "optimization"
-  },
-  {
-    id: "12",
-    date: "Oct 24, 2025",
-    time: "11:20 AM",
-    action: "Updated conversion tracking parameters",
-    user: "Sarah Johnson",
-    type: "update"
-  }
-];
-
 export function ClientDetails({ clientId, onBack }: ClientDetailsProps) {
-  const { clients, campaigns } = useData();
-  const availableClients = clients.length ? clients : mockClients;
-  const client = availableClients.find(c => c.id === clientId);
-  const [selectedMonth, setSelectedMonth] = useState<string>("2025-10");
-  const [monthlyData, setMonthlyData] = useState<DayStatus[]>(generateMonthlyData("2025-10"));
+  const { clients, campaigns, clientsLoading } = useData();
+  const client = clients.find(c => c.id === clientId);
+  const [selectedMonth, setSelectedMonth] = useState<string>(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  });
+  const [currentMonthConfig, setCurrentMonthConfig] = useState(() => createMonthConfig(`${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`));
+  const [monthlyData, setMonthlyData] = useState<DayStatus[]>([]);
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
 
   // Scroll to top when component mounts
@@ -291,16 +126,32 @@ export function ClientDetails({ clientId, onBack }: ClientDetailsProps) {
   const [newTaskImpact, setNewTaskImpact] = useState("");
   const [newTaskCampaign, setNewTaskCampaign] = useState("");
 
+  const monthOptions = useMemo(() => {
+    const now = new Date();
+    return Array.from({ length: 6 }, (_, index) => {
+      const date = new Date(now.getFullYear(), now.getMonth() - index, 1);
+      const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+      return {
+        key,
+        label: date.toLocaleDateString("en-US", { month: "long", year: "numeric" }),
+      };
+    });
+  }, []);
+
+  const actionBundles: ActionBundle[] = [];
+  const activityLogs: ActivityLog[] = [];
+
   const handleMonthChange = (month: string) => {
     setSelectedMonth(month);
-    setMonthlyData(generateMonthlyData(month));
+    setCurrentMonthConfig(createMonthConfig(month));
+    setMonthlyData([]);
     setSelectedDay(null);
     setIsDayDetailsOpen(false);
   };
 
   const handleDayClick = (day: number) => {
-    const dayStatus = monthlyData[day - 1].status;
-    if (dayStatus !== "none" && dayStatus !== "sunday") {
+    const dayStatus = monthlyData.find((entry) => entry.date === day)?.status;
+    if (dayStatus && dayStatus !== "none" && dayStatus !== "sunday") {
       setSelectedDay(day);
       setIsDayDetailsOpen(true);
     }
@@ -345,12 +196,15 @@ export function ClientDetails({ clientId, onBack }: ClientDetailsProps) {
     // In a real app, this would update the recommendation status
   };
 
-  const currentMonthConfig = monthConfigs[selectedMonth as keyof typeof monthConfigs];
-  const selectedDayData = selectedDay ? monthlyData[selectedDay - 1] : null;
-  const selectedDayTasks = selectedDay && selectedDayData ? generateTasksForDay(selectedDay, selectedDayData) : [];
+  const selectedDayData = selectedDay ? monthlyData.find((entry) => entry.date === selectedDay) ?? null : null;
+  const selectedDayTasks: Task[] = selectedDayData ? [] : [];
+
+  if (clientsLoading) {
+    return <div>Loading client data...</div>;
+  }
 
   if (!client) {
-    return <div>Client not found</div>;
+    return <div>No client data available.</div>;
   }
 
   const campaignsForClient = useMemo(
@@ -623,7 +477,7 @@ export function ClientDetails({ clientId, onBack }: ClientDetailsProps) {
 
   // Render bundle details view
   if (selectedBundleId) {
-    const selectedBundle = mockActionBundles.find(b => b.id === selectedBundleId);
+    const selectedBundle = actionBundles.find(b => b.id === selectedBundleId);
     const completedCount = bundleRecommendations.filter(r => r.status === "completed").length;
     const inProgressCount = bundleRecommendations.filter(r => r.status === "in-progress").length;
     const pendingCount = bundleRecommendations.filter(r => r.status === "pending").length;
@@ -1283,7 +1137,7 @@ export function ClientDetails({ clientId, onBack }: ClientDetailsProps) {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {mockActionBundles
+            {actionBundles
               .filter(bundle => bundle.clientName === client.name)
               .map((bundle) => {
                 const getStatusColor = (status: string) => {
@@ -1407,7 +1261,7 @@ export function ClientDetails({ clientId, onBack }: ClientDetailsProps) {
                 );
               })}
 
-            {mockActionBundles.filter(bundle => bundle.clientName === client.name).length === 0 && (
+            {actionBundles.filter(bundle => bundle.clientName === client.name).length === 0 && (
               <div className="text-center py-8">
                 <Package className="w-12 h-12 text-slate-300 mx-auto mb-3" />
                 <p className="text-slate-500 mb-4">No action bundles created yet</p>
@@ -1436,18 +1290,22 @@ export function ClientDetails({ clientId, onBack }: ClientDetailsProps) {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="2025-10">October 2025</SelectItem>
-                    <SelectItem value="2025-09">September 2025</SelectItem>
-                    <SelectItem value="2025-08">August 2025</SelectItem>
-                    <SelectItem value="2025-07">July 2025</SelectItem>
-                    <SelectItem value="2025-06">June 2025</SelectItem>
-                    <SelectItem value="2025-05">May 2025</SelectItem>
+                    {monthOptions.map((option) => (
+                      <SelectItem key={option.key} value={option.key}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
             </CardHeader>
             <CardContent>
               {/* Calendar Grid */}
+              {monthlyData.length === 0 && (
+                <div className="p-4 bg-slate-50 rounded-lg text-sm text-slate-600 mb-4">
+                  No daily tasks available for {currentMonthConfig.name}. Create the daily task module to start tracking work.
+                </div>
+              )}
               <div className="space-y-4">
                 {/* Day Labels */}
                 <div className="grid grid-cols-7 gap-2">
@@ -1581,7 +1439,10 @@ export function ClientDetails({ clientId, onBack }: ClientDetailsProps) {
             </CardHeader>
             <CardContent>
               <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2">
-                {mockActivityLogs.map((log) => (
+                {activityLogs.length === 0 && (
+                  <div className="text-sm text-slate-500">No actions or updates available for this client yet.</div>
+                )}
+                {activityLogs.map((log) => (
                   <div key={log.id} className="pb-4 border-b border-slate-100 last:border-0">
                     <div className="flex items-start gap-3">
                       <div className="flex-1">
@@ -1719,6 +1580,11 @@ export function ClientDetails({ clientId, onBack }: ClientDetailsProps) {
               {/* Tasks List */}
               <div className="space-y-3">
                 <h3 className="text-sm text-slate-900">Tasks</h3>
+                {selectedDayTasks.length === 0 && (
+                  <p className="text-sm text-slate-500">
+                    No tasks recorded for this day. Create the daily task module to add and track work items.
+                  </p>
+                )}
                 {selectedDayTasks.map((task, index) => (
                   <Card key={task.id} className={`border-l-4 ${
                     task.status === "completed" ? "border-l-green-500" :
