@@ -55,17 +55,9 @@ const menuItems = [
   { id: "checklist", label: "Setup Checklist", icon: ClipboardCheck },
 ];
 
-const systemItems = [
-  { id: "users", label: "User Management", icon: Users },
-  { id: "settings", label: "Settings", icon: Settings },
-];
-
 export function AppSidebar({ currentView, onViewChange, user, onLogout }: AppSidebarProps) {
   const isAdmin = (user.role ?? "").toLowerCase() === "admin";
   const workspaceLabel = isAdmin ? "Admin Dashboard" : "Manager Workspace";
-  const filteredSystemItems = isAdmin
-    ? systemItems
-    : systemItems.filter((item) => item.id !== "users");
 
   return (
     <Sidebar>
@@ -97,25 +89,6 @@ export function AppSidebar({ currentView, onViewChange, user, onLogout }: AppSid
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
-        
-        <SidebarGroup>
-          <SidebarGroupLabel>System</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {filteredSystemItems.map((item) => (
-                <SidebarMenuItem key={item.id}>
-                  <SidebarMenuButton
-                    isActive={currentView === item.id}
-                    onClick={() => onViewChange(item.id)}
-                  >
-                    <item.icon className="w-4 h-4" />
-                    <span>{item.label}</span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
       </SidebarContent>
       <SidebarFooter className="border-t p-4">
         <DropdownMenu>
@@ -126,9 +99,9 @@ export function AppSidebar({ currentView, onViewChange, user, onLogout }: AppSid
                   {getInitials(user.name)}
                 </AvatarFallback>
               </Avatar>
-              <div className="flex-1 text-left">
-                <p className="text-sm text-slate-900">{user.name || "Team Member"}</p>
-                <p className="text-xs text-slate-500">{user.email}</p>
+              <div className="flex-1 min-w-0 text-left">
+                <p className="text-sm text-slate-900 truncate">{user.name || "Team Member"}</p>
+                <p className="text-xs text-slate-500 truncate">{user.email}</p>
               </div>
               <ChevronUp className="w-4 h-4 text-slate-400" />
             </div>
@@ -136,6 +109,12 @@ export function AppSidebar({ currentView, onViewChange, user, onLogout }: AppSid
           <DropdownMenuContent align="end" className="w-56 mb-2">
             <DropdownMenuLabel>My Account</DropdownMenuLabel>
             <DropdownMenuSeparator />
+            {isAdmin && (
+              <DropdownMenuItem onClick={() => onViewChange("users")}>
+                <Users className="w-4 h-4 mr-2" />
+                <span>User Management</span>
+              </DropdownMenuItem>
+            )}
             <DropdownMenuItem onClick={() => onViewChange("settings")}>
               <Settings className="w-4 h-4 mr-2" />
               <span>Settings</span>
