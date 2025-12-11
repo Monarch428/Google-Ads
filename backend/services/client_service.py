@@ -70,6 +70,8 @@ def create_client(db: Session, client_data: ClientCreate, created_by: UserModel)
     payload = client_data.model_dump(exclude_unset=True).copy()
     assigned_manager_id = payload.pop("assigned_manager_id", None)
 
+    payload["currency_code"] = (payload.get("currency_code") or "USD").upper()
+
     if assigned_manager_id is not None:
         _validate_manager(db, assigned_manager_id)
 
@@ -115,6 +117,8 @@ def update_client(db: Session, client_id: int, update_data: ClientUpdate) -> Cli
     client = _get_client_or_404(db, client_id)
 
     payload = update_data.model_dump(exclude_unset=True)
+    if "currency_code" in payload:
+        payload["currency_code"] = (payload.get("currency_code") or "USD").upper()
     assigned_manager_id = payload.pop("assigned_manager_id", None)
 
     if assigned_manager_id is not None:

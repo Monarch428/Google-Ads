@@ -26,6 +26,7 @@ import {
 import { toast } from "sonner@2.0.3";
 import { GoogleAdsSyncControls } from "./google-ads-sync-controls";
 import { API_BASE_URL } from "../lib/api";
+import { formatCurrency } from "../lib/currencies";
 
 interface AccountsProps {
   onClientClick?: (clientId: string) => void;
@@ -157,7 +158,7 @@ export function Accounts({ onClientClick }: AccountsProps) {
                       </span>
                     </TableCell>
                     <TableCell className="text-right">
-                      <p className="text-sm text-slate-900">${client.adSpend.toLocaleString()}</p>
+                      <p className="text-sm text-slate-900">{formatCurrency(client.adSpend, client.currencyCode)}</p>
                     </TableCell>
                     <TableCell className="text-right">
                       <p className="text-sm text-slate-900">{client.conversions.toLocaleString()}</p>

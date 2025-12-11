@@ -16,6 +16,7 @@ class Client(Base):
     refresh_token = Column(String(500))
     customer_id = Column(String(255))
     login_customer_id = Column(String(255))
+    currency_code = Column(String(10), default="USD")
 
     created_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     assigned_manager_id = Column(Integer, ForeignKey("users.id"), nullable=True)

@@ -12,6 +12,7 @@ import {
 } from "./ui/popover";
 import { mockClients } from "../lib/mock-data";
 import { useData } from "../lib/data-context";
+import { formatCurrency } from "../lib/currencies";
 
 interface Message {
   id: string;
@@ -66,7 +67,7 @@ export function ClientChatbotInline({ clientName }: ClientChatbotInlineProps) {
     );
     
     if (hasMetrics) {
-      return `Looking at the metrics you've attached, here's what stands out: The current performance shows ${client?.roas || "N/A"}x ROAS with ${client?.conversions || 0} conversions. The CPA is $${client?.cpa || 0} and CTR is ${client?.ctr || 0}%. ${
+      return `Looking at the metrics you've attached, here's what stands out: The current performance shows ${client?.roas || "N/A"}x ROAS with ${client?.conversions || 0} conversions. The CPA is ${formatCurrency(client?.cpa ?? 0, client?.currencyCode)} and CTR is ${client?.ctr || 0}%. ${
         message.includes("improve") || message.includes("optimize")
           ? "To improve these numbers, I recommend focusing on high-performing keywords, testing new ad copy, and optimizing landing pages for better conversion rates."
           : "These metrics indicate " + (client && client.roas > 3 ? "strong performance" : "room for improvement") + ". Would you like specific recommendations?"
@@ -82,13 +83,13 @@ export function ClientChatbotInline({ clientName }: ClientChatbotInlineProps) {
 
   const dataPoints = [
     { label: "ROAS", value: `${client?.roas || "N/A"}x` },
-    { label: "CPA", value: `$${client?.cpa || 0}` },
+    { label: "CPA", value: formatCurrency(client?.cpa ?? 0, client?.currencyCode) },
     { label: "CTR", value: `${client?.ctr || 0}%` },
     { label: "Conversions", value: `${client?.conversions || 0}` },
-    { label: "Ad Spend", value: `$${client?.adSpend?.toLocaleString() || 0}` },
+    { label: "Ad Spend", value: formatCurrency(client?.adSpend ?? 0, client?.currencyCode) },
     { label: "Clicks", value: `${client?.clicks?.toLocaleString() || 0}` },
     { label: "Impressions", value: `${client?.impressions?.toLocaleString() || 0}` },
-    { label: "Revenue", value: `$${client?.revenue?.toLocaleString() || 0}` },
+    { label: "Revenue", value: formatCurrency(client?.revenue ?? 0, client?.currencyCode) },
     { label: "Status", value: client?.status || "Unknown" },
     { label: "Manager", value: client?.manager || "Unassigned" },
     { label: "Task Completion", value: "18/29 days completed" },

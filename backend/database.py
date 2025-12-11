@@ -31,6 +31,9 @@ _USER_OPTIONAL_COLUMNS = {
 _CLIENT_OPTIONAL_COLUMNS = {
     "created_by_id": "INT",
     "assigned_manager_id": "INT",
+    # Ensure currency is present on legacy databases so account currency
+    # selection works without manual migrations.
+    "currency_code": "VARCHAR(10) DEFAULT 'USD'",
 }
 
 

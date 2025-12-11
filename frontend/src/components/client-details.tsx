@@ -3,6 +3,14 @@ import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "./ui/dropdown-menu";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "./ui/sheet";
 import { Progress } from "./ui/progress";
 import { Separator } from "./ui/separator";
@@ -16,11 +24,12 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "./ui/tooltip";
-import { ArrowLeft, CheckCircle2, Clock, AlertCircle, Calendar as CalendarIcon, Target, TrendingUp, DollarSign, Users, Package, Play, Lightbulb, XCircle, Download, Settings, MessageSquare, User, FileText, Sparkles, Plus } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Clock, AlertCircle, Calendar as CalendarIcon, Target, TrendingUp, DollarSign, Users, Package, Play, Lightbulb, XCircle, Download, Settings, MessageSquare, User, FileText, Sparkles, Plus, ListFilter } from "lucide-react";
 import { useData } from "../lib/data-context";
 import { ClientChatbotInline } from "./client-chatbot-inline";
 import { CreateBundle } from "./create-bundle";
 import { toast } from "sonner@2.0.3";
+import { getCurrencyFormatter } from "../lib/currencies";
 
 interface ClientDetailsProps {
   clientId: string;
@@ -72,12 +81,6 @@ interface ActionBundle {
 
 // Month configuration
 const numberFormatter = new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 });
-const currencyFormatterWithCents = new Intl.NumberFormat("en-US", {
-  style: "currency",
-  currency: "USD",
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-});
 const percentFormatter = new Intl.NumberFormat("en-US", {
   minimumFractionDigits: 0,
   maximumFractionDigits: 2,
@@ -125,6 +128,7 @@ export function ClientDetails({ clientId, onBack }: ClientDetailsProps) {
   const [newTaskRecommendation, setNewTaskRecommendation] = useState("");
   const [newTaskImpact, setNewTaskImpact] = useState("");
   const [newTaskCampaign, setNewTaskCampaign] = useState("");
+  const [selectedCampaignIds, setSelectedCampaignIds] = useState<string[]>(["overall"]);
 
   const monthOptions = useMemo(() => {
     const now = new Date();
@@ -207,13 +211,65 @@ export function ClientDetails({ clientId, onBack }: ClientDetailsProps) {
     return <div>No client data available.</div>;
   }
 
+  const clientCurrency = client.currencyCode || "USD";
+  const currencyFormatterWithCents = useMemo(
+    () => getCurrencyFormatter(clientCurrency),
+    [clientCurrency]
+  );
+
   const campaignsForClient = useMemo(
     () => campaigns.filter((campaign) => campaign.clientId === client.id),
     [campaigns, client.id]
   );
 
+  useEffect(() => {
+    if (!campaignsForClient.length) {
+      setSelectedCampaignIds(["overall"]);
+      return;
+    }
+
+    setSelectedCampaignIds((prev) => {
+      const availableIds = new Set(campaignsForClient.map((campaign) => campaign.id));
+      const filtered = prev.filter((id) => id === "overall" || availableIds.has(id));
+
+      return filtered.length ? filtered : ["overall"];
+    });
+  }, [campaignsForClient]);
+
+  const selectedCampaigns = useMemo(() => {
+    if (selectedCampaignIds.includes("overall") || selectedCampaignIds.length === 0) {
+      return campaignsForClient;
+    }
+
+    const selectedSet = new Set(selectedCampaignIds);
+    return campaignsForClient.filter((campaign) => selectedSet.has(campaign.id));
+  }, [campaignsForClient, selectedCampaignIds]);
+
+  const handleCampaignToggle = (value: string) => {
+    if (value === "overall") {
+      setSelectedCampaignIds(["overall"]);
+      return;
+    }
+
+    setSelectedCampaignIds((prev) => {
+      const next = new Set(prev.includes("overall") ? [] : prev);
+
+      if (next.has(value)) {
+        next.delete(value);
+      } else {
+        next.add(value);
+      }
+
+      if (next.size === 0) {
+        next.add("overall");
+      }
+
+      return Array.from(next);
+    });
+  };
+
   const { totals: campaignTotals, topCampaigns, hasMetrics } = useMemo(() => {
-    const totals = campaignsForClient.reduce(
+    const totals = selectedCampaigns.reduce(
       (acc, campaign) => {
         acc.impressions += campaign.impressions;
         acc.clicks += campaign.clicks;
@@ -224,7 +280,7 @@ export function ClientDetails({ clientId, onBack }: ClientDetailsProps) {
       { impressions: 0, clicks: 0, conversions: 0, cost: 0 }
     );
 
-    const sortedByCost = [...campaignsForClient].sort((a, b) => {
+    const sortedByCost = [...selectedCampaigns].sort((a, b) => {
       if (b.cost === a.cost) {
         return b.conversions - a.conversions;
       }
@@ -234,11 +290,11 @@ export function ClientDetails({ clientId, onBack }: ClientDetailsProps) {
     return {
       totals,
       topCampaigns: sortedByCost.slice(0, 3),
-      hasMetrics: campaignsForClient.some(
+      hasMetrics: selectedCampaigns.some(
         (campaign) => campaign.impressions > 0 || campaign.clicks > 0 || campaign.conversions > 0 || campaign.cost > 0
       ),
     };
-  }, [campaignsForClient]);
+  }, [selectedCampaigns]);
 
   const totalImpressions = campaignTotals.impressions || client.impressions || 0;
   const totalClicks = campaignTotals.clicks || client.clicks || 0;
@@ -262,6 +318,8 @@ export function ClientDetails({ clientId, onBack }: ClientDetailsProps) {
   const safeRoas = Number.isFinite(roas) ? roas : 0;
   const safeCtr = Number.isFinite(ctr) ? ctr : 0;
   const safeConversionRate = Number.isFinite(conversionRate) ? conversionRate : 0;
+  const isOverallSelected = selectedCampaignIds.includes("overall");
+  const selectedCount = selectedCampaigns.length;
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -962,6 +1020,45 @@ export function ClientDetails({ clientId, onBack }: ClientDetailsProps) {
           <CardTitle>Account Overview</CardTitle>
         </CardHeader>
         <CardContent>
+          <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between mb-4">
+            <div>
+              <p className="text-sm text-slate-600">
+                Viewing {isOverallSelected ? "overall performance" : `${selectedCount} campaign${selectedCount === 1 ? "" : "s"}`} out of {campaignsForClient.length}.
+              </p>
+              <p className="text-xs text-slate-500">Select campaigns to recalculate spend and performance metrics.</p>
+            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="flex items-center gap-2">
+                  <ListFilter className="w-4 h-4" />
+                  <span>
+                    {isOverallSelected
+                      ? `Overall (${campaignsForClient.length})`
+                      : `${selectedCount} selected`}
+                  </span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-64">
+                <DropdownMenuLabel>Campaign filters</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuCheckboxItem
+                  checked={isOverallSelected}
+                  onCheckedChange={() => handleCampaignToggle("overall")}
+                >
+                  Overall ({campaignsForClient.length} total)
+                </DropdownMenuCheckboxItem>
+                {campaignsForClient.map((campaign) => (
+                  <DropdownMenuCheckboxItem
+                    key={campaign.id}
+                    checked={selectedCampaignIds.includes(campaign.id)}
+                    onCheckedChange={() => handleCampaignToggle(campaign.id)}
+                  >
+                    {campaign.name}
+                  </DropdownMenuCheckboxItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {/* Campaign Performance */}
             <div className="space-y-4">
@@ -1006,9 +1103,9 @@ export function ClientDetails({ clientId, onBack }: ClientDetailsProps) {
                     Campaign level analytics will appear once data is available for this account.
                   </div>
                 )}
-                {campaignsForClient.length > topCampaigns.length && (
+                {selectedCampaigns.length > topCampaigns.length && (
                   <p className="text-xs text-slate-500">
-                    Showing top {topCampaigns.length} of {campaignsForClient.length} campaigns by spend.
+                    Showing top {topCampaigns.length} of {selectedCampaigns.length} campaigns by spend.
                   </p>
                 )}
               </div>
@@ -1031,9 +1128,9 @@ export function ClientDetails({ clientId, onBack }: ClientDetailsProps) {
                 <div className="p-3 border rounded-lg">
                   <p className="text-xs text-slate-500 mb-1">Total Spend</p>
                   <p className="text-lg text-slate-900">{currencyFormatterWithCents.format(totalCost)}</p>
-                  {campaignsForClient.length > 0 && (
+                  {selectedCampaigns.length > 0 && (
                     <p className="text-xs text-slate-500 mt-1">
-                      Aggregated from {campaignsForClient.length} campaign{campaignsForClient.length === 1 ? "" : "s"}
+                      Aggregated from {selectedCampaigns.length} campaign{selectedCampaigns.length === 1 ? "" : "s"}
                     </p>
                   )}
                 </div>

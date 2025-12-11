@@ -137,7 +137,7 @@ function mapClients(
     return [];
   }
 
-  return backendClients.map((client, index) => {
+    return backendClients.map((client, index) => {
     const metrics = metricsByClient.get(client.id) ?? {
       impressions: 0,
       clicks: 0,
@@ -161,13 +161,14 @@ function mapClients(
         ? client.has_google_ads_auth
         : Boolean(client.refresh_token);
 
-    return {
-      id: String(client.id),
-      name: client.name || `Client ${index + 1}`,
-      adSpend: Number(cost.toFixed(2)),
-      conversions,
-      ctr: Number(ctr.toFixed(2)),
-      cpa: Number(cpa.toFixed(2)),
+      return {
+        id: String(client.id),
+        name: client.name || `Client ${index + 1}`,
+        adSpend: Number(cost.toFixed(2)),
+        currencyCode: client.currency_code || "USD",
+        conversions,
+        ctr: Number(ctr.toFixed(2)),
+        cpa: Number(cpa.toFixed(2)),
       conversionRate: Number(conversionRate.toFixed(2)),
       revenue: Number(estimatedRevenue.toFixed(2)),
       impressions,

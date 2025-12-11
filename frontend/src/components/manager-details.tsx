@@ -22,6 +22,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import type { ActionBundle } from "../lib/mock-data";
 import { Manager } from "../lib/mock-data";
 import { useData } from "../lib/data-context";
+import { formatCurrency } from "../lib/currencies";
 
 interface ManagerDetailsProps {
   manager: Manager;
@@ -244,7 +245,7 @@ export function ManagerDetails({ manager, onBack }: ManagerDetailsProps) {
                       <div className="min-w-0 flex-1">
                         <h4 className="text-sm text-slate-900">{client.name}</h4>
                         <p className="text-xs text-slate-500 mt-1">
-                          Ad Spend: ${client.adSpend.toLocaleString()}
+                          Ad Spend: {formatCurrency(client.adSpend, client.currencyCode)}
                         </p>
                         <p className="text-xs text-slate-500">
                           ROAS: {client.roas.toFixed(2)}

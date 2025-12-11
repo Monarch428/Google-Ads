@@ -70,6 +70,7 @@ export interface BackendClient {
   refresh_token: string;
   customer_id: string | null;
   login_customer_id: string | null;
+  currency_code?: string | null;
   has_google_ads_auth?: boolean;
   created_by_id?: number | null;
   assigned_manager_id?: number | null;

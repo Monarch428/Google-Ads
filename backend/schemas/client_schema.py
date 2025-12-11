@@ -11,6 +11,7 @@ class ClientBase(BaseModel):
     refresh_token: str
     customer_id: Optional[str] = None
     login_customer_id: Optional[str] = None
+    currency_code: str = "USD"
 
 
 class ClientCreate(ClientBase):
@@ -27,6 +28,7 @@ class ClientUpdate(BaseModel):
     customer_id: Optional[str] = None
     login_customer_id: Optional[str] = None
     assigned_manager_id: Optional[int] = None
+    currency_code: Optional[str] = None
 
 
 class ClientResponse(ClientBase):
