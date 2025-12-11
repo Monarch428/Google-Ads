@@ -48,7 +48,7 @@ import {
   Filter,
   MoreVertical
 } from "lucide-react";
-import { mockManagers, mockClients, Manager } from "../lib/mock-data";
+import { Manager } from "../lib/mock-data";
 import { useData } from "../lib/data-context";
 import { createUser, updateUser } from "../lib/api";
 import {
@@ -110,8 +110,8 @@ export function UserManagement({ onManagerClick }: UserManagementProps) {
   const [isCreating, setIsCreating] = useState(false);
   const { managers, managersLoading, clients, refreshManagers, refreshClients, authToken } = useData();
 
-  const displayManagers = managers.length ? managers : mockManagers;
-  const displayClients = clients.length ? clients : mockClients;
+  const displayManagers = managers;
+  const displayClients = clients;
 
   const resetAddForm = useCallback(() => {
     setAddForm({
@@ -462,21 +462,27 @@ export function UserManagement({ onManagerClick }: UserManagementProps) {
                 <Label>Assign Client Accounts</Label>
                 <p className="text-xs text-slate-500 mb-3">Select which clients this manager will oversee</p>
                 <div className="grid grid-cols-2 gap-3 max-h-48 overflow-y-auto border border-slate-200 rounded-lg p-3">
-                  {displayClients.map((client) => (
-                    <div key={client.id} className="flex items-center space-x-2">
-                      <Checkbox
-                        id={`client-${client.id}`}
-                        checked={selectedAddClients.includes(client.id)}
-                        onCheckedChange={() => handleAddClientToggle(client.id)}
-                      />
-                      <label
-                        htmlFor={`client-${client.id}`}
-                        className="text-sm text-slate-900 cursor-pointer flex-1"
-                      >
-                        {client.name}
-                      </label>
-                    </div>
-                  ))}
+                  {displayClients.length === 0 ? (
+                    <p className="col-span-2 text-sm text-slate-500 text-center">
+                      No clients available. Add clients to assign them to managers.
+                    </p>
+                  ) : (
+                    displayClients.map((client) => (
+                      <div key={client.id} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`client-${client.id}`}
+                          checked={selectedAddClients.includes(client.id)}
+                          onCheckedChange={() => handleAddClientToggle(client.id)}
+                        />
+                        <label
+                          htmlFor={`client-${client.id}`}
+                          className="text-sm text-slate-900 cursor-pointer flex-1"
+                        >
+                          {client.name}
+                        </label>
+                      </div>
+                    ))
+                  )}
                 </div>
                 <p className="text-xs text-slate-500 mt-2">
                   {selectedAddClients.length} client(s) selected
@@ -790,21 +796,27 @@ export function UserManagement({ onManagerClick }: UserManagementProps) {
                   Currently managing {selectedEditClients.length || selectedManager.clientsAssigned} client(s)
                 </p>
                 <div className="grid grid-cols-2 gap-3 max-h-48 overflow-y-auto border border-slate-200 rounded-lg p-3">
-                  {displayClients.map((client) => (
-                    <div key={client.id} className="flex items-center space-x-2">
-                      <Checkbox
-                        id={`edit-client-${client.id}`}
-                        checked={selectedEditClients.includes(client.id)}
-                        onCheckedChange={() => handleEditClientToggle(client.id)}
-                      />
-                      <label
-                        htmlFor={`edit-client-${client.id}`}
-                        className="text-sm text-slate-900 cursor-pointer flex-1"
-                      >
-                        {client.name}
-                      </label>
-                    </div>
-                  ))}
+                  {displayClients.length === 0 ? (
+                    <p className="col-span-2 text-sm text-slate-500 text-center">
+                      No clients available to assign.
+                    </p>
+                  ) : (
+                    displayClients.map((client) => (
+                      <div key={client.id} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`edit-client-${client.id}`}
+                          checked={selectedEditClients.includes(client.id)}
+                          onCheckedChange={() => handleEditClientToggle(client.id)}
+                        />
+                        <label
+                          htmlFor={`edit-client-${client.id}`}
+                          className="text-sm text-slate-900 cursor-pointer flex-1"
+                        >
+                          {client.name}
+                        </label>
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
               <Separator />

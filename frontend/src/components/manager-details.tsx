@@ -19,7 +19,8 @@ import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
-import { Manager, mockActionBundles, mockClients } from "../lib/mock-data";
+import type { ActionBundle } from "../lib/mock-data";
+import { Manager } from "../lib/mock-data";
 import { useData } from "../lib/data-context";
 
 interface ManagerDetailsProps {
@@ -36,60 +37,24 @@ export function ManagerDetails({ manager, onBack }: ManagerDetailsProps) {
 
   // Get manager's recommendations
   const managerRecommendations = recommendations.filter(
-    r => r.manager === manager.name
+    (r) => r.manager === manager.name
   );
 
-  // Get manager's action bundles
-  const managerBundles = mockActionBundles.filter(
-    b => b.managerName === manager.name
-  );
+  const managerBundles: ActionBundle[] = [];
 
-  const availableClients = clients.length ? clients : mockClients;
-  const assignedClients = availableClients.slice(0, manager.clientsAssigned);
+  const assignedClients = (manager.assignedClientIds ?? [])
+    .map((clientId) => clients.find((client) => client.id === clientId))
+    .filter((client): client is NonNullable<typeof client> => Boolean(client));
 
-  // Recent activities for this manager
-  const recentActivities = [
-    {
-      id: "1",
-      type: "approval",
-      action: "Approved keyword optimization recommendation",
-      target: "TechStart Inc - Q4 Product Launch",
-      timestamp: "2 hours ago",
-      status: "success",
-    },
-    {
-      id: "2",
-      type: "bundle",
-      action: "Created action bundle with 3 recommendations",
-      target: "Global Fitness - New Year Promo",
-      timestamp: "5 hours ago",
-      status: "info",
-    },
-    {
-      id: "3",
-      type: "execution",
-      action: "Executed budget reallocation",
-      target: "TechStart Inc - Search Campaign",
-      timestamp: "1 day ago",
-      status: "success",
-    },
-    {
-      id: "4",
-      type: "rejection",
-      action: "Rejected ad copy update",
-      target: "Fashion Forward - Winter Collection",
-      timestamp: "1 day ago",
-      status: "warning",
-    },
-    {
-      id: "5",
-      type: "report",
-      action: "Generated monthly performance report",
-      target: "TechStart Inc",
-      timestamp: "2 days ago",
-      status: "info",
-    },
-  ];
+  // Recent activities for this manager (empty until backend data is available)
+  const recentActivities: {
+    id: string;
+    type: string;
+    action: string;
+    target: string;
+    timestamp: string;
+    status?: string;
+  }[] = [];
 
   const getActivityIcon = (type: string) => {
     switch (type) {
@@ -262,30 +227,44 @@ export function ManagerDetails({ manager, onBack }: ManagerDetailsProps) {
         <TabsContent value="clients" className="space-y-3 mt-4">
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Assigned Clients ({manager.clientsAssigned})</CardTitle>
+              <CardTitle className="text-base">Assigned Clients ({assignedClients.length})</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {assignedClients.map((client) => (
-                  <div key={client.id} className="flex items-start justify-between p-3 border border-slate-200 rounded-lg gap-3">
-                    <div className="min-w-0 flex-1">
-                      <h4 className="text-sm text-slate-900">{client.name}</h4>
-                      <p className="text-xs text-slate-500 mt-1">
-                        Ad Spend: ${client.adSpend.toLocaleString()}
-                      </p>
-                      <p className="text-xs text-slate-500">
-                        ROAS: {client.roas.toFixed(2)}
-                      </p>
+                {assignedClients.length === 0 ? (
+                  <p className="text-sm text-slate-500">
+                    No clients added or assigned to this manager yet.
+                  </p>
+                ) : (
+                  assignedClients.map((client) => (
+                    <div
+                      key={client.id}
+                      className="flex items-start justify-between p-3 border border-slate-200 rounded-lg gap-3"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <h4 className="text-sm text-slate-900">{client.name}</h4>
+                        <p className="text-xs text-slate-500 mt-1">
+                          Ad Spend: ${client.adSpend.toLocaleString()}
+                        </p>
+                        <p className="text-xs text-slate-500">
+                          ROAS: {client.roas.toFixed(2)}
+                        </p>
+                      </div>
+                      <Badge
+                        variant={
+                          client.status === "healthy"
+                            ? "default"
+                            : client.status === "warning"
+                              ? "secondary"
+                              : "destructive"
+                        }
+                        className="flex-shrink-0"
+                      >
+                        {client.status}
+                      </Badge>
                     </div>
-                    <Badge variant={
-                      client.status === "healthy" ? "default" : 
-                      client.status === "warning" ? "secondary" : 
-                      "destructive"
-                    } className="flex-shrink-0">
-                      {client.status}
-                    </Badge>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
             </CardContent>
           </Card>
@@ -298,32 +277,49 @@ export function ManagerDetails({ manager, onBack }: ManagerDetailsProps) {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {managerRecommendations.map((rec) => (
-                  <div key={rec.id} className="p-3 border border-slate-200 rounded-lg">
-                    <div className="flex items-start justify-between mb-2 gap-2">
-                      <div className="min-w-0 flex-1">
-                        <h4 className="text-sm text-slate-900">{rec.type}</h4>
-                        <p className="text-xs text-slate-600 mt-1">{rec.clientName}</p>
-                        <p className="text-xs text-slate-500">{rec.campaignName}</p>
+                {managerRecommendations.length === 0 ? (
+                  <p className="text-sm text-slate-500">No recommendations available.</p>
+                ) : (
+                  managerRecommendations.map((rec) => (
+                    <div key={rec.id} className="p-3 border border-slate-200 rounded-lg">
+                      <div className="flex items-start justify-between mb-2 gap-2">
+                        <div className="min-w-0 flex-1">
+                          <h4 className="text-sm text-slate-900">{rec.type}</h4>
+                          <p className="text-xs text-slate-600 mt-1">{rec.clientName}</p>
+                          <p className="text-xs text-slate-500">{rec.campaignName}</p>
+                        </div>
+                        <Badge
+                          variant={
+                            rec.status === "approved"
+                              ? "default"
+                              : rec.status === "pending"
+                                ? "secondary"
+                                : rec.status === "modified"
+                                  ? "outline"
+                                  : "destructive"
+                          }
+                          className="flex-shrink-0"
+                        >
+                          {rec.status}
+                        </Badge>
                       </div>
-                      <Badge variant={
-                        rec.status === "approved" ? "default" : 
-                        rec.status === "pending" ? "secondary" : 
-                        rec.status === "modified" ? "outline" : 
-                        "destructive"
-                      } className="flex-shrink-0">
-                        {rec.status}
-                      </Badge>
+                      <p className="text-sm text-slate-700 mb-2">{rec.recommendation}</p>
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <Badge
+                          variant={rec.priority === "high" ? "destructive" : rec.priority === "medium" ? "default" : "outline"}
+                          className={
+                            rec.priority === "medium"
+                              ? "bg-yellow-500 text-white border-transparent hover:bg-yellow-600"
+                              : ""
+                          }
+                        >
+                          {rec.priority} priority
+                        </Badge>
+                        <p className="text-xs text-slate-500">{rec.impact}</p>
+                      </div>
                     </div>
-                    <p className="text-sm text-slate-700 mb-2">{rec.recommendation}</p>
-                    <div className="flex items-center justify-between gap-2 flex-wrap">
-                      <Badge variant={rec.priority === "high" ? "destructive" : rec.priority === "medium" ? "default" : "outline"} className={rec.priority === "medium" ? "bg-yellow-500 text-white border-transparent hover:bg-yellow-600" : ""}>
-                        {rec.priority} priority
-                      </Badge>
-                      <p className="text-xs text-slate-500">{rec.impact}</p>
-                    </div>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
             </CardContent>
           </Card>
@@ -336,29 +332,38 @@ export function ManagerDetails({ manager, onBack }: ManagerDetailsProps) {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {managerBundles.map((bundle) => (
-                  <div key={bundle.id} className="p-3 border border-slate-200 rounded-lg">
-                    <div className="flex items-start justify-between mb-2 gap-2">
-                      <div className="min-w-0 flex-1">
-                        <h4 className="text-sm text-slate-900">{bundle.clientName}</h4>
-                        <p className="text-xs text-slate-600 mt-1">
-                          {bundle.recommendationsCount} recommendations
-                        </p>
-                        <p className="text-xs text-slate-500">
-                          Created {bundle.createdAt}
-                        </p>
+                {managerBundles.length === 0 ? (
+                  <p className="text-sm text-slate-500">No action bundles available.</p>
+                ) : (
+                  managerBundles.map((bundle) => (
+                    <div key={bundle.id} className="p-3 border border-slate-200 rounded-lg">
+                      <div className="flex items-start justify-between mb-2 gap-2">
+                        <div className="min-w-0 flex-1">
+                          <h4 className="text-sm text-slate-900">{bundle.clientName}</h4>
+                          <p className="text-xs text-slate-600 mt-1">
+                            {bundle.recommendationsCount} recommendations
+                          </p>
+                          <p className="text-xs text-slate-500">
+                            Created {bundle.createdAt}
+                          </p>
+                        </div>
+                        <Badge
+                          variant={
+                            bundle.status === "completed"
+                              ? "default"
+                              : bundle.status === "in-progress"
+                                ? "secondary"
+                                : "outline"
+                          }
+                          className="flex-shrink-0"
+                        >
+                          {bundle.status}
+                        </Badge>
                       </div>
-                      <Badge variant={
-                        bundle.status === "completed" ? "default" : 
-                        bundle.status === "in-progress" ? "secondary" : 
-                        "outline"
-                      } className="flex-shrink-0">
-                        {bundle.status}
-                      </Badge>
+                      <p className="text-sm text-green-600">{bundle.estimatedImpact}</p>
                     </div>
-                    <p className="text-sm text-green-600">{bundle.estimatedImpact}</p>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
             </CardContent>
           </Card>
@@ -371,23 +376,27 @@ export function ManagerDetails({ manager, onBack }: ManagerDetailsProps) {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {recentActivities.map((activity, index) => (
-                  <div key={activity.id}>
-                    <div className="flex items-start gap-2">
-                      <div className={`w-8 h-8 rounded-lg ${getStatusColor(activity.status)} flex items-center justify-center flex-shrink-0`}>
-                        {getActivityIcon(activity.type)}
+                {recentActivities.length === 0 ? (
+                  <p className="text-sm text-slate-500">No recent activity available.</p>
+                ) : (
+                  recentActivities.map((activity, index) => (
+                    <div key={activity.id}>
+                      <div className="flex items-start gap-2">
+                        <div className={`w-8 h-8 rounded-lg ${getStatusColor(activity.status)} flex items-center justify-center flex-shrink-0`}>
+                          {getActivityIcon(activity.type)}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm text-slate-900">{activity.action}</p>
+                          <p className="text-xs text-slate-500 mt-0.5 break-words">{activity.target}</p>
+                          <p className="text-xs text-slate-400 mt-1">{activity.timestamp}</p>
+                        </div>
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm text-slate-900">{activity.action}</p>
-                        <p className="text-xs text-slate-500 mt-0.5 break-words">{activity.target}</p>
-                        <p className="text-xs text-slate-400 mt-1">{activity.timestamp}</p>
-                      </div>
+                      {index < recentActivities.length - 1 && (
+                        <div className="h-px bg-slate-100 my-3" />
+                      )}
                     </div>
-                    {index < recentActivities.length - 1 && (
-                      <div className="h-px bg-slate-100 my-3" />
-                    )}
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
             </CardContent>
           </Card>
