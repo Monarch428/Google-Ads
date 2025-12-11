@@ -222,7 +222,7 @@ export function Settings({ user, authToken, onUserUpdated }: SettingsProps) {
       )}
 
       <Tabs defaultValue="profile" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-6">
+        <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="profile">
             <User className="w-4 h-4 mr-2" />
             Profile
@@ -231,22 +231,22 @@ export function Settings({ user, authToken, onUserUpdated }: SettingsProps) {
             <Building2 className="w-4 h-4 mr-2" />
             Company
           </TabsTrigger>
-          <TabsTrigger value="notifications">
+          {/* <TabsTrigger value="notifications">
             <Bell className="w-4 h-4 mr-2" />
             Notifications
-          </TabsTrigger>
-          <TabsTrigger value="integrations">
+          </TabsTrigger> */}
+          {/* <TabsTrigger value="integrations">
             <Zap className="w-4 h-4 mr-2" />
             Integrations
-          </TabsTrigger>
-          <TabsTrigger value="alerts">
+          </TabsTrigger> */}
+          {/* <TabsTrigger value="alerts">
             <AlertTriangle className="w-4 h-4 mr-2" />
             Alerts
-          </TabsTrigger>
-          <TabsTrigger value="billing">
+          </TabsTrigger> */}
+          {/* <TabsTrigger value="billing">
             <CreditCard className="w-4 h-4 mr-2" />
             Billing
-          </TabsTrigger>
+          </TabsTrigger> */}
         </TabsList>
 
         {/* Profile Settings */}
@@ -485,7 +485,7 @@ export function Settings({ user, authToken, onUserUpdated }: SettingsProps) {
         </TabsContent>
 
         {/* Notification Settings */}
-        <TabsContent value="notifications" className="space-y-6">
+        {/* <TabsContent value="notifications" className="space-y-6">
           <Card>
             <CardHeader>
               <CardTitle>Email Notifications</CardTitle>
@@ -586,10 +586,10 @@ export function Settings({ user, authToken, onUserUpdated }: SettingsProps) {
               </Button>
             </CardContent>
           </Card>
-        </TabsContent>
+        </TabsContent> */}
 
         {/* Integration Settings */}
-        <TabsContent value="integrations" className="space-y-6">
+        {/* <TabsContent value="integrations" className="space-y-6">
           <Card>
             <CardHeader>
               <CardTitle>Google Ads Integration</CardTitle>
@@ -693,10 +693,10 @@ export function Settings({ user, authToken, onUserUpdated }: SettingsProps) {
               </div>
             </CardContent>
           </Card>
-        </TabsContent>
+        </TabsContent> */}
 
         {/* Alert Settings */}
-        <TabsContent value="alerts" className="space-y-6">
+        {/* <TabsContent value="alerts" className="space-y-6">
           <Card>
             <CardHeader>
               <CardTitle>Performance Alert Thresholds</CardTitle>
@@ -707,10 +707,10 @@ export function Settings({ user, authToken, onUserUpdated }: SettingsProps) {
                 <div className="space-y-2">
                   <Label htmlFor="ctrThreshold">Click-Through Rate (CTR) Drop</Label>
                   <div className="flex items-center gap-4">
-                    <Input 
-                      id="ctrThreshold" 
-                      type="number" 
-                      defaultValue="20" 
+                    <Input
+                      id="ctrThreshold"
+                      type="number"
+                      defaultValue="20"
                       className="w-32"
                     />
                     <span className="text-sm text-slate-500">% below average</span>
@@ -723,10 +723,10 @@ export function Settings({ user, authToken, onUserUpdated }: SettingsProps) {
                 <div className="space-y-2">
                   <Label htmlFor="cpaThreshold">Cost Per Acquisition (CPA) Increase</Label>
                   <div className="flex items-center gap-4">
-                    <Input 
-                      id="cpaThreshold" 
-                      type="number" 
-                      defaultValue="25" 
+                    <Input
+                      id="cpaThreshold"
+                      type="number"
+                      defaultValue="25"
                       className="w-32"
                     />
                     <span className="text-sm text-slate-500">% above target</span>
@@ -739,10 +739,10 @@ export function Settings({ user, authToken, onUserUpdated }: SettingsProps) {
                 <div className="space-y-2">
                   <Label htmlFor="roasThreshold">Return on Ad Spend (ROAS) Drop</Label>
                   <div className="flex items-center gap-4">
-                    <Input 
-                      id="roasThreshold" 
-                      type="number" 
-                      defaultValue="30" 
+                    <Input
+                      id="roasThreshold"
+                      type="number"
+                      defaultValue="30"
                       className="w-32"
                     />
                     <span className="text-sm text-slate-500">% below target</span>
@@ -755,10 +755,10 @@ export function Settings({ user, authToken, onUserUpdated }: SettingsProps) {
                 <div className="space-y-2">
                   <Label htmlFor="budgetThreshold">Budget Utilization</Label>
                   <div className="flex items-center gap-4">
-                    <Input 
-                      id="budgetThreshold" 
-                      type="number" 
-                      defaultValue="80" 
+                    <Input
+                      id="budgetThreshold"
+                      type="number"
+                      defaultValue="80"
                       className="w-32"
                     />
                     <span className="text-sm text-slate-500">% of monthly budget</span>
@@ -771,10 +771,10 @@ export function Settings({ user, authToken, onUserUpdated }: SettingsProps) {
                 <div className="space-y-2">
                   <Label htmlFor="conversionThreshold">Conversion Rate Drop</Label>
                   <div className="flex items-center gap-4">
-                    <Input 
-                      id="conversionThreshold" 
-                      type="number" 
-                      defaultValue="15" 
+                    <Input
+                      id="conversionThreshold"
+                      type="number"
+                      defaultValue="15"
                       className="w-32"
                     />
                     <span className="text-sm text-slate-500">% below average</span>
@@ -832,10 +832,10 @@ export function Settings({ user, authToken, onUserUpdated }: SettingsProps) {
               </Button>
             </CardContent>
           </Card>
-        </TabsContent>
+        </TabsContent> */}
 
         {/* Billing Settings */}
-        <TabsContent value="billing" className="space-y-6">
+        {/* <TabsContent value="billing" className="space-y-6">
           <Card>
             <CardHeader>
               <CardTitle>Subscription Plan</CardTitle>
@@ -955,8 +955,8 @@ export function Settings({ user, authToken, onUserUpdated }: SettingsProps) {
                 ))}
               </div>
             </CardContent>
-          </Card>
-        </TabsContent>
+          </Card> */}
+        {/* </TabsContent> */}
       </Tabs>
     </div>
   );
