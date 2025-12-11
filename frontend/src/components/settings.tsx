@@ -257,7 +257,7 @@ export function Settings({ user, authToken, onUserUpdated }: SettingsProps) {
               <CardDescription>Update your personal details and profile information</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div className="flex items-center gap-6">
+              {/* <div className="flex items-center gap-6">
                 <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center flex-shrink-0">
                   <span className="text-white text-2xl">AJ</span>
                 </div>
@@ -265,7 +265,7 @@ export function Settings({ user, authToken, onUserUpdated }: SettingsProps) {
                   <Button variant="outline">Change Avatar</Button>
                   <p className="text-xs text-slate-500">JPG, GIF or PNG. Max size 2MB.</p>
                 </div>
-              </div>
+              </div> */}
 
               <Separator />
 
@@ -433,7 +433,7 @@ export function Settings({ user, authToken, onUserUpdated }: SettingsProps) {
 
               <Separator />
 
-              <div className="space-y-2">
+              {/* <div className="space-y-2">
                 <Label>Company Logo</Label>
                 <div className="flex items-center gap-4">
                   <div className="w-24 h-24 border-2 border-dashed border-slate-300 rounded-lg flex items-center justify-center">
@@ -444,9 +444,9 @@ export function Settings({ user, authToken, onUserUpdated }: SettingsProps) {
                     <p className="text-xs text-slate-500">Recommended size: 400x400px</p>
                   </div>
                 </div>
-              </div>
+              </div> */}
 
-              <Separator />
+              {/* <Separator /> */}
 
               <div className="space-y-4">
                 <Label>Team Settings</Label>
