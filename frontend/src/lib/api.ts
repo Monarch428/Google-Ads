@@ -369,6 +369,15 @@ export function updateUser(
   });
 }
 
+export function deleteUser(userId: number | string, token?: string) {
+  return apiFetch<{ message?: string }>(`/users/${userId}`, {
+    method: "DELETE",
+    ...(token
+      ? { headers: { Authorization: `Bearer ${token}` } }
+      : undefined),
+  });
+}
+
 // ---------- Recommendations ----------
 export function fetchRecommendations(token?: string) {
   return apiFetch<BackendRecommendation[]>("/recommendations", token

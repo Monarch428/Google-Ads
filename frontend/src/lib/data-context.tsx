@@ -8,6 +8,7 @@ import {
   approveRecommendation,
   dismissRecommendation,
   deleteClient as deleteClientApi,
+  deleteUser,
   fetchGoogleAdsRange,
   fetchGoogleAdsDaily,
   BackendCampaign,
@@ -50,6 +51,7 @@ type DataContextValue = {
   approveRecommendation: (recId: string) => Promise<void>;
   dismissRecommendation: (recId: string) => Promise<void>;
   deleteClient: (clientId: string) => Promise<void>;
+  deleteManager: (managerId: string) => Promise<void>;
   authToken?: string;
   refreshToken?: string | null;
   viewerRole: string;
@@ -487,6 +489,23 @@ export function DataProvider({
     [authToken, refreshToken, loadClients, loadManagers],
   );
 
+  const handleDeleteManager = useCallback(
+    async (managerId: string) => {
+      if (!authToken) {
+        throw new Error("Authentication required to delete managers");
+      }
+
+      try {
+        await deleteUser(managerId, authToken);
+        await Promise.all([loadManagers(), loadClients()]);
+      } catch (error) {
+        console.error("Failed to delete manager", error);
+        throw error;
+      }
+    },
+    [authToken, loadClients, loadManagers],
+  );
+
   const handleSyncGoogleAdsRange = useCallback(
     async (clientId: string, startDate: string, endDate: string) => {
       if (!authToken) {
@@ -552,6 +571,7 @@ export function DataProvider({
     approveRecommendation: handleApproveRecommendation,
     dismissRecommendation: handleDismissRecommendation,
     deleteClient: handleDeleteClient,
+    deleteManager: handleDeleteManager,
     authToken,
     refreshToken: refreshToken ?? null,
     viewerRole,
@@ -576,6 +596,7 @@ export function DataProvider({
     handleApproveRecommendation,
     handleDismissRecommendation,
     handleDeleteClient,
+    handleDeleteManager,
     authToken,
     refreshToken,
     viewerRole,

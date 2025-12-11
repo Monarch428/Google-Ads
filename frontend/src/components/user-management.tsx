@@ -108,7 +108,8 @@ export function UserManagement({ onManagerClick }: UserManagementProps) {
   });
   const [isSaving, setIsSaving] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
-  const { managers, managersLoading, clients, refreshManagers, refreshClients, authToken } = useData();
+  const [isDeletingManager, setIsDeletingManager] = useState(false);
+  const { managers, managersLoading, clients, refreshManagers, refreshClients, deleteManager, authToken } = useData();
 
   const displayManagers = managers;
   const displayClients = clients;
@@ -171,6 +172,24 @@ export function UserManagement({ onManagerClick }: UserManagementProps) {
     setSelectedManager(manager);
     setIsDeleteDialogOpen(true);
   };
+
+  const handleConfirmDelete = useCallback(async () => {
+    if (!selectedManager) return;
+    setIsDeletingManager(true);
+
+    try {
+      await deleteManager(selectedManager.id);
+      toast.success(`${selectedManager.name} removed`);
+      setIsDeleteDialogOpen(false);
+      setSelectedManager(null);
+    } catch (error) {
+      console.error("Failed to remove manager", error);
+      const message = error instanceof Error ? error.message : "Failed to remove manager";
+      toast.error(message);
+    } finally {
+      setIsDeletingManager(false);
+    }
+  }, [deleteManager, selectedManager]);
 
   const handleViewActivityClick = (manager: Manager) => {
     if (onManagerClick) {
@@ -873,11 +892,12 @@ export function UserManagement({ onManagerClick }: UserManagementProps) {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction 
+            <AlertDialogAction
               className="bg-red-600 hover:bg-red-700"
-              onClick={() => setIsDeleteDialogOpen(false)}
+              disabled={isDeletingManager}
+              onClick={handleConfirmDelete}
             >
-              Remove Manager
+              {isDeletingManager ? "Removing..." : "Remove Manager"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

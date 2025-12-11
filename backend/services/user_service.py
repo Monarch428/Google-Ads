@@ -197,3 +197,24 @@ def update_user(
         setattr(user, "assigned_client_ids", assigned_ids)
 
     return user
+
+
+def delete_user(db: Session, user_id: int) -> dict:
+    """Delete a user and clean up any client assignments."""
+
+    user = get_user_by_id(db, user_id)
+
+    if (user.role or "").lower() == "admin":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot delete admin users",
+        )
+
+    managed_clients = db.query(Client).filter(Client.assigned_manager_id == user.id).all()
+    for client in managed_clients:
+        client.assigned_manager_id = None
+
+    db.delete(user)
+    db.commit()
+
+    return {"message": "User deleted successfully"}

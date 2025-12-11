@@ -56,3 +56,12 @@ def update_user(
         update_data,
         can_manage_assignments=can_manage_assignments,
     )
+
+
+@router.delete("/{user_id}", status_code=200)
+def delete_user(
+    user_id: int,
+    _: None = Depends(require_admin_user),
+    db: Session = Depends(get_db),
+):
+    return user_service.delete_user(db, user_id)
