@@ -69,6 +69,7 @@ export interface BackendClient {
   client_secret: string;
   refresh_token: string;
   customer_id: string | null;
+  customer_ids?: string[] | null;
   login_customer_id: string | null;
   currency_code?: string | null;
   has_google_ads_auth?: boolean;
@@ -178,6 +179,8 @@ export type CreateClientPayload = Omit<
   "id" | "created_at" | "updated_at" | "created_by_id"
 >;
 
+export type UpdateClientPayload = Partial<CreateClientPayload>;
+
 export interface ClientAssignmentResponse {
   manager_id: number;
   assigned_client_ids: number[];
@@ -263,6 +266,26 @@ export function createClient(
 
   return apiFetch<BackendClient>("/clients/add", {
     method: "POST",
+    body: JSON.stringify(payload),
+    ...(Object.keys(headers).length ? { headers } : undefined),
+  });
+}
+
+export function updateClient(
+  clientId: number | string,
+  payload: UpdateClientPayload,
+  tokens?: { accessToken?: string; refreshToken?: string | null },
+) {
+  const headers: Record<string, string> = {};
+  if (tokens?.accessToken) {
+    headers.Authorization = `Bearer ${tokens.accessToken}`;
+  }
+  if (tokens?.refreshToken) {
+    headers["X-Refresh-Token"] = tokens.refreshToken;
+  }
+
+  return apiFetch<BackendClient>(`/clients/${clientId}`, {
+    method: "PUT",
     body: JSON.stringify(payload),
     ...(Object.keys(headers).length ? { headers } : undefined),
   });

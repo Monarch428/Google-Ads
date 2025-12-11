@@ -14,6 +14,7 @@ export interface Client {
   roas: number;
   status: "healthy" | "warning" | "critical";
   currencyCode?: string;
+  customerIds?: string[];
   assignedManagerId?: string | null;
   createdById?: string | null;
   hasGoogleOAuth?: boolean;

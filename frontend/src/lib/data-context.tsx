@@ -8,6 +8,7 @@ import {
   approveRecommendation,
   dismissRecommendation,
   deleteClient as deleteClientApi,
+  updateClient as updateClientApi,
   deleteUser,
   fetchGoogleAdsRange,
   fetchGoogleAdsDaily,
@@ -50,6 +51,7 @@ type DataContextValue = {
   refreshRecommendations: () => Promise<void>;
   approveRecommendation: (recId: string) => Promise<void>;
   dismissRecommendation: (recId: string) => Promise<void>;
+  updateClient: (clientId: string, payload: Partial<BackendClient>) => Promise<void>;
   deleteClient: (clientId: string) => Promise<void>;
   deleteManager: (managerId: string) => Promise<void>;
   authToken?: string;
@@ -137,13 +139,20 @@ function mapClients(
     return [];
   }
 
-    return backendClients.map((client, index) => {
+  return backendClients.map((client, index) => {
     const metrics = metricsByClient.get(client.id) ?? {
       impressions: 0,
       clicks: 0,
       conversions: 0,
       cost: 0,
     };
+
+    const customerIds =
+      client.customer_ids && client.customer_ids.length > 0
+        ? client.customer_ids
+        : client.customer_id
+        ? client.customer_id.split(",").map((value) => value.trim()).filter(Boolean)
+        : [];
 
     const impressions = Number(metrics.impressions ?? 0);
     const clicks = Number(metrics.clicks ?? 0);
@@ -176,6 +185,7 @@ function mapClients(
       roas: Number(roas.toFixed(2)),
       status: deriveStatus(conversionRate, ctr, conversions, "critical"),
       industry: client.industry || undefined,
+      customerIds,
       assignedManagerId:
         client.assigned_manager_id != null
           ? String(client.assigned_manager_id)
@@ -469,6 +479,26 @@ export function DataProvider({
     }
   }, [authToken, loadRecommendations]);
 
+  const handleUpdateClient = useCallback(
+    async (clientId: string, payload: Partial<BackendClient>) => {
+      if (!authToken) {
+        throw new Error("Authentication required to update clients");
+      }
+
+      try {
+        await updateClientApi(clientId, payload, {
+          accessToken: authToken,
+          refreshToken: refreshToken ?? null,
+        });
+        await Promise.all([loadClients(), loadManagers()]);
+      } catch (error) {
+        console.error("Failed to update client", error);
+        throw error;
+      }
+    },
+    [authToken, refreshToken, loadClients, loadManagers],
+  );
+
   const handleDeleteClient = useCallback(
     async (clientId: string) => {
       if (!authToken) {
@@ -571,6 +601,7 @@ export function DataProvider({
     refreshRecommendations: loadRecommendations,
     approveRecommendation: handleApproveRecommendation,
     dismissRecommendation: handleDismissRecommendation,
+    updateClient: handleUpdateClient,
     deleteClient: handleDeleteClient,
     deleteManager: handleDeleteManager,
     authToken,
@@ -596,6 +627,7 @@ export function DataProvider({
     loadRecommendations,
     handleApproveRecommendation,
     handleDismissRecommendation,
+    handleUpdateClient,
     handleDeleteClient,
     handleDeleteManager,
     authToken,

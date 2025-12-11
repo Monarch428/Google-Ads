@@ -38,7 +38,7 @@ type ClientFormState = {
   // client_id: string;
   // client_secret: string;
   refresh_token: string;
-  customer_id: string;
+  customer_ids: string[];
   // login_customer_id: string;
   assigned_manager_id: string;
   currency_code: string;
@@ -92,7 +92,7 @@ export function DashboardOverview({
       // client_id: "",
       // client_secret: "",
       refresh_token: refreshToken ?? "",
-      customer_id: "",
+      customer_ids: [],
       // login_customer_id: "",
       assigned_manager_id: "",
       currency_code: "USD",
@@ -101,6 +101,7 @@ export function DashboardOverview({
     [refreshToken],
   );
   const [clientForm, setClientForm] = useState<ClientFormState>(() => createInitialClientForm());
+  const [customerIdInput, setCustomerIdInput] = useState("");
   const [isSubmittingClient, setIsSubmittingClient] = useState(false);
   const [customerIdError, setCustomerIdError] = useState<string | null>(null);
   const oauthPendingClients = authToken ? clients.filter((client) => !client.hasGoogleOAuth) : [];
@@ -113,30 +114,50 @@ export function DashboardOverview({
     } else {
       setClientForm(createInitialClientForm());
       setCustomerIdError(null);
+      setCustomerIdInput("");
     }
   };
 
   const handleClientInputChange = (field: keyof ClientFormState) =>
     (event: ChangeEvent<HTMLInputElement>) => {
       const value = event.target.value;
-       if (field === "customer_id") {
-        const sanitizedValue = value.replace(/\D/g, "");
-
-        if (!sanitizedValue) {
-          setCustomerIdError(null);
-        } else if (value.includes("-")) {
-          setCustomerIdError("Please remove \"-\" and enter only numbers.");
-        } else if (/\D/.test(value)) {
-          setCustomerIdError("Customer ID must contain numbers only.");
-        } else {
-          setCustomerIdError(null);
-        }
-
-        setClientForm((prev) => ({ ...prev, [field]: sanitizedValue }));
-        return;
-      }
       setClientForm((prev) => ({ ...prev, [field]: value }));
     };
+
+  const normalizeCustomerIdTokens = (value: string) =>
+    value
+      .split(/[,\s]+/)
+      .map((token) => token.replace(/\D/g, "").trim())
+      .filter(Boolean);
+
+  const addCustomerIdsFromInput = () => {
+    const tokens = normalizeCustomerIdTokens(customerIdInput);
+    if (!tokens.length) {
+      setCustomerIdError("Please enter at least one numeric customer ID.");
+      return;
+    }
+
+    setCustomerIdError(null);
+    setClientForm((prev) => {
+      const existing = new Set(prev.customer_ids);
+      const next = [...prev.customer_ids];
+      tokens.forEach((id) => {
+        if (!existing.has(id)) {
+          existing.add(id);
+          next.push(id);
+        }
+      });
+      return { ...prev, customer_ids: next };
+    });
+    setCustomerIdInput("");
+  };
+
+  const removeCustomerId = (id: string) => {
+    setClientForm((prev) => ({
+      ...prev,
+      customer_ids: prev.customer_ids.filter((existing) => existing !== id),
+    }));
+  };
 
   const handleCreateClient = async () => {
     if (!authToken) {
@@ -181,17 +202,32 @@ export function DashboardOverview({
       // "client_id",
       // "client_secret",
       "refresh_token",
-      "customer_id",
       "currency_code",
     ];
 
-    const missingField = requiredFields.find((field) => !clientForm[field]?.trim());
+    const missingField = requiredFields.find((field) => !clientForm[field]?.toString().trim());
     if (missingField) {
       toast.error("Missing information", {
         description: "Please complete all required client credential fields.",
       });
       return;
     }
+
+    if (!clientForm.customer_ids.length) {
+      setCustomerIdError("Add at least one Google Ads customer ID.");
+      return;
+    }
+
+    const sanitizedCustomerIds = clientForm.customer_ids
+      .map((id) => id.replace(/\D/g, "").trim())
+      .filter(Boolean);
+
+    if (!sanitizedCustomerIds.length) {
+      setCustomerIdError("Customer IDs must contain numbers only.");
+      return;
+    }
+
+    setCustomerIdError(null);
 
     setIsSubmittingClient(true);
     try {
@@ -208,7 +244,8 @@ export function DashboardOverview({
         client_id: STATIC_CLIENT_ID,
         client_secret: STATIC_CLIENT_SECRET,
         refresh_token: clientForm.refresh_token.trim(),
-        customer_id: clientForm.customer_id.trim(),
+        customer_id: sanitizedCustomerIds.join(","),
+        customer_ids: sanitizedCustomerIds,
         // login_customer_id: clientForm.login_customer_id.trim() || null,
         login_customer_id: loginCustomerId,
         currency_code: clientForm.currency_code,
@@ -362,17 +399,51 @@ export function DashboardOverview({
                         OAuth credentials are managed by your workspace and applied automatically when creating
                         clients. The configured client ID and secret will be used for all new accounts.
                       </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="google-ads-id">Google Ads Customer ID</Label>
-                        <Input
-                          id="google-ads-id"
-                          placeholder="e.g., 1234567890"
-                          value={clientForm.customer_id}
-                          onChange={handleClientInputChange("customer_id")}
-                        />
+                      <div className="space-y-2 col-span-2">
+                        <Label htmlFor="google-ads-id">Google Ads Customer IDs</Label>
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                          <Input
+                            id="google-ads-id"
+                            placeholder="e.g., 1234567890 (use commas for multiple)"
+                            value={customerIdInput}
+                            onChange={(event) => setCustomerIdInput(event.target.value)}
+                            onKeyDown={(event) => {
+                              if (event.key === "Enter") {
+                                event.preventDefault();
+                                addCustomerIdsFromInput();
+                              }
+                            }}
+                          />
+                          <Button type="button" variant="secondary" onClick={addCustomerIdsFromInput}>
+                            Add ID
+                          </Button>
+                        </div>
                         {customerIdError && (
                           <p className="text-xs text-destructive">{customerIdError}</p>
                         )}
+                        {!!clientForm.customer_ids.length && (
+                          <div className="flex flex-wrap gap-2">
+                            {clientForm.customer_ids.map((id) => (
+                              <span
+                                key={id}
+                                className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-700"
+                              >
+                                <span className="font-medium">{id}</span>
+                                <button
+                                  type="button"
+                                  className="text-slate-500 hover:text-slate-900"
+                                  onClick={() => removeCustomerId(id)}
+                                  aria-label={`Remove customer ID ${id}`}
+                                >
+                                  ×
+                                </button>
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                        <p className="text-xs text-slate-500">
+                          Enter one or more numeric IDs separated by commas or spaces. Duplicates are ignored.
+                        </p>
                       </div>
                       {/* <div className="space-y-2">
                         <Label htmlFor="login-customer-id">Login Customer ID</Label>
