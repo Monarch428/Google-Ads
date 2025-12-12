@@ -39,6 +39,14 @@ _CLIENT_OPTIONAL_COLUMNS = {
     "customer_ids": "JSON",
 }
 
+_CAMPAIGN_OPTIONAL_COLUMNS = {
+    "conversions": "INT DEFAULT 0",
+    "ctr": "FLOAT DEFAULT 0",
+    "average_cpc": "FLOAT DEFAULT 0",
+    "conversion_value": "FLOAT DEFAULT 0",
+    "cost_per_conversion": "FLOAT DEFAULT 0",
+}
+
 
 def ensure_user_optional_columns() -> None:
     """Ensure optional company columns exist on the users table.
@@ -90,6 +98,29 @@ def ensure_client_assignment_columns() -> None:
     with engine.begin() as connection:
         for column_name in missing_columns:
             ddl = f"ALTER TABLE clients ADD COLUMN {column_name} {_CLIENT_OPTIONAL_COLUMNS[column_name]} NULL"
+            connection.execute(text(ddl))
+
+
+def ensure_campaign_metric_columns() -> None:
+    """Ensure newer Google Ads metric columns exist on the campaigns table."""
+
+    inspector = inspect(engine)
+    if not inspector.has_table("campaigns"):
+        return
+
+    existing_columns = {col["name"] for col in inspector.get_columns("campaigns")}
+    missing_columns = [
+        column_name
+        for column_name in _CAMPAIGN_OPTIONAL_COLUMNS
+        if column_name not in existing_columns
+    ]
+
+    if not missing_columns:
+        return
+
+    with engine.begin() as connection:
+        for column_name in missing_columns:
+            ddl = f"ALTER TABLE campaigns ADD COLUMN {column_name} {_CAMPAIGN_OPTIONAL_COLUMNS[column_name]} NULL"
             connection.execute(text(ddl))
 
 def backfill_customer_ids_column() -> None:

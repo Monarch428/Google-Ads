@@ -88,6 +88,10 @@ export interface BackendCampaign {
   clicks: number;
   cost: number;
   conversions: number;
+  ctr?: number;
+  average_cpc?: number;
+  conversion_value?: number;
+  cost_per_conversion?: number;
   client_id: number;
 }
 

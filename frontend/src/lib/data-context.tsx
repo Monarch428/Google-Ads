@@ -33,6 +33,9 @@ type CampaignSummary = {
   ctr: number;
   cpc: number;
   cpa: number;
+  conversionValue: number;
+  costPerConversion: number;
+  averageCpc: number;
 };
 
 type DataContextValue = {
@@ -72,30 +75,35 @@ const DataContext = createContext<DataContextValue | undefined>(undefined);
 
 function buildCampaignSummaries(campaigns: BackendCampaign[]): {
   summaries: CampaignSummary[];
-  metricsByClient: Map<number, { impressions: number; clicks: number; conversions: number; cost: number }>;
+  metricsByClient: Map<number, { impressions: number; clicks: number; conversions: number; cost: number; conversionValue: number }>;
 } {
-  const metricsByClient = new Map<number, { impressions: number; clicks: number; conversions: number; cost: number }>();
+  const metricsByClient = new Map<number, { impressions: number; clicks: number; conversions: number; cost: number; conversionValue: number }>();
   const summaries: CampaignSummary[] = campaigns.map((campaign) => {
     const impressions = Number(campaign.impressions ?? 0);
     const clicks = Number(campaign.clicks ?? 0);
     const conversions = Number(campaign.conversions ?? 0);
     const cost = Number(campaign.cost ?? 0);
+    const conversionValue = Number(campaign.conversion_value ?? 0);
+    const costPerConversion = Number(campaign.cost_per_conversion ?? 0) || (conversions > 0 ? cost / conversions : 0);
+    const averageCpc = Number(campaign.average_cpc ?? 0) || (clicks > 0 ? cost / clicks : 0);
 
-    const ctr = impressions > 0 ? (clicks / impressions) * 100 : 0;
-    const cpc = clicks > 0 ? cost / clicks : 0;
-    const cpa = conversions > 0 ? cost / conversions : 0;
+    const ctr = impressions > 0 ? (clicks / impressions) * 100 : Number(campaign.ctr ?? 0);
+    const cpc = clicks > 0 ? cost / clicks : averageCpc;
+    const cpa = conversions > 0 ? cost / conversions : costPerConversion;
 
     const clientMetrics = metricsByClient.get(campaign.client_id) ?? {
       impressions: 0,
       clicks: 0,
       conversions: 0,
       cost: 0,
+      conversionValue: 0,
     };
 
     clientMetrics.impressions += impressions;
     clientMetrics.clicks += clicks;
     clientMetrics.conversions += conversions;
     clientMetrics.cost += cost;
+    clientMetrics.conversionValue += conversionValue;
 
     metricsByClient.set(campaign.client_id, clientMetrics);
 
@@ -110,6 +118,9 @@ function buildCampaignSummaries(campaigns: BackendCampaign[]): {
       ctr: Number(ctr.toFixed(2)),
       cpc: Number(cpc.toFixed(2)),
       cpa: Number(cpa.toFixed(2)),
+      conversionValue: Number(conversionValue.toFixed(2)),
+      costPerConversion: Number(costPerConversion.toFixed(2)),
+      averageCpc: Number(averageCpc.toFixed(2)),
     };
   });
 
@@ -134,19 +145,20 @@ function deriveStatus(conversionRate: number, ctr: number, conversions: number, 
 
 function mapClients(
   backendClients: BackendClient[],
-  metricsByClient: Map<number, { impressions: number; clicks: number; conversions: number; cost: number }>
+  metricsByClient: Map<number, { impressions: number; clicks: number; conversions: number; cost: number; conversionValue: number }>
 ): Client[] {
   if (!backendClients.length) {
     return [];
   }
 
-  return backendClients.map((client, index) => {
-    const metrics = metricsByClient.get(client.id) ?? {
-      impressions: 0,
-      clicks: 0,
-      conversions: 0,
-      cost: 0,
-    };
+    return backendClients.map((client, index) => {
+      const metrics = metricsByClient.get(client.id) ?? {
+        impressions: 0,
+        clicks: 0,
+        conversions: 0,
+        cost: 0,
+        conversionValue: 0,
+      };
 
     const customerIds =
       client.customer_ids && client.customer_ids.length > 0
@@ -165,12 +177,12 @@ function mapClients(
         ? Number(client.monthly_budget)
         : undefined;
 
-    const ctr = impressions > 0 ? (clicks / impressions) * 100 : 0;
-    const conversionRate = clicks > 0 ? (conversions / clicks) * 100 : 0;
-    const cpa = conversions > 0 ? cost / conversions : 0;
+      const ctr = impressions > 0 ? (clicks / impressions) * 100 : 0;
+      const conversionRate = clicks > 0 ? (conversions / clicks) * 100 : 0;
+      const cpa = conversions > 0 ? cost / conversions : 0;
 
-    const estimatedRevenue = conversions > 0 ? conversions * 120 : 0;
-    const roas = cost > 0 && estimatedRevenue > 0 ? estimatedRevenue / cost : 0;
+      const revenue = metrics.conversionValue > 0 ? metrics.conversionValue : conversions > 0 ? conversions * 120 : 0;
+      const roas = cost > 0 && revenue > 0 ? revenue / cost : 0;
     const hasGoogleOAuth =
       typeof client.has_google_ads_auth === "boolean"
         ? client.has_google_ads_auth
@@ -184,27 +196,27 @@ function mapClients(
         conversions,
         ctr: Number(ctr.toFixed(2)),
         cpa: Number(cpa.toFixed(2)),
-      conversionRate: Number(conversionRate.toFixed(2)),
-      revenue: Number(estimatedRevenue.toFixed(2)),
-      impressions,
-      clicks,
-      roas: Number(roas.toFixed(2)),
-      status: deriveStatus(conversionRate, ctr, conversions, "critical"),
-      industry: client.industry || undefined,
-      monthlyBudget,
-      customerIds,
-      assignedManagerId:
-        client.assigned_manager_id != null
-          ? String(client.assigned_manager_id)
-          : undefined,
-      createdById:
-        client.created_by_id != null ? String(client.created_by_id) : undefined,
-      hasGoogleOAuth,
-      customerId: client.customer_id ?? undefined,
-      loginCustomerId: client.login_customer_id ?? undefined,
-    };
-  });
-}
+        conversionRate: Number(conversionRate.toFixed(2)),
+        revenue: Number(revenue.toFixed(2)),
+        impressions,
+        clicks,
+        roas: Number(roas.toFixed(2)),
+        status: deriveStatus(conversionRate, ctr, conversions, "critical"),
+        industry: client.industry || undefined,
+        monthlyBudget,
+        customerIds,
+        assignedManagerId:
+          client.assigned_manager_id != null
+            ? String(client.assigned_manager_id)
+            : undefined,
+        createdById:
+          client.created_by_id != null ? String(client.created_by_id) : undefined,
+        hasGoogleOAuth,
+        customerId: client.customer_id ?? undefined,
+        loginCustomerId: client.login_customer_id ?? undefined,
+      };
+    });
+  }
 
 function normalizePriority(priority: BackendRecommendation["priority"], fallback: AIRecommendation["priority"]): AIRecommendation["priority"] {
   if (!priority) return fallback;

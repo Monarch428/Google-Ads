@@ -348,7 +348,17 @@ def save_campaign_data(db: Session, client_db_id: int, response_data):
             impressions = int(row["metrics"].get("impressions", 0))
             clicks = int(row["metrics"].get("clicks", 0))
             conversions = int(row["metrics"].get("conversions", 0))
+            ctr = float(row["metrics"].get("ctr", 0))
+
+            average_cpc_micros = float(row["metrics"].get("averageCpc", 0))
+            average_cpc = average_cpc_micros / 1_000_000 if average_cpc_micros else 0.0
+
+            conversion_value = float(row["metrics"].get("conversionsValue", 0.0))
             cost_micros = int(row["metrics"].get("costMicros", 0))
+            cost_per_conversion_micros = float(row["metrics"].get("costPerConversion", 0))
+            cost_per_conversion = (
+                cost_per_conversion_micros / 1_000_000 if cost_per_conversion_micros else 0.0
+            )
 
             # GA returns '2024-03-14' as string
             campaign_date_str = row["segments"]["date"]
@@ -368,17 +378,24 @@ def save_campaign_data(db: Session, client_db_id: int, response_data):
             if existing:
                 existing.impressions = impressions
                 existing.clicks = clicks
-                # only do this if you actually have a conversions column in the model
-                if hasattr(existing, "conversions"):
-                    existing.conversions = conversions
+                existing.conversions = conversions
+                existing.ctr = ctr
+                existing.average_cpc = average_cpc
                 existing.cost = cost_micros / 1_000_000
+                existing.conversion_value = conversion_value
+                existing.cost_per_conversion = cost_per_conversion
             else:
                 new_campaign = Campaign(
                     client_id=client_db_id,
                     name=cname,
                     impressions=impressions,
                     clicks=clicks,
+                    conversions=conversions,
+                    ctr=ctr,
+                    average_cpc=average_cpc,
                     cost=cost_micros / 1_000_000,
+                    conversion_value=conversion_value,
+                    cost_per_conversion=cost_per_conversion,
                     date=campaign_date,  # ✅ store as date object
                 )
                 # only set if model has this column
@@ -501,8 +518,10 @@ def fetch_and_save_campaigns(db: Session, client_db_id: int, start_date: str, en
             metrics.clicks, 
             metrics.ctr,
             metrics.average_cpc,
-            metrics.conversions, 
-            metrics.cost_micros, 
+            metrics.conversions,
+            metrics.conversions_value,
+            metrics.cost_micros,
+            metrics.cost_per_conversion,
             segments.date
         FROM campaign
         WHERE segments.date BETWEEN '{start_date}' AND '{end_date}'

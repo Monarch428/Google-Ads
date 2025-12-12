@@ -307,9 +307,10 @@ export function ClientDetails({ clientId, onBack }: ClientDetailsProps) {
         acc.clicks += campaign.clicks;
         acc.conversions += campaign.conversions;
         acc.cost += campaign.cost;
+        acc.conversionValue += campaign.conversionValue;
         return acc;
       },
-      { impressions: 0, clicks: 0, conversions: 0, cost: 0 }
+      { impressions: 0, clicks: 0, conversions: 0, cost: 0, conversionValue: 0 }
     );
 
     const sortedByCost = [...selectedCampaigns].sort((a, b) => {
@@ -332,6 +333,7 @@ export function ClientDetails({ clientId, onBack }: ClientDetailsProps) {
   const totalClicks = campaignTotals.clicks || client.clicks || 0;
   const totalConversions = campaignTotals.conversions || client.conversions || 0;
   const totalCost = campaignTotals.cost || client.adSpend || 0;
+  const totalConversionValue = campaignTotals.conversionValue || client.revenue || 0;
 
   const ctr = totalImpressions > 0 ? (totalClicks / totalImpressions) * 100 : client.ctr || 0;
   const conversionRate = totalClicks > 0 ? (totalConversions / totalClicks) * 100 : client.conversionRate || 0;
@@ -341,11 +343,16 @@ export function ClientDetails({ clientId, onBack }: ClientDetailsProps) {
       ? client.adSpend / client.clicks
       : 0;
   const averageCpa = totalConversions > 0 ? totalCost / totalConversions : client.cpa || 0;
-  const totalRevenue = Number.isFinite(client.revenue) ? client.revenue : totalConversions * 120;
+  const totalRevenue = Number.isFinite(totalConversionValue) && totalConversionValue > 0
+    ? totalConversionValue
+    : Number.isFinite(client.revenue) && (client.revenue ?? 0) > 0
+      ? client.revenue
+      : totalConversions * 120;
   const roas = totalCost > 0 && totalRevenue > 0 ? totalRevenue / totalCost : 0;
 
   const safeAverageCpc = Number.isFinite(averageCpc) ? averageCpc : 0;
   const safeAverageCpa = Number.isFinite(averageCpa) ? averageCpa : 0;
+  const safeConversionValue = Number.isFinite(totalConversionValue) ? totalConversionValue : 0;
   const safeRevenue = Number.isFinite(totalRevenue) ? totalRevenue : 0;
   const safeRoas = Number.isFinite(roas) ? roas : 0;
   const safeCtr = Number.isFinite(ctr) ? ctr : 0;
@@ -1147,6 +1154,14 @@ export function ClientDetails({ clientId, onBack }: ClientDetailsProps) {
                           <p className="text-slate-500">CPA</p>
                           <p className="text-slate-900">{currencyFormatterWithCents.format(campaign.cpa)}</p>
                         </div>
+                        <div>
+                          <p className="text-slate-500">Conversion Value</p>
+                          <p className="text-slate-900">{currencyFormatterWithCents.format(campaign.conversionValue)}</p>
+                        </div>
+                        <div>
+                          <p className="text-slate-500">Cost/Conversion</p>
+                          <p className="text-slate-900">{currencyFormatterWithCents.format(campaign.costPerConversion)}</p>
+                        </div>
                       </div>
                     </div>
                   ))
@@ -1195,12 +1210,17 @@ export function ClientDetails({ clientId, onBack }: ClientDetailsProps) {
                   </p>
                 </div>
                 <div className="p-3 border rounded-lg">
+                  <p className="text-xs text-slate-500 mb-1">Conversion Value</p>
+                  <p className="text-lg text-slate-900">{currencyFormatterWithCents.format(safeConversionValue)}</p>
+                  <p className="text-xs text-slate-500 mt-1">Directly from Google Ads conversions</p>
+                </div>
+                <div className="p-3 border rounded-lg">
                   <p className="text-xs text-slate-500 mb-1">Average CPC</p>
                   <p className="text-lg text-slate-900">{currencyFormatterWithCents.format(safeAverageCpc)}</p>
                   <p className="text-xs text-slate-500 mt-1">{numberFormatter.format(totalClicks)} clicks</p>
                 </div>
                 <div className="p-3 border rounded-lg">
-                  <p className="text-xs text-slate-500 mb-1">Cost per Acquisition</p>
+                  <p className="text-xs text-slate-500 mb-1">Cost per Conversion</p>
                   <p className="text-lg text-slate-900">{currencyFormatterWithCents.format(safeAverageCpa)}</p>
                   <p className="text-xs text-slate-500 mt-1">{numberFormatter.format(totalConversions)} conversions</p>
                 </div>

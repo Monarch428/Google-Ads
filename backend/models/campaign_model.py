@@ -11,7 +11,12 @@ class Campaign(Base):
     name = Column(String(255), nullable=False)
     impressions = Column(Integer, default=0)
     clicks = Column(Integer, default=0)
+    conversions = Column(Integer, default=0)
+    ctr = Column(Float, default=0.0)
+    average_cpc = Column(Float, default=0.0)
     cost = Column(Float, default=0.0)
+    conversion_value = Column(Float, default=0.0)
+    cost_per_conversion = Column(Float, default=0.0)
     date = Column(Date, nullable=True)
 
     # IMPORTANT: define the relationship expected by Client.campaigns
