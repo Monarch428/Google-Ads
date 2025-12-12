@@ -26,7 +26,7 @@ import { RecentActivityPanel } from "./recent-activity-panel";
 import { CreateReport } from "./create-report";
 import { ReportPreview } from "./report-preview";
 import { ManagerDetails } from "./manager-details";
-import { createClient } from "../lib/api";
+import { API_BASE_URL, createClient } from "../lib/api";
 import { Toaster, toast } from "sonner";
 import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
 import { currencyOptions } from "../lib/currencies";
@@ -107,6 +107,32 @@ export function DashboardOverview({
   const [customerIdError, setCustomerIdError] = useState<string | null>(null);
   const oauthPendingClients = authToken ? clients.filter((client) => !client.hasGoogleOAuth) : [];
   const showGoogleOAuthReminder = oauthPendingClients.length > 0;
+
+  const launchClientOAuth = useCallback((clientId: string | number, clientName: string) => {
+    const idStr = String(clientId);
+    const oauthUrl = `${API_BASE_URL}/auth/google-connect?client_db_id=${encodeURIComponent(idStr)}`;
+
+    if (typeof window === "undefined") {
+      toast.error("Unable to launch Google OAuth", {
+        description: "A browser window is required to complete the Google consent flow.",
+      });
+      return;
+    }
+
+    try {
+      const newTab = window.open(oauthUrl, "_blank", "noopener,noreferrer");
+      if (!newTab) {
+        window.location.assign(oauthUrl);
+      }
+
+      toast.info("Redirecting to Google OAuth", {
+        description: `Complete the consent screen for ${clientName} to finish connecting this account.`,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to open OAuth window";
+      toast.error("Google OAuth failed", { description: message });
+    }
+  }, []);
 
   const handleClientDialogChange = (open: boolean) => {
     setIsAddClientDialogOpen(open);
@@ -260,13 +286,18 @@ export function DashboardOverview({
           : undefined,
       };
 
-      await createClient(payload, { accessToken: authToken, refreshToken });
+      const newClient = await createClient(payload, { accessToken: authToken, refreshToken });
       await refreshClients();
       toast.success("Client connected", {
-        description: `${clientForm.name} is now available in your workspace`,
+        description: `${clientForm.name} is now available in your workspace. Launching Google OAuth...`,
       });
       setIsAddClientDialogOpen(false);
       setClientForm(createInitialClientForm());
+
+      if (newClient?.id != null) {
+  const clientName = newClient.name ?? (clientForm.name || "new client");
+  launchClientOAuth(newClient.id, clientName);
+}
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unable to create client";
       toast.error("Failed to add client", { description: message });
