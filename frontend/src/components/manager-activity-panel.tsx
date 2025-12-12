@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { CheckCircle, Clock, Package } from "lucide-react";
 import { Manager } from "../lib/mock-data";
-import { GoogleAdsSyncControls } from "./google-ads-sync-controls";
+import { formatDateRangeLabel, useGoogleAdsSync } from "../lib/google-ads-sync-context";
 
 interface ManagerActivityPanelProps {
   managers: Manager[];
@@ -10,14 +10,14 @@ interface ManagerActivityPanelProps {
 }
 
 export function ManagerActivityPanel({ managers, onManagerClick }: ManagerActivityPanelProps) {
+  const { dateRange } = useGoogleAdsSync();
+  const rangeLabel = formatDateRangeLabel(dateRange);
+
   return (
     <Card>
       <CardHeader className="space-y-4">
         <CardTitle>Manager Activity</CardTitle>
-        <GoogleAdsSyncControls
-          size="compact"
-          contextLabel="manager performance"
-        />
+        <p className="text-xs text-slate-500">Using {rangeLabel} for performance syncs</p>
       </CardHeader>
       <CardContent>
         {managers.length === 0 ? (

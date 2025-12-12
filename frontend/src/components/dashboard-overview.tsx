@@ -30,6 +30,7 @@ import { createClient } from "../lib/api";
 import { Toaster, toast } from "sonner";
 import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
 import { currencyOptions } from "../lib/currencies";
+import { GoogleAdsSyncControls } from "./google-ads-sync-controls";
 
 type ClientFormState = {
   name: string;
@@ -285,9 +286,9 @@ export function DashboardOverview({
     return (
       <CreateReport
         onBack={() => setShowCreateReport(false)}
-        onGenerate={() => {
+        onGenerate={(clientId) => {
           setShowCreateReport(false);
-          if (onReportClick) onReportClick("new-report");
+          if (onReportClick) onReportClick(clientId);
         }}
       />
     );
@@ -613,6 +614,9 @@ export function DashboardOverview({
           </div>
         </Alert>
       )}
+
+      {/* Global Google Ads Sync Controls */}
+      <GoogleAdsSyncControls className="max-w-5xl" contextLabel="Google Ads data" />
 
       {/* Alerts and Notifications */}
       <AlertsPanel alerts={[]} onAlertClick={onAlertClick} />

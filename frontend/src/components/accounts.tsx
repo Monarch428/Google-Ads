@@ -24,11 +24,11 @@ import {
   AlertDialogTitle,
 } from "./ui/alert-dialog";
 import { Toaster, toast } from "sonner";
-import { GoogleAdsSyncControls } from "./google-ads-sync-controls";
 import { API_BASE_URL } from "../lib/api";
 import { formatCurrency } from "../lib/currencies";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "./ui/dialog";
 import { Label } from "./ui/label";
+import { formatDateRangeLabel, useGoogleAdsSync } from "../lib/google-ads-sync-context";
 
 interface AccountsProps {
   onClientClick?: (clientId: string) => void;
@@ -46,6 +46,8 @@ export function Accounts({ onClientClick }: AccountsProps) {
   const [editCustomerIdError, setEditCustomerIdError] = useState<string | null>(null);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
   const { clients, clientsLoading, deleteClient, updateClient, viewerRole } = useData();
+  const { dateRange } = useGoogleAdsSync();
+  const rangeLabel = formatDateRangeLabel(dateRange);
 
   const isAdmin = viewerRole === "admin";
   const hasClients = clients.length > 0;
@@ -167,7 +169,7 @@ export function Accounts({ onClientClick }: AccountsProps) {
         <p className="text-slate-500">Manage and monitor all client Google Ads accounts</p>
       </div>
 
-      <GoogleAdsSyncControls className="max-w-4xl" contextLabel="client account metrics" />
+      <p className="text-xs text-slate-500">Applying {rangeLabel} to Google Ads sync operations</p>
 
       {/* Client Accounts List */}
       <Card>

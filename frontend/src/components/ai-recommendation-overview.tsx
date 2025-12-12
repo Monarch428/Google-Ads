@@ -3,7 +3,7 @@ import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Lightbulb, ArrowUpRight } from "lucide-react";
 import { AIRecommendation } from "../lib/mock-data";
-import { GoogleAdsSyncControls } from "./google-ads-sync-controls";
+import { formatDateRangeLabel, useGoogleAdsSync } from "../lib/google-ads-sync-context";
 
 interface AIRecommendationOverviewProps {
   recommendations: AIRecommendation[];
@@ -13,6 +13,8 @@ interface AIRecommendationOverviewProps {
 
 export function AIRecommendationOverview({ recommendations, loading = false, onViewAll }: AIRecommendationOverviewProps) {
   const pendingRecs = recommendations.filter(r => r.status === "pending");
+  const { dateRange } = useGoogleAdsSync();
+  const rangeLabel = formatDateRangeLabel(dateRange);
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
@@ -37,11 +39,7 @@ export function AIRecommendationOverview({ recommendations, loading = false, onV
         </Button>
       </CardHeader>
       <CardContent>
-        <GoogleAdsSyncControls
-          size="compact"
-          className="mb-4"
-          contextLabel="AI recommendation inputs"
-        />
+        <p className="text-xs text-slate-500 mb-4">Custom sync range: {rangeLabel}</p>
         {loading ? (
           <p className="text-sm text-slate-500">Loading latest AI recommendations...</p>
         ) : pendingRecs.length === 0 ? (

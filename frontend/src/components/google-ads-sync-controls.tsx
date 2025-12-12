@@ -1,23 +1,16 @@
 import { useEffect, useState } from "react";
 import { CalendarIcon, Loader2, RefreshCw } from "lucide-react";
-import type { DateRange } from "react-day-picker";
 import { Button } from "./ui/button";
 import { DateRangePicker } from "./ui/date-range-picker";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { cn } from "./ui/utils";
 import { useData } from "../lib/data-context";
-import { Toaster, toast } from "sonner";
+import { toast } from "sonner";
+import { defaultDateRange, useGoogleAdsSync } from "../lib/google-ads-sync-context";
 
 function formatForApi(date: Date) {
   return date.toISOString().slice(0, 10);
 }
-
-const SIX_DAYS_IN_MS = 6 * 24 * 60 * 60 * 1000;
-
-const defaultRange: DateRange = {
-  from: new Date(Date.now() - SIX_DAYS_IN_MS),
-  to: new Date(),
-};
 
 export type GoogleAdsSyncControlsProps = {
   size?: "default" | "compact";
@@ -37,14 +30,21 @@ export function GoogleAdsSyncControls({
     syncGoogleAdsRange,
     authToken,
   } = useData();
+  const { dateRange, setDateRange } = useGoogleAdsSync();
   const [selectedClientId, setSelectedClientId] = useState<string>("");
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>("");
-  const [dateRange, setDateRange] = useState<DateRange | undefined>(defaultRange);
   const [isRangeLoading, setIsRangeLoading] = useState(false);
   const [isDailyLoading, setIsDailyLoading] = useState(false);
   const [statusMessage, setStatusMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const selectedClient = clients.find((client) => client.id === selectedClientId);
   const availableCustomerIds = selectedClient?.customerIds ?? [];
+  const effectiveDateRange = dateRange ?? defaultDateRange;
+
+  useEffect(() => {
+    if (!dateRange) {
+      setDateRange(defaultDateRange);
+    }
+  }, [dateRange, setDateRange]);
 
   useEffect(() => {
     if (!clients.length) {
@@ -82,7 +82,7 @@ export function GoogleAdsSyncControls({
       toast.error("Select a customer ID", { description: "Choose which customer ID to sync." });
       return;
     }
-    if (!dateRange?.from || !dateRange?.to) {
+    if (!effectiveDateRange?.from || !effectiveDateRange?.to) {
       toast.error("Select a valid range", { description: "Pick both a start and end date." });
       return;
     }
@@ -92,8 +92,8 @@ export function GoogleAdsSyncControls({
       const response = await syncGoogleAdsRange(
         selectedClientId,
         selectedCustomerId,
-        formatForApi(dateRange.from),
-        formatForApi(dateRange.to),
+        formatForApi(effectiveDateRange.from),
+        formatForApi(effectiveDateRange.to),
       );
       const message = response.message || `Synced ${contextLabel} for selected range.`;
       setStatusMessage({ type: "success", text: message });
@@ -174,7 +174,7 @@ export function GoogleAdsSyncControls({
           </SelectContent>
         </Select>
         <DateRangePicker
-          value={dateRange}
+          value={effectiveDateRange}
           onChange={setDateRange}
           placeholder="Pick a custom range"
           className={cn(size === "compact" && "h-10 min-w-[240px] text-xs")}

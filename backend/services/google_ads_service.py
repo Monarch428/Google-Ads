@@ -344,6 +344,11 @@ def fetch_and_save_campaigns(db: Session, client_db_id: int, start_date: str, en
         developer_token=developer_token,
     )
 
+    # Clear any previously stored campaign rows for this client so the UI reflects
+    # only the most recent fetch (or shows empty state when the range has no data).
+    db.query(Campaign).filter(Campaign.client_id == client_db_id).delete()
+    db.commit()
+
     saved_count = save_campaign_data(db, client_db_id, response_data)
 
     return {

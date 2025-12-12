@@ -43,9 +43,9 @@ export function ClientReports({ onReportClick }: ClientReportsProps) {
     return (
       <CreateReport
         onBack={() => setShowCreateReport(false)}
-        onGenerate={() => {
+        onGenerate={(clientId) => {
           setShowCreateReport(false);
-          if (onReportClick) onReportClick("new-report");
+          if (onReportClick) onReportClick(clientId);
         }}
       />
     );
@@ -97,7 +97,7 @@ export function ClientReports({ onReportClick }: ClientReportsProps) {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all-status">All Statuses</SelectItem>
+                <SelectItem value="all-status">All Status</SelectItem>
                 <SelectItem value="pending">Pending</SelectItem>
                 <SelectItem value="approved">Approved</SelectItem>
                 <SelectItem value="delivered">Delivered</SelectItem>

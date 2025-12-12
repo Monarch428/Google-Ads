@@ -30,6 +30,7 @@ import { ClientChatbotInline } from "./client-chatbot-inline";
 import { CreateBundle } from "./create-bundle";
 import { toast } from "sonner@2.0.3";
 import { getCurrencyFormatter } from "../lib/currencies";
+import { GoogleAdsSyncControls } from "./google-ads-sync-controls";
 
 interface ClientDetailsProps {
   clientId: string;
@@ -995,6 +996,8 @@ export function ClientDetails({ clientId, onBack }: ClientDetailsProps) {
             </Badge>
           </div>
         </div>
+
+        <GoogleAdsSyncControls className="max-w-4xl" contextLabel="client performance data" />
 
       {/* Key Performance Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
