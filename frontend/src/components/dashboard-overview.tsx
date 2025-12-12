@@ -120,16 +120,13 @@ export function DashboardOverview({
     }
 
     try {
-      const newTab = window.open(oauthUrl, "_blank", "noopener,noreferrer");
-      if (!newTab) {
-        window.location.assign(oauthUrl);
-      }
+      window.location.assign(oauthUrl);
 
       toast.info("Redirecting to Google OAuth", {
         description: `Complete the consent screen for ${clientName} to finish connecting this account.`,
       });
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Unable to open OAuth window";
+      const message = error instanceof Error ? error.message : "Unable to start OAuth";
       toast.error("Google OAuth failed", { description: message });
     }
   }, []);
@@ -428,6 +425,8 @@ export function DashboardOverview({
                     />
                   </div>
                   
+                 
+
                   {/* API Credentials Section */}
                   <div className="col-span-2 pt-2">
                     <h3 className="text-sm text-slate-700 mb-3">Google Ads API Credentials</h3>
@@ -654,25 +653,7 @@ export function DashboardOverview({
       {/* Global Google Ads Sync Controls */}
       <GoogleAdsSyncControls className="max-w-5xl" contextLabel="Google Ads data" />
 
-      {/* Alerts and Notifications */}
-      <AlertsPanel alerts={[]} onAlertClick={onAlertClick} />
-
-      {/* AI Recommendations Overview */}
-      <AIRecommendationOverview
-        recommendations={recommendations}
-        loading={recommendationsLoading}
-        onViewAll={() => onNavigate?.("recommendations")}
-      />
-
-      {/* Manager Activity */}
-      {isAdmin && (
-        <ManagerActivityPanel
-          managers={displayManagers}
-          onManagerClick={onManagerClick}
-        />
-      )}
-
-      {/* Client Accounts */}
+       {/* Client Accounts */}
       <div>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-slate-900">Client Accounts</h2>
@@ -703,6 +684,26 @@ export function DashboardOverview({
           ))}
         </div>
       </div>
+      
+      {/* Alerts and Notifications */}
+      <AlertsPanel alerts={[]} onAlertClick={onAlertClick} />
+
+      {/* AI Recommendations Overview */}
+      <AIRecommendationOverview
+        recommendations={recommendations}
+        loading={recommendationsLoading}
+        onViewAll={() => onNavigate?.("recommendations")}
+      />
+
+      {/* Manager Activity */}
+      {isAdmin && (
+        <ManagerActivityPanel
+          managers={displayManagers}
+          onManagerClick={onManagerClick}
+        />
+      )}
+
+      
 
       {/* Recent Activity */}
       <RecentActivityPanel />

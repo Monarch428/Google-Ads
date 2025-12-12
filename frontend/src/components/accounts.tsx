@@ -173,19 +173,12 @@ export function Accounts({ onClientClick }: AccountsProps) {
     }
 
     try {
-      // open in new tab - backend will 302 to Google and set state cookie
-      const win = window.open(oauthUrl, "_blank", "noopener,noreferrer");
-      if (!win) {
-        toast.error("Popup blocked", {
-          description: "Please allow popups for this site or use the Connect link directly.",
-        });
-        return;
-      }
-      toast.info("Google OAuth launched", {
+      window.location.assign(oauthUrl);
+      toast.info("Redirecting to Google OAuth", {
         description: `Complete the Google consent screen for ${clientName} to sync live Google Ads data.`,
       });
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Unable to open OAuth window";
+      const message = err instanceof Error ? err.message : "Unable to start OAuth";
       toast.error("Google OAuth failed", { description: message });
     }
   };
