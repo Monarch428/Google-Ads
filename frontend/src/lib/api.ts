@@ -73,6 +73,7 @@ export interface BackendClient {
   login_customer_id: string | null;
   industry?: string | null;
   currency_code?: string | null;
+  monthly_budget?: number | null;
   has_google_ads_auth?: boolean;
   created_by_id?: number | null;
   assigned_manager_id?: number | null;

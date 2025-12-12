@@ -223,6 +223,10 @@ export function DashboardOverview({
       .map((id) => id.replace(/\D/g, "").trim())
       .filter(Boolean);
 
+    const parsedMonthlyBudget = clientForm.monthly_budget.trim()
+      ? Number(clientForm.monthly_budget)
+      : undefined;
+
     if (!sanitizedCustomerIds.length) {
       setCustomerIdError("Customer IDs must contain numbers only.");
       return;
@@ -250,6 +254,7 @@ export function DashboardOverview({
         // login_customer_id: clientForm.login_customer_id.trim() || null,
         login_customer_id: loginCustomerId,
         currency_code: clientForm.currency_code,
+        monthly_budget: Number.isFinite(parsedMonthlyBudget) ? parsedMonthlyBudget : undefined,
         assigned_manager_id: clientForm.assigned_manager_id
           ? Number(clientForm.assigned_manager_id)
           : undefined,

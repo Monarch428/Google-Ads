@@ -25,10 +25,11 @@ import {
 } from "./ui/alert-dialog";
 import { Toaster, toast } from "sonner";
 import { API_BASE_URL } from "../lib/api";
-import { formatCurrency } from "../lib/currencies";
+import { currencyOptions, formatCurrency } from "../lib/currencies";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "./ui/dialog";
 import { Label } from "./ui/label";
 import { formatDateRangeLabel, useGoogleAdsSync } from "../lib/google-ads-sync-context";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 
 interface AccountsProps {
   onClientClick?: (clientId: string) => void;
@@ -40,10 +41,15 @@ export function Accounts({ onClientClick }: AccountsProps) {
   const [clientPendingDelete, setClientPendingDelete] = useState<{ id: string; name: string } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [clientPendingEdit, setClientPendingEdit] = useState<{ id: string; name: string; customerIds?: string[] } | null>(null);
+  const [clientPendingEdit, setClientPendingEdit] = useState<
+    { id: string; name: string; customerIds?: string[]; currencyCode?: string; monthlyBudget?: number } | null
+  >(null);
   const [editCustomerIds, setEditCustomerIds] = useState<string[]>([]);
   const [editCustomerIdInput, setEditCustomerIdInput] = useState("");
   const [editCustomerIdError, setEditCustomerIdError] = useState<string | null>(null);
+  const [editCurrencyCode, setEditCurrencyCode] = useState<string>("USD");
+  const [editMonthlyBudget, setEditMonthlyBudget] = useState<string>("");
+  const [editMonthlyBudgetError, setEditMonthlyBudgetError] = useState<string | null>(null);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
   const { clients, clientsLoading, deleteClient, updateClient, viewerRole } = useData();
   const { dateRange } = useGoogleAdsSync();
@@ -65,11 +71,24 @@ export function Accounts({ onClientClick }: AccountsProps) {
       .map((token) => token.replace(/\D/g, "").trim())
       .filter(Boolean);
 
-  const openEditDialog = (client: { id: string; name: string; customerIds?: string[] }) => {
+  const openEditDialog = (client: {
+    id: string;
+    name: string;
+    customerIds?: string[];
+    currencyCode?: string;
+    monthlyBudget?: number;
+  }) => {
     setClientPendingEdit(client);
     setEditCustomerIds(client.customerIds ?? []);
     setEditCustomerIdInput("");
     setEditCustomerIdError(null);
+    setEditCurrencyCode(client.currencyCode || "USD");
+    setEditMonthlyBudget(
+      client.monthlyBudget != null && Number.isFinite(client.monthlyBudget)
+        ? String(client.monthlyBudget)
+        : ""
+    );
+    setEditMonthlyBudgetError(null);
     setIsEditDialogOpen(true);
   };
 
@@ -108,10 +127,20 @@ export function Accounts({ onClientClick }: AccountsProps) {
       return;
     }
 
+    const parsedMonthlyBudget = editMonthlyBudget.trim() ? Number(editMonthlyBudget) : undefined;
+    if (editMonthlyBudget.trim() && !Number.isFinite(parsedMonthlyBudget)) {
+      setEditMonthlyBudgetError("Enter a valid monthly budget amount.");
+      return;
+    }
+
+    setEditMonthlyBudgetError(null);
+
     setIsSavingEdit(true);
     try {
       await updateClient(clientPendingEdit.id, {
         customer_ids: sanitizedIds,
+        currency_code: editCurrencyCode,
+        monthly_budget: parsedMonthlyBudget,
         // customer_id: sanitizedIds.join(","),
       });
       toast.success("Client updated", {
@@ -316,14 +345,17 @@ export function Accounts({ onClientClick }: AccountsProps) {
             setEditCustomerIds([]);
             setEditCustomerIdInput("");
             setEditCustomerIdError(null);
+            setEditCurrencyCode("USD");
+            setEditMonthlyBudget("");
+            setEditMonthlyBudgetError(null);
           }
         }}
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Edit Customer IDs</DialogTitle>
+            <DialogTitle>Edit Client Settings</DialogTitle>
             <DialogDescription>
-              Update Google Ads customer IDs linked to this client account.
+              Update Google Ads customer IDs linked to this client account and adjust billing preferences.
             </DialogDescription>
           </DialogHeader>
 
@@ -381,6 +413,43 @@ export function Accounts({ onClientClick }: AccountsProps) {
               <p className="text-xs text-slate-500">
                 Enter one or more numeric IDs separated by commas or spaces. Duplicates are ignored.
               </p>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="edit-currency">Account Currency</Label>
+                <Select value={editCurrencyCode} onValueChange={setEditCurrencyCode}>
+                  <SelectTrigger id="edit-currency">
+                    <SelectValue placeholder="Select currency..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {currencyOptions.map((option) => (
+                      <SelectItem key={option.code} value={option.code}>
+                        {option.name} ({option.symbol} {option.code})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-monthly-budget">Monthly Budget ({editCurrencyCode || "Currency"})</Label>
+                <Input
+                  id="edit-monthly-budget"
+                  type="number"
+                  placeholder="e.g., 50000"
+                  value={editMonthlyBudget}
+                  onChange={(event) => setEditMonthlyBudget(event.target.value)}
+                />
+                {editMonthlyBudgetError && (
+                  <p className="text-xs text-destructive">{editMonthlyBudgetError}</p>
+                )}
+                {!editMonthlyBudgetError && clientPendingEdit?.monthlyBudget != null && (
+                  <p className="text-xs text-slate-500">
+                    Current budget: {formatCurrency(clientPendingEdit.monthlyBudget, editCurrencyCode)}
+                  </p>
+                )}
+              </div>
             </div>
           </div>
 

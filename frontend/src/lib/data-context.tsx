@@ -160,6 +160,11 @@ function mapClients(
     const conversions = Number(metrics.conversions ?? 0);
     const cost = Number(metrics.cost ?? 0);
 
+    const monthlyBudget =
+      client.monthly_budget != null && !Number.isNaN(Number(client.monthly_budget))
+        ? Number(client.monthly_budget)
+        : undefined;
+
     const ctr = impressions > 0 ? (clicks / impressions) * 100 : 0;
     const conversionRate = clicks > 0 ? (conversions / clicks) * 100 : 0;
     const cpa = conversions > 0 ? cost / conversions : 0;
@@ -186,6 +191,7 @@ function mapClients(
       roas: Number(roas.toFixed(2)),
       status: deriveStatus(conversionRate, ctr, conversions, "critical"),
       industry: client.industry || undefined,
+      monthlyBudget,
       customerIds,
       assignedManagerId:
         client.assigned_manager_id != null
