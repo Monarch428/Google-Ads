@@ -1,4 +1,5 @@
 import os
+import json
 import requests
 from sqlalchemy.orm import Session
 from datetime import date, datetime
@@ -7,6 +8,7 @@ from fastapi import HTTPException
 from models.google_ads_account import GoogleAdsAccount
 from models.client_model import Client
 from models.campaign_model import Campaign
+from models.recommendation_model import Recommendation
 
 # -------------------- Google API Endpoints --------------------
 GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
@@ -20,6 +22,173 @@ GOOGLE_ADS_SEARCH_URL = "https://googleads.googleapis.com/v22/customers"
 # -------------------- Logger Setup --------------------
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
+
+
+def _float_or_zero(value) -> float:
+    try:
+        return float(value)
+    except Exception:
+        return 0.0
+
+
+def _normalize_ctr(raw_ctr: float) -> float:
+    """Google Ads may return CTR as a fraction or percentage. Normalize to %."""
+    if raw_ctr <= 1:
+        return raw_ctr * 100
+    return raw_ctr
+
+
+def _format_money(amount: float, currency_code: str) -> str:
+    try:
+        return f"{currency_code} {amount:,.2f}"
+    except Exception:
+        return f"{currency_code} {amount}"
+
+
+def _build_recommendations_from_metrics(
+    db: Session,
+    client_db_id: int,
+    response_data,
+    *,
+    currency_code: str = "USD",
+    customer_id: str | None = None,
+):
+    """Generate actionable campaign recommendations from Google Ads metrics."""
+
+    if customer_id:
+        db.query(Recommendation).filter(
+            Recommendation.client_id == client_db_id,
+            Recommendation.customer_id == customer_id,
+        ).delete(synchronize_session=False)
+
+    recommendations: list[dict] = []
+
+    for batch in response_data:
+        for row in batch.get("results", []):
+            metrics = row.get("metrics", {})
+            campaign_info = row.get("campaign", {})
+
+            campaign_name = campaign_info.get("name", "Unnamed Campaign")
+            impressions = int(metrics.get("impressions", 0) or 0)
+            clicks = int(metrics.get("clicks", 0) or 0)
+            conversions = _float_or_zero(metrics.get("conversions", 0))
+            cost_micros = int(metrics.get("costMicros", 0) or 0)
+
+            ctr_value = _normalize_ctr(_float_or_zero(metrics.get("ctr", 0)))
+            cost = cost_micros / 1_000_000
+            avg_cpc = cost / clicks if clicks else 0
+            conv_rate = (conversions / clicks) * 100 if clicks else 0
+            cpa = (cost / conversions) if conversions else None
+
+            snapshot = {
+                "impressions": impressions,
+                "clicks": clicks,
+                "ctr": round(ctr_value, 2),
+                "conversions": round(conversions, 2),
+                "avg_cpc": round(avg_cpc, 2),
+                "conv_rate": round(conv_rate, 2),
+                "cost": round(cost, 2),
+                "cpa": round(cpa, 2) if cpa else None,
+                "currency_code": currency_code,
+                "customer_id": customer_id,
+            }
+
+            if impressions > 300 and ctr_value < 1.5:
+                recommendations.append(
+                    {
+                        "campaign_name": campaign_name,
+                        "suggestion": (
+                            f"CTR is only {snapshot['ctr']}% on {impressions} impressions. Refresh headlines,"
+                            " add stronger calls-to-action, and test 2-3 responsive search ads to lift engagement."
+                        ),
+                        "action_proposal": "Test new ad copy and pin best-performing assets to raise CTR.",
+                        "predicted_impact": 8.0,
+                        "priority": "HIGH",
+                        "snapshot": snapshot,
+                    }
+                )
+
+            if clicks >= 30 and conv_rate < 2:
+                recommendations.append(
+                    {
+                        "campaign_name": campaign_name,
+                        "suggestion": (
+                            f"Conversion rate is {snapshot['conv_rate']}% across {clicks} clicks."
+                            " Tighten keyword match types, add negatives, and align landing pages to queries to improve conversions."
+                        ),
+                        "action_proposal": "Refine targeting and landing pages to raise conversion rate above 3%.",
+                        "predicted_impact": 10.0,
+                        "priority": "HIGH",
+                        "snapshot": snapshot,
+                    }
+                )
+
+            if conversions and cpa and cpa > 50:
+                recommendations.append(
+                    {
+                        "campaign_name": campaign_name,
+                        "suggestion": (
+                            f"Cost per conversion is {_format_money(snapshot['cpa'], currency_code)} with {int(conversions)} conversions."
+                            " Lower bids on expensive keywords and shift budget toward high-intent segments to reduce CPA."
+                        ),
+                        "action_proposal": "Apply bid adjustments and budget reallocation to cut CPA by 15-20%.",
+                        "predicted_impact": 9.0,
+                        "priority": "MEDIUM",
+                        "snapshot": snapshot,
+                    }
+                )
+
+            if conversions >= 3 and ctr_value >= 3 and conv_rate >= 4:
+                recommendations.append(
+                    {
+                        "campaign_name": campaign_name,
+                        "suggestion": (
+                            f"Strong performance detected (CTR {snapshot['ctr']}%, CVR {snapshot['conv_rate']}%)."
+                            " Gradually increase budget 10-15% and expand winning keywords to capture more conversions."
+                        ),
+                        "action_proposal": "Scale budget and duplicate top ad groups with similar audiences.",
+                        "predicted_impact": 12.0,
+                        "priority": "MEDIUM",
+                        "snapshot": snapshot,
+                    }
+                )
+
+            if impressions > 0 and clicks == 0:
+                recommendations.append(
+                    {
+                        "campaign_name": campaign_name,
+                        "suggestion": (
+                            f"{impressions} impressions with zero clicks. Keywords may be misaligned with intent;"
+                            " test broader variations and ensure ad extensions are active to earn initial traffic."
+                        ),
+                        "action_proposal": "Add sitelinks/callouts and adjust keyword themes to drive first clicks.",
+                        "predicted_impact": 6.0,
+                        "priority": "LOW",
+                        "snapshot": snapshot,
+                    }
+                )
+
+    created: list[Recommendation] = []
+    for rec in recommendations:
+        created_rec = Recommendation(
+            client_id=client_db_id,
+            campaign_name=rec["campaign_name"],
+            suggestion=rec["suggestion"],
+            data_snapshot=json.dumps(rec["snapshot"]),
+            customer_id=customer_id,
+            predicted_impact=rec.get("predicted_impact"),
+            action_proposal=rec.get("action_proposal"),
+            priority=rec.get("priority", "MEDIUM"),
+            status="PENDING",
+        )
+        created.append(created_rec)
+        logger.info("Generated recommendation for %s: %s", rec["campaign_name"], rec["suggestion"])
+
+    if created:
+        db.add_all(created)
+        db.commit()
+
+    return recommendations
 
 
 # -------------------- STEP 1: REFRESH ACCESS TOKEN --------------------
@@ -280,6 +449,7 @@ def _resolve_google_ads_credentials(db: Session, client_db_id: int, customer_id:
             "developer_token": account.developer_token,
             "google_client_id": account.google_client_id,
             "google_client_secret": account.google_client_secret,
+            "currency_code": getattr(client_record, "currency_code", "USD"),
         }
 
     # client_record = db.query(Client).filter(Client.id == client_db_id).first()
@@ -291,6 +461,7 @@ def _resolve_google_ads_credentials(db: Session, client_db_id: int, customer_id:
             "developer_token": client_record.developer_token,
             "google_client_id": client_record.client_id,
             "google_client_secret": client_record.client_secret,
+            "currency_code": getattr(client_record, "currency_code", "USD"),
         }
 
     return None
@@ -310,6 +481,7 @@ def fetch_and_save_campaigns(db: Session, client_db_id: int, start_date: str, en
     login_customer_id = credentials.get("login_customer_id")
     customer_id = credentials.get("customer_id")
     developer_token = credentials.get("developer_token")
+    currency_code = credentials.get("currency_code", "USD")
 
     access_token = refresh_access_token(
         refresh_token,
@@ -350,12 +522,22 @@ def fetch_and_save_campaigns(db: Session, client_db_id: int, start_date: str, en
     db.commit()
 
     saved_count = save_campaign_data(db, client_db_id, response_data)
+    generated_recs = _build_recommendations_from_metrics(
+        db,
+        client_db_id,
+        response_data,
+        currency_code=currency_code,
+        customer_id=customer_id,
+    )
 
     return {
         "status": "success",
         "saved_records": saved_count,
         "period": f"{start_date} → {end_date}",
         "message": f"✅ Google Ads data fetched and saved between {start_date} and {end_date}",
+        "recommendations_generated": len(generated_recs),
+        "recommendation_summaries": [rec.get("suggestion") for rec in generated_recs],
+        "currency_code": currency_code,
     }
 
 

@@ -15,6 +15,7 @@ class Recommendation(Base):
     campaign_name = Column(String(255))
     suggestion = Column(Text)  # AI generated insight
     data_snapshot = Column(Text)  # campaign data behind the suggestion
+    customer_id = Column(String(255), nullable=True)
     predicted_impact = Column(Float)
     action_proposal = Column(String(255))
     priority = Column(Enum("HIGH", "MEDIUM", "LOW", name="priority_level"), default="MEDIUM")

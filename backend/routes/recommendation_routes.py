@@ -84,6 +84,7 @@ class AgentRecommendationRequest(BaseModel):
     predicted_impact: float
     action_proposal: str
     priority: str = "MEDIUM"
+    customer_id: str | None = None
 
 
 @router.post("/agent/create")
