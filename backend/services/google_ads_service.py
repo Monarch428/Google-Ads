@@ -1,27 +1,46 @@
+# services/google_ads_service.py
+
 import os
 import json
 import requests
-from sqlalchemy.orm import Session
-from datetime import date, datetime
 import logging
+from datetime import date, datetime
+
 from fastapi import HTTPException
+from sqlalchemy.orm import Session
+
 from models.google_ads_account import GoogleAdsAccount
 from models.client_model import Client
 from models.campaign_model import Campaign
 from models.recommendation_model import Recommendation
 
-# -------------------- Google API Endpoints --------------------
-GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
-GOOGLE_ADS_QUERY = """
-    SELECT campaign.id, campaign.name, metrics.impressions, metrics.clicks, metrics.conversions, metrics.cost_micros
-    FROM campaign
-    WHERE segments.date DURING LAST_7_DAYS
-"""
-GOOGLE_ADS_SEARCH_URL = "https://googleads.googleapis.com/v22/customers"
+from models.asset_model import Asset
+from models.campaign_asset_performance import CampaignAssetPerformance
+from models.asset_set_model import AssetSet
+from models.asset_set_asset_model import AssetSetAsset
+from models.campaign_asset_set_link import CampaignAssetSetLink
+from models.customer_asset_set_link import CustomerAssetSetLink
+from models.conversion_action_model import ConversionAction
+from models.campaign_conversion_stat import CampaignConversionStat
+from models.bidding_strategy_model import BiddingStrategy
+
+from .google_ads_sync_helpers import (
+    save_campaigns_from_rows,
+    save_assets_from_rows,
+    save_campaign_assets_from_rows,
+    save_asset_sets_from_rows,
+    save_conversion_actions_from_rows,
+    save_campaign_conversion_stats_from_rows,
+    save_bidding_strategies_from_rows,
+)
 
 # -------------------- Logger Setup --------------------
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
+
+# -------------------- Google API Endpoints --------------------
+GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
+GOOGLE_ADS_SEARCH_URL = "https://googleads.googleapis.com/v22/customers"
 
 
 def _float_or_zero(value) -> float:
@@ -63,6 +82,7 @@ def _build_recommendations_from_metrics(
 
     recommendations: list[dict] = []
 
+    # 🔁 IMPORTANT: response_data is searchStream → list[batch]
     for batch in response_data:
         for row in batch.get("results", []):
             metrics = row.get("metrics", {})
@@ -98,8 +118,8 @@ def _build_recommendations_from_metrics(
                     {
                         "campaign_name": campaign_name,
                         "suggestion": (
-                            f"CTR is only {snapshot['ctr']}% on {impressions} impressions. Refresh headlines,"
-                            " add stronger calls-to-action, and test 2-3 responsive search ads to lift engagement."
+                            f"CTR is only {snapshot['ctr']}% on {impressions} impressions. "
+                            "Refresh headlines, add stronger calls-to-action, and test 2-3 responsive search ads to lift engagement."
                         ),
                         "action_proposal": "Test new ad copy and pin best-performing assets to raise CTR.",
                         "predicted_impact": 8.0,
@@ -113,8 +133,8 @@ def _build_recommendations_from_metrics(
                     {
                         "campaign_name": campaign_name,
                         "suggestion": (
-                            f"Conversion rate is {snapshot['conv_rate']}% across {clicks} clicks."
-                            " Tighten keyword match types, add negatives, and align landing pages to queries to improve conversions."
+                            f"Conversion rate is {snapshot['conv_rate']}% across {clicks} clicks. "
+                            "Tighten keyword match types, add negatives, and align landing pages to queries to improve conversions."
                         ),
                         "action_proposal": "Refine targeting and landing pages to raise conversion rate above 3%.",
                         "predicted_impact": 10.0,
@@ -128,8 +148,8 @@ def _build_recommendations_from_metrics(
                     {
                         "campaign_name": campaign_name,
                         "suggestion": (
-                            f"Cost per conversion is {_format_money(snapshot['cpa'], currency_code)} with {int(conversions)} conversions."
-                            " Lower bids on expensive keywords and shift budget toward high-intent segments to reduce CPA."
+                            f"Cost per conversion is {_format_money(snapshot['cpa'], currency_code)} with {int(conversions)} conversions. "
+                            "Lower bids on expensive keywords and shift budget toward high-intent segments to reduce CPA."
                         ),
                         "action_proposal": "Apply bid adjustments and budget reallocation to cut CPA by 15-20%.",
                         "predicted_impact": 9.0,
@@ -143,8 +163,8 @@ def _build_recommendations_from_metrics(
                     {
                         "campaign_name": campaign_name,
                         "suggestion": (
-                            f"Strong performance detected (CTR {snapshot['ctr']}%, CVR {snapshot['conv_rate']}%)."
-                            " Gradually increase budget 10-15% and expand winning keywords to capture more conversions."
+                            f"Strong performance detected (CTR {snapshot['ctr']}%, CVR {snapshot['conv_rate']}%). "
+                            "Gradually increase budget 10-15% and expand winning keywords to capture more conversions."
                         ),
                         "action_proposal": "Scale budget and duplicate top ad groups with similar audiences.",
                         "predicted_impact": 12.0,
@@ -158,8 +178,8 @@ def _build_recommendations_from_metrics(
                     {
                         "campaign_name": campaign_name,
                         "suggestion": (
-                            f"{impressions} impressions with zero clicks. Keywords may be misaligned with intent;"
-                            " test broader variations and ensure ad extensions are active to earn initial traffic."
+                            f"{impressions} impressions with zero clicks. Keywords may be misaligned with intent; "
+                            "test broader variations and ensure ad extensions are active to earn initial traffic."
                         ),
                         "action_proposal": "Add sitelinks/callouts and adjust keyword themes to drive first clicks.",
                         "predicted_impact": 6.0,
@@ -182,7 +202,11 @@ def _build_recommendations_from_metrics(
             status="PENDING",
         )
         created.append(created_rec)
-        logger.info("Generated recommendation for %s: %s", rec["campaign_name"], rec["suggestion"])
+        logger.info(
+            "Generated recommendation for %s: %s",
+            rec["campaign_name"],
+            rec["suggestion"],
+        )
 
     if created:
         db.add_all(created)
@@ -217,14 +241,18 @@ def refresh_access_token(
         "grant_type": "refresh_token",
     }
 
-    logger.info("Refreshing Google access token — payload keys: %s", list(payload.keys()))
+    logger.info(
+        "Refreshing Google access token — payload keys: %s", list(payload.keys())
+    )
     try:
-        response = requests.post("https://oauth2.googleapis.com/token", data=payload, timeout=15)
+        response = requests.post(GOOGLE_TOKEN_URL, data=payload, timeout=15)
     except Exception as e:
         logger.exception("Exception while contacting Google token endpoint")
-        raise HTTPException(status_code=500, detail=f"Failed to contact Google token endpoint: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to contact Google token endpoint: {e}",
+        )
 
-    # Log status & body for debugging
     logger.info("Google token endpoint returned status %s", response.status_code)
     try:
         body = response.json()
@@ -238,27 +266,32 @@ def refresh_access_token(
             error_detail = response.json()
         except ValueError:
             error_detail = response.text
-        logger.error(f"❌ Failed to refresh token: {error_detail}")
+        logger.error("❌ Failed to refresh token: %s", error_detail)
         raise HTTPException(
             status_code=400,
             detail=f"Failed to refresh Google token: {error_detail}",
         )
 
-    # success path
     data = response.json()
     access_token = data.get("access_token")
     if not access_token:
         logger.error("No access_token present in Google response: %s", data)
-        raise HTTPException(status_code=400, detail=f"Failed to refresh Google token (no access_token): {data}")
+        raise HTTPException(
+            status_code=400,
+            detail=f"Failed to refresh Google token (no access_token): {data}",
+        )
 
     logger.info("Access token refreshed successfully (expires_in=%s)", data.get("expires_in"))
     return access_token
 
 
 # -------------------- STEP 2: RUN GOOGLE ADS QUERY --------------------
-def run_google_ads_query(access_token: str, customer_id: str, query: str, developer_token: str | None = None):
+def run_google_ads_query(
+    access_token: str, customer_id: str, query: str, developer_token: str | None = None
+):
     """
-    Run a GAQL (Google Ads Query Language) query to fetch campaign data.
+    Run a GAQL (Google Ads Query Language) query via searchStream.
+    Returns the raw JSON: list[batch], each with "results".
     """
     headers = {
         "Authorization": f"Bearer {access_token}",
@@ -282,66 +315,17 @@ def run_google_ads_query(access_token: str, customer_id: str, query: str, develo
         raise HTTPException(status_code=500, detail=f"Google Ads query failed: {e}")
 
 
-# -------------------- STEP 3: SAVE CAMPAIGN DATA --------------------
-# def save_campaign_data(db: Session, client_db_id: int, response_data):
-#     """
-#     Parse Google Ads API data and save/update Campaign records.
-#     """
-#     saved_count = 0
-
-#     for batch in response_data:
-#         for row in batch.get("results", []):
-#             cname = row["campaign"]["name"]
-#             impressions = int(row["metrics"].get("impressions", 0))
-#             clicks = int(row["metrics"].get("clicks", 0))
-#             conversions = int(row["metrics"].get("conversions", 0))
-#             cost_micros = int(row["metrics"].get("costMicros", 0))
-#             campaign_date = row["segments"]["date"]
-
-#             existing = (
-#                 db.query(Campaign)
-#                 .filter(
-#                     Campaign.name == cname,
-#                     Campaign.client_id == client_db_id,
-#                     Campaign.date == campaign_date,
-#                 )
-#                 .first()
-#             )
-
-#             if existing:
-#                 existing.impressions = impressions
-#                 existing.clicks = clicks
-#                 existing.conversions = conversions
-#                 existing.cost = cost_micros / 1_000_000
-#             else:
-#                 new_campaign = Campaign(
-#                     client_id=client_db_id,
-#                     name=cname,
-#                     impressions=impressions,
-#                     clicks=clicks,
-#                     conversions=conversions,
-#                     cost=cost_micros / 1_000_000,
-#                     date=campaign_date,
-#                 )
-#                 db.add(new_campaign)
-#                 saved_count += 1
-
-#     db.commit()
-#     return saved_count
-
+# -------------------- STEP 3: OLD SAVE (kept for reference; unused) --------------------
 def _parse_ga_date(date_str: str):
-    """
-    Google Ads segments.date comes as 'YYYY-MM-DD'.
-    Convert it to a Python date object to match Column(Date).
-    """
     return datetime.strptime(date_str, "%Y-%m-%d").date()
+
 
 def save_campaign_data(db: Session, client_db_id: int, response_data):
     """
-    Parse Google Ads API data and save/update Campaign records.
+    (Legacy) Parse Google Ads API data and save/update Campaign records.
+    Not used now, kept just in case.
     """
     saved_count = 0
-
     for batch in response_data:
         for row in batch.get("results", []):
             cname = row["campaign"]["name"]
@@ -355,16 +339,16 @@ def save_campaign_data(db: Session, client_db_id: int, response_data):
 
             conversion_value = float(row["metrics"].get("conversionsValue", 0.0))
             cost_micros = int(row["metrics"].get("costMicros", 0))
-            cost_per_conversion_micros = float(row["metrics"].get("costPerConversion", 0))
+            cost_per_conversion_micros = float(
+                row["metrics"].get("costPerConversion", 0)
+            )
             cost_per_conversion = (
                 cost_per_conversion_micros / 1_000_000 if cost_per_conversion_micros else 0.0
             )
 
-            # GA returns '2024-03-14' as string
             campaign_date_str = row["segments"]["date"]
-            campaign_date = _parse_ga_date(campaign_date_str)  # <-- convert to date
+            campaign_date = _parse_ga_date(campaign_date_str)
 
-            # ✅ compare Date column to a date object (no more VARCHAR)
             existing = (
                 db.query(Campaign)
                 .filter(
@@ -396,12 +380,8 @@ def save_campaign_data(db: Session, client_db_id: int, response_data):
                     cost=cost_micros / 1_000_000,
                     conversion_value=conversion_value,
                     cost_per_conversion=cost_per_conversion,
-                    date=campaign_date,  # ✅ store as date object
+                    date=campaign_date,
                 )
-                # only set if model has this column
-                if hasattr(new_campaign, "conversions"):
-                    new_campaign.conversions = conversions
-
                 db.add(new_campaign)
                 saved_count += 1
 
@@ -409,11 +389,13 @@ def save_campaign_data(db: Session, client_db_id: int, response_data):
     return saved_count
 
 
-# -------------------- STEP 4A: CALENDAR (Custom Date Range) --------------------
+# -------------------- STEP 4A: CUSTOMER ID + CREDENTIALS --------------------
 def _select_customer_id(client_record: Client, override: str | None) -> str | None:
     """Validate and pick the customer ID to use for API calls."""
 
-    normalized_override = "".join(ch for ch in str(override) if ch.isdigit()) if override else None
+    normalized_override = (
+        "".join(ch for ch in str(override) if ch.isdigit()) if override else None
+    )
 
     stored_ids: list[str] = []
     if getattr(client_record, "customer_ids", None):
@@ -423,7 +405,9 @@ def _select_customer_id(client_record: Client, override: str | None) -> str | No
             if str(cid).strip()
         ]
     elif client_record.customer_id:
-        digits_only = "".join(ch for ch in str(client_record.customer_id) if ch.isdigit())
+        digits_only = "".join(
+            ch for ch in str(client_record.customer_id) if ch.isdigit()
+        )
         if digits_only:
             stored_ids.append(digits_only)
 
@@ -441,7 +425,9 @@ def _select_customer_id(client_record: Client, override: str | None) -> str | No
     return None
 
 
-def _resolve_google_ads_credentials(db: Session, client_db_id: int, customer_id: str | None = None):
+def _resolve_google_ads_credentials(
+    db: Session, client_db_id: int, customer_id: str | None = None
+):
     """Return all Google Ads credentials associated with a client."""
 
     client_record = db.query(Client).filter(Client.id == client_db_id).first()
@@ -469,7 +455,6 @@ def _resolve_google_ads_credentials(db: Session, client_db_id: int, customer_id:
             "currency_code": getattr(client_record, "currency_code", "USD"),
         }
 
-    # client_record = db.query(Client).filter(Client.id == client_db_id).first()
     if client_record and client_record.refresh_token:
         return {
             "refresh_token": client_record.refresh_token,
@@ -484,11 +469,24 @@ def _resolve_google_ads_credentials(db: Session, client_db_id: int, customer_id:
     return None
 
 
-def fetch_and_save_campaigns(db: Session, client_db_id: int, start_date: str, end_date: str, customer_id: str | None = None):
+# -------------------- STEP 4A: MAIN FETCH & SAVE --------------------
+def fetch_and_save_campaigns(
+    db: Session,
+    client_db_id: int,
+    start_date: str,
+    end_date: str,
+    customer_id: str | None = None,
+):
     """
-    Fetch Google Ads campaign data for a user-selected date range.
+    Fetch Google Ads campaign data and related assets/conversions/bidding
+    for a user-selected date range and save into DB.
     """
-    logger.info(f"📅 Fetching Google Ads data for {client_db_id} ({start_date} → {end_date})")
+    logger.info(
+        "📅 Fetching Google Ads data for client=%s (%s → %s)",
+        client_db_id,
+        start_date,
+        end_date,
+    )
 
     credentials = _resolve_google_ads_credentials(db, client_db_id, customer_id)
     if not credentials:
@@ -508,76 +506,324 @@ def fetch_and_save_campaigns(db: Session, client_db_id: int, start_date: str, en
 
     customer_id = customer_id or login_customer_id or os.getenv("LOGIN_CUSTOMER_ID")
     if not customer_id:
-        raise HTTPException(status_code=400, detail="Missing login_customer_id for Google Ads request")
+        raise HTTPException(
+            status_code=400,
+            detail="Missing login_customer_id for Google Ads request",
+        )
 
-    query = f"""
-        SELECT 
-            campaign.id, 
-            campaign.name, 
-            metrics.impressions, 
-            metrics.clicks, 
-            metrics.ctr,
-            metrics.average_cpc,
-            metrics.conversions,
-            metrics.conversions_value,
-            metrics.cost_micros,
-            metrics.cost_per_conversion,
-            segments.date
+    # -------------------- GAQL QUERIES --------------------
+    campaign_query = f"""
+        SELECT
+          campaign.id,
+          campaign.resource_name,
+          campaign.name,
+          campaign.status,
+          campaign.advertising_channel_type,
+          campaign.advertising_channel_sub_type,
+          campaign.bidding_strategy_type,
+          campaign.bidding_strategy,
+          campaign.campaign_budget,
+          campaign.start_date,
+          campaign.end_date,
+          campaign.serving_status,
+          campaign.optimization_score,
+
+          metrics.impressions,
+          metrics.clicks,
+          metrics.ctr,
+          metrics.average_cpc,
+          metrics.conversions,
+          metrics.conversions_value,
+          metrics.all_conversions,
+          metrics.all_conversions_value,
+          metrics.view_through_conversions,
+          metrics.cost_micros,
+          metrics.cost_per_conversion,
+
+          segments.date
         FROM campaign
         WHERE segments.date BETWEEN '{start_date}' AND '{end_date}'
         ORDER BY segments.date
     """
 
-    response_data = run_google_ads_query(
+    asset_query = """
+        SELECT
+          asset.id,
+          asset.resource_name,
+          asset.name,
+          asset.type,
+          asset.source,
+          asset.text_asset.text,
+          asset.image_asset.full_size.url,
+          asset.image_asset.file_size,
+          asset.youtube_video_asset.youtube_video_id,
+          asset.youtube_video_asset.youtube_video_title,
+          asset.call_to_action_asset.call_to_action
+        FROM asset
+    """
+
+    campaign_asset_query = f"""
+        SELECT
+          campaign_asset.resource_name,
+          campaign_asset.status,
+          campaign_asset.field_type,
+
+          campaign.id,
+          campaign.resource_name,
+          campaign.name,
+          campaign.advertising_channel_type,
+
+          asset.id,
+          asset.resource_name,
+          asset.name,
+          asset.type,
+
+          metrics.impressions,
+          metrics.clicks,
+          metrics.conversions,
+          metrics.conversions_value,
+          metrics.cost_micros,
+          metrics.view_through_conversions,
+          segments.date
+        FROM campaign_asset
+        WHERE segments.date BETWEEN '{start_date}' AND '{end_date}'
+    """
+
+    asset_set_query = """
+        SELECT
+          asset_set.id,
+          asset_set.resource_name,
+          asset_set.name,
+          asset_set.type,
+          asset_set.status
+        FROM asset_set
+    """
+
+    asset_set_asset_query = """
+        SELECT
+          asset_set_asset.resource_name,
+          asset_set_asset.status,
+          asset_set.id,
+          asset_set.resource_name,
+          asset_set.name,
+          asset_set.type,
+          asset.id,
+          asset.resource_name,
+          asset.name,
+          asset.type
+        FROM asset_set_asset
+    """
+
+    campaign_asset_set_query = """
+        SELECT
+          campaign_asset_set.resource_name,
+          campaign_asset_set.status,
+          campaign.id,
+          campaign.resource_name,
+          campaign.name,
+          asset_set.id,
+          asset_set.resource_name,
+          asset_set.name,
+          asset_set.type
+        FROM campaign_asset_set
+    """
+
+    customer_asset_set_query = """
+        SELECT
+          customer_asset_set.resource_name,
+          customer_asset_set.status,
+          asset_set.id,
+          asset_set.resource_name,
+          asset_set.name,
+          asset_set.type
+        FROM customer_asset_set
+    """
+
+    conversion_action_query = """
+        SELECT
+          conversion_action.id,
+          conversion_action.resource_name,
+          conversion_action.name,
+          conversion_action.type,
+          conversion_action.category,
+          conversion_action.origin,
+          conversion_action.status,
+          conversion_action.include_in_conversions_metric,
+          conversion_action.primary_for_goal,
+          conversion_action.value_settings.default_value,
+          conversion_action.value_settings.always_use_default_value
+        FROM conversion_action
+    """
+
+    campaign_conversion_by_action_query = f"""
+        SELECT
+          campaign.id,
+          campaign.resource_name,
+          campaign.name,
+          segments.date,
+          segments.conversion_action,
+          conversion_action.resource_name,
+          conversion_action.name,
+          conversion_action.category,
+          conversion_action.type,
+          metrics.conversions,
+          metrics.conversions_value,
+          metrics.all_conversions,
+          metrics.all_conversions_value,
+          metrics.view_through_conversions,
+          metrics.cost_per_conversion,
+          metrics.cost_per_all_conversions
+        FROM campaign
+        WHERE segments.date BETWEEN '{start_date}' AND '{end_date}'
+    """
+
+    bidding_strategy_query = """
+        SELECT
+          bidding_strategy.id,
+          bidding_strategy.resource_name,
+          bidding_strategy.name,
+          bidding_strategy.type,
+          bidding_strategy.status,
+          bidding_strategy.target_cpa.target_cpa_micros,
+          bidding_strategy.target_roas.target_roas,
+          bidding_strategy.maximize_conversions.target_cpa_micros,
+          bidding_strategy.maximize_conversion_value.target_roas
+        FROM bidding_strategy
+    """
+
+    # -------------------- EXECUTE QUERIES --------------------
+    campaign_rows = run_google_ads_query(
         access_token=access_token,
         customer_id=customer_id,
-        query=query,
+        query=campaign_query,
         developer_token=developer_token,
     )
 
-    # Clear any previously stored campaign rows for this client so the UI reflects
-    # only the most recent fetch (or shows empty state when the range has no data).
+    asset_rows = run_google_ads_query(
+        access_token=access_token,
+        customer_id=customer_id,
+        query=asset_query,
+        developer_token=developer_token,
+    )
+
+    campaign_asset_rows = run_google_ads_query(
+        access_token=access_token,
+        customer_id=customer_id,
+        query=campaign_asset_query,
+        developer_token=developer_token,
+    )
+
+    asset_set_rows = run_google_ads_query(
+        access_token=access_token,
+        customer_id=customer_id,
+        query=asset_set_query,
+        developer_token=developer_token,
+    )
+
+    asset_set_asset_rows = run_google_ads_query(
+        access_token=access_token,
+        customer_id=customer_id,
+        query=asset_set_asset_query,
+        developer_token=developer_token,
+    )
+
+    campaign_asset_set_rows = run_google_ads_query(
+        access_token=access_token,
+        customer_id=customer_id,
+        query=campaign_asset_set_query,
+        developer_token=developer_token,
+    )
+
+    customer_asset_set_rows = run_google_ads_query(
+        access_token=access_token,
+        customer_id=customer_id,
+        query=customer_asset_set_query,
+        developer_token=developer_token,
+    )
+
+    conversion_action_rows = run_google_ads_query(
+        access_token=access_token,
+        customer_id=customer_id,
+        query=conversion_action_query,
+        developer_token=developer_token,
+    )
+
+    campaign_conv_by_action_rows = run_google_ads_query(
+        access_token=access_token,
+        customer_id=customer_id,
+        query=campaign_conversion_by_action_query,
+        developer_token=developer_token,
+    )
+
+    bidding_strategy_rows = run_google_ads_query(
+        access_token=access_token,
+        customer_id=customer_id,
+        query=bidding_strategy_query,
+        developer_token=developer_token,
+    )
+
+    # -------------------- CLEAR OLD CAMPAIGNS --------------------
     db.query(Campaign).filter(Campaign.client_id == client_db_id).delete()
     db.commit()
 
-    saved_count = save_campaign_data(db, client_db_id, response_data)
+    # -------------------- SAVE DATA --------------------
+    save_campaigns_from_rows(db, client_db_id, campaign_rows)
+    save_assets_from_rows(db, client_db_id, asset_rows)
+    save_campaign_assets_from_rows(db, client_db_id, campaign_asset_rows)
+    save_asset_sets_from_rows(
+        db,
+        client_db_id,
+        asset_set_rows,
+        asset_set_asset_rows,
+        campaign_asset_set_rows,
+        customer_asset_set_rows,
+    )
+    save_conversion_actions_from_rows(db, client_db_id, conversion_action_rows)
+    save_campaign_conversion_stats_from_rows(
+        db,
+        client_db_id,
+        campaign_conv_by_action_rows,
+    )
+    save_bidding_strategies_from_rows(db, client_db_id, bidding_strategy_rows)
+
+    # 🔁 Build AI recommendations using the same searchStream data
     generated_recs = _build_recommendations_from_metrics(
         db,
         client_db_id,
-        response_data,
+        campaign_rows,
         currency_code=currency_code,
         customer_id=customer_id,
     )
 
     return {
         "status": "success",
-        "saved_records": saved_count,
         "period": f"{start_date} → {end_date}",
         "message": f"✅ Google Ads data fetched and saved between {start_date} and {end_date}",
         "recommendations_generated": len(generated_recs),
         "recommendation_summaries": [rec.get("suggestion") for rec in generated_recs],
         "currency_code": currency_code,
+        "fetched_counts": {
+            "campaign_rows": len(campaign_rows),
+            "asset_rows": len(asset_rows),
+            "campaign_asset_rows": len(campaign_asset_rows),
+            "asset_set_rows": len(asset_set_rows),
+            "asset_set_asset_rows": len(asset_set_asset_rows),
+            "campaign_asset_set_rows": len(campaign_asset_set_rows),
+            "customer_asset_set_rows": len(customer_asset_set_rows),
+            "conversion_action_rows": len(conversion_action_rows),
+            "campaign_conv_by_action_rows": len(campaign_conv_by_action_rows),
+            "bidding_strategy_rows": len(bidding_strategy_rows),
+        },
     }
 
 
 # -------------------- STEP 4B: DAILY AUTO FETCH --------------------
-def fetch_and_save_daily_campaigns(db: Session, client_db_id: int, customer_id: str | None = None):
+def fetch_and_save_daily_campaigns(
+    db: Session, client_db_id: int, customer_id: str | None = None
+):
     """
     ✅ Automatically fetch today's Google Ads data (based on current date)
     """
     today = date.today().strftime("%Y-%m-%d")
-    logger.info(f"📆 Auto fetching Google Ads data for {today}")
-
+    logger.info("📆 Auto fetching Google Ads data for %s", today)
     return fetch_and_save_campaigns(db, client_db_id, today, today, customer_id)
-
-
-# -------------------- STEP 5: FRONTEND / API INTEGRATION --------------------
-# Example Routes:
-#
-# 1️⃣ Calendar Filter API
-# GET /google-ads/fetch?client_id=123&start_date=2025-10-01&end_date=2025-10-31
-#
-# 2️⃣ Auto Daily API
-# GET /google-ads/fetch-daily?client_id=123
-#
-# Both will use the same logic internally.
