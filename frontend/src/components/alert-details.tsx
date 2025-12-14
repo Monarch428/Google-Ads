@@ -2,10 +2,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Separator } from "./ui/separator";
-import { 
-  AlertTriangle, 
-  TrendingDown, 
-  DollarSign, 
+import {
+  AlertTriangle,
+  TrendingDown,
+  DollarSign,
   XCircle,
   TrendingUp,
   Target,
@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { Alert as AlertType, mockClients } from "../lib/mock-data";
 import { useData } from "../lib/data-context";
+import { formatCurrency } from "../lib/currencies";
 
 interface AlertDetailsProps {
   alert: AlertType;
@@ -80,15 +81,15 @@ export function AlertDetails({ alert, onClose }: AlertDetailsProps) {
         };
       case "cpa-spike":
         return {
-          current: `$${client.cpa}`,
-          previous: `$${(client.cpa * 0.7).toFixed(2)}`,
+          current: formatCurrency(client.cpa, client.currencyCode),
+          previous: formatCurrency(client.cpa * 0.7, client.currencyCode),
           change: "+42.9%",
           metric: "Cost Per Acquisition"
         };
       case "budget-overspend":
         return {
-          current: `$${client.adSpend.toLocaleString()}`,
-          previous: `$${(client.adSpend * 0.85).toLocaleString()}`,
+          current: formatCurrency(client.adSpend, client.currencyCode),
+          previous: formatCurrency(client.adSpend * 0.85, client.currencyCode),
           change: "+17.6%",
           metric: "Ad Spend"
         };
@@ -230,7 +231,7 @@ export function AlertDetails({ alert, onClose }: AlertDetailsProps) {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <p className="text-xs text-slate-500">Total Ad Spend</p>
-                <p className="text-lg text-slate-900">${client.adSpend.toLocaleString()}</p>
+                <p className="text-lg text-slate-900">{formatCurrency(client.adSpend, client.currencyCode)}</p>
               </div>
               <div>
                 <p className="text-xs text-slate-500">ROAS</p>

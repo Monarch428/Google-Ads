@@ -8,6 +8,7 @@ import {
   approveRecommendation,
   dismissRecommendation,
   deleteClient as deleteClientApi,
+  updateClient as updateClientApi,
   deleteUser,
   fetchGoogleAdsRange,
   fetchGoogleAdsDaily,
@@ -32,6 +33,9 @@ type CampaignSummary = {
   ctr: number;
   cpc: number;
   cpa: number;
+  conversionValue: number;
+  costPerConversion: number;
+  averageCpc: number;
 };
 
 type DataContextValue = {
@@ -50,6 +54,7 @@ type DataContextValue = {
   refreshRecommendations: () => Promise<void>;
   approveRecommendation: (recId: string) => Promise<void>;
   dismissRecommendation: (recId: string) => Promise<void>;
+  updateClient: (clientId: string, payload: Partial<BackendClient>) => Promise<void>;
   deleteClient: (clientId: string) => Promise<void>;
   deleteManager: (managerId: string) => Promise<void>;
   authToken?: string;
@@ -59,40 +64,46 @@ type DataContextValue = {
   authDetails: AuthDetails | null;
   syncGoogleAdsRange: (
     clientId: string,
+    customerId: string,
     startDate: string,
     endDate: string,
   ) => Promise<GoogleAdsSyncResponse>;
-  syncGoogleAdsDaily: (clientId: string) => Promise<GoogleAdsSyncResponse>;
+  syncGoogleAdsDaily: (clientId: string, customerId: string) => Promise<GoogleAdsSyncResponse>;
 };
 
 const DataContext = createContext<DataContextValue | undefined>(undefined);
 
 function buildCampaignSummaries(campaigns: BackendCampaign[]): {
   summaries: CampaignSummary[];
-  metricsByClient: Map<number, { impressions: number; clicks: number; conversions: number; cost: number }>;
+  metricsByClient: Map<number, { impressions: number; clicks: number; conversions: number; cost: number; conversionValue: number }>;
 } {
-  const metricsByClient = new Map<number, { impressions: number; clicks: number; conversions: number; cost: number }>();
+  const metricsByClient = new Map<number, { impressions: number; clicks: number; conversions: number; cost: number; conversionValue: number }>();
   const summaries: CampaignSummary[] = campaigns.map((campaign) => {
     const impressions = Number(campaign.impressions ?? 0);
     const clicks = Number(campaign.clicks ?? 0);
     const conversions = Number(campaign.conversions ?? 0);
     const cost = Number(campaign.cost ?? 0);
+    const conversionValue = Number(campaign.conversion_value ?? 0);
+    const costPerConversion = Number(campaign.cost_per_conversion ?? 0) || (conversions > 0 ? cost / conversions : 0);
+    const averageCpc = Number(campaign.average_cpc ?? 0) || (clicks > 0 ? cost / clicks : 0);
 
-    const ctr = impressions > 0 ? (clicks / impressions) * 100 : 0;
-    const cpc = clicks > 0 ? cost / clicks : 0;
-    const cpa = conversions > 0 ? cost / conversions : 0;
+    const ctr = impressions > 0 ? (clicks / impressions) * 100 : Number(campaign.ctr ?? 0);
+    const cpc = clicks > 0 ? cost / clicks : averageCpc;
+    const cpa = conversions > 0 ? cost / conversions : costPerConversion;
 
     const clientMetrics = metricsByClient.get(campaign.client_id) ?? {
       impressions: 0,
       clicks: 0,
       conversions: 0,
       cost: 0,
+      conversionValue: 0,
     };
 
     clientMetrics.impressions += impressions;
     clientMetrics.clicks += clicks;
     clientMetrics.conversions += conversions;
     clientMetrics.cost += cost;
+    clientMetrics.conversionValue += conversionValue;
 
     metricsByClient.set(campaign.client_id, clientMetrics);
 
@@ -107,6 +118,9 @@ function buildCampaignSummaries(campaigns: BackendCampaign[]): {
       ctr: Number(ctr.toFixed(2)),
       cpc: Number(cpc.toFixed(2)),
       cpa: Number(cpa.toFixed(2)),
+      conversionValue: Number(conversionValue.toFixed(2)),
+      costPerConversion: Number(costPerConversion.toFixed(2)),
+      averageCpc: Number(averageCpc.toFixed(2)),
     };
   });
 
@@ -131,60 +145,78 @@ function deriveStatus(conversionRate: number, ctr: number, conversions: number, 
 
 function mapClients(
   backendClients: BackendClient[],
-  metricsByClient: Map<number, { impressions: number; clicks: number; conversions: number; cost: number }>
+  metricsByClient: Map<number, { impressions: number; clicks: number; conversions: number; cost: number; conversionValue: number }>
 ): Client[] {
   if (!backendClients.length) {
     return [];
   }
 
-  return backendClients.map((client, index) => {
-    const metrics = metricsByClient.get(client.id) ?? {
-      impressions: 0,
-      clicks: 0,
-      conversions: 0,
-      cost: 0,
-    };
+    return backendClients.map((client, index) => {
+      const metrics = metricsByClient.get(client.id) ?? {
+        impressions: 0,
+        clicks: 0,
+        conversions: 0,
+        cost: 0,
+        conversionValue: 0,
+      };
+
+    const customerIds =
+      client.customer_ids && client.customer_ids.length > 0
+        ? client.customer_ids
+        : client.customer_id
+        ? client.customer_id.split(",").map((value) => value.trim()).filter(Boolean)
+        : [];
 
     const impressions = Number(metrics.impressions ?? 0);
     const clicks = Number(metrics.clicks ?? 0);
     const conversions = Number(metrics.conversions ?? 0);
     const cost = Number(metrics.cost ?? 0);
 
-    const ctr = impressions > 0 ? (clicks / impressions) * 100 : 0;
-    const conversionRate = clicks > 0 ? (conversions / clicks) * 100 : 0;
-    const cpa = conversions > 0 ? cost / conversions : 0;
+    const monthlyBudget =
+      client.monthly_budget != null && !Number.isNaN(Number(client.monthly_budget))
+        ? Number(client.monthly_budget)
+        : undefined;
 
-    const estimatedRevenue = conversions > 0 ? conversions * 120 : 0;
-    const roas = cost > 0 && estimatedRevenue > 0 ? estimatedRevenue / cost : 0;
+      const ctr = impressions > 0 ? (clicks / impressions) * 100 : 0;
+      const conversionRate = clicks > 0 ? (conversions / clicks) * 100 : 0;
+      const cpa = conversions > 0 ? cost / conversions : 0;
+
+      const revenue = metrics.conversionValue > 0 ? metrics.conversionValue : conversions > 0 ? conversions * 120 : 0;
+      const roas = cost > 0 && revenue > 0 ? revenue / cost : 0;
     const hasGoogleOAuth =
       typeof client.has_google_ads_auth === "boolean"
         ? client.has_google_ads_auth
         : Boolean(client.refresh_token);
 
-    return {
-      id: String(client.id),
-      name: client.name || `Client ${index + 1}`,
-      adSpend: Number(cost.toFixed(2)),
-      conversions,
-      ctr: Number(ctr.toFixed(2)),
-      cpa: Number(cpa.toFixed(2)),
-      conversionRate: Number(conversionRate.toFixed(2)),
-      revenue: Number(estimatedRevenue.toFixed(2)),
-      impressions,
-      clicks,
-      roas: Number(roas.toFixed(2)),
-      status: deriveStatus(conversionRate, ctr, conversions, "critical"),
-      industry: client.industry || undefined,
-      assignedManagerId:
-        client.assigned_manager_id != null
-          ? String(client.assigned_manager_id)
-          : undefined,
-      createdById:
-        client.created_by_id != null ? String(client.created_by_id) : undefined,
-      hasGoogleOAuth,
-    };
-  });
-}
+      return {
+        id: String(client.id),
+        name: client.name || `Client ${index + 1}`,
+        adSpend: Number(cost.toFixed(2)),
+        currencyCode: client.currency_code || "USD",
+        conversions,
+        ctr: Number(ctr.toFixed(2)),
+        cpa: Number(cpa.toFixed(2)),
+        conversionRate: Number(conversionRate.toFixed(2)),
+        revenue: Number(revenue.toFixed(2)),
+        impressions,
+        clicks,
+        roas: Number(roas.toFixed(2)),
+        status: deriveStatus(conversionRate, ctr, conversions, "critical"),
+        industry: client.industry || undefined,
+        monthlyBudget,
+        customerIds,
+        assignedManagerId:
+          client.assigned_manager_id != null
+            ? String(client.assigned_manager_id)
+            : undefined,
+        createdById:
+          client.created_by_id != null ? String(client.created_by_id) : undefined,
+        hasGoogleOAuth,
+        customerId: client.customer_id ?? undefined,
+        loginCustomerId: client.login_customer_id ?? undefined,
+      };
+    });
+  }
 
 function normalizePriority(priority: BackendRecommendation["priority"], fallback: AIRecommendation["priority"]): AIRecommendation["priority"] {
   if (!priority) return fallback;
@@ -468,6 +500,26 @@ export function DataProvider({
     }
   }, [authToken, loadRecommendations]);
 
+  const handleUpdateClient = useCallback(
+    async (clientId: string, payload: Partial<BackendClient>) => {
+      if (!authToken) {
+        throw new Error("Authentication required to update clients");
+      }
+
+      try {
+        await updateClientApi(clientId, payload, {
+          accessToken: authToken,
+          refreshToken: refreshToken ?? null,
+        });
+        await Promise.all([loadClients(), loadManagers()]);
+      } catch (error) {
+        console.error("Failed to update client", error);
+        throw error;
+      }
+    },
+    [authToken, refreshToken, loadClients, loadManagers],
+  );
+
   const handleDeleteClient = useCallback(
     async (clientId: string) => {
       if (!authToken) {
@@ -507,13 +559,13 @@ export function DataProvider({
   );
 
   const handleSyncGoogleAdsRange = useCallback(
-    async (clientId: string, startDate: string, endDate: string) => {
+    async (clientId: string, customerId: string, startDate: string, endDate: string) => {
       if (!authToken) {
         throw new Error("Sign in to sync Google Ads data");
       }
 
       try {
-        const response = await fetchGoogleAdsRange(clientId, startDate, endDate, authToken);
+        const response = await fetchGoogleAdsRange(clientId, startDate, endDate, authToken, customerId);
         await Promise.all([loadClients(), loadRecommendations()]);
         return response;
       } catch (error) {
@@ -525,13 +577,13 @@ export function DataProvider({
   );
 
   const handleSyncGoogleAdsDaily = useCallback(
-    async (clientId: string) => {
+    async (clientId: string, customerId: string) => {
       if (!authToken) {
         throw new Error("Sign in to sync Google Ads data");
       }
 
       try {
-        const response = await fetchGoogleAdsDaily(clientId, authToken);
+        const response = await fetchGoogleAdsDaily(clientId, authToken, customerId);
         await Promise.all([loadClients(), loadRecommendations()]);
         return response;
       } catch (error) {
@@ -570,6 +622,7 @@ export function DataProvider({
     refreshRecommendations: loadRecommendations,
     approveRecommendation: handleApproveRecommendation,
     dismissRecommendation: handleDismissRecommendation,
+    updateClient: handleUpdateClient,
     deleteClient: handleDeleteClient,
     deleteManager: handleDeleteManager,
     authToken,
@@ -595,6 +648,7 @@ export function DataProvider({
     loadRecommendations,
     handleApproveRecommendation,
     handleDismissRecommendation,
+    handleUpdateClient,
     handleDeleteClient,
     handleDeleteManager,
     authToken,

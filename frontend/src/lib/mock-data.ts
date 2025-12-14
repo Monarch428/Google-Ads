@@ -13,9 +13,14 @@ export interface Client {
   clicks: number;
   roas: number;
   status: "healthy" | "warning" | "critical";
+  currencyCode?: string;
+  monthlyBudget?: number;
+  customerIds?: string[];
   assignedManagerId?: string | null;
   createdById?: string | null;
   hasGoogleOAuth?: boolean;
+  customerId?: string | null;
+  loginCustomerId?: string | null;
 }
 
 export interface Manager {
@@ -93,6 +98,8 @@ export const mockClients: Client[] = [
     clicks: 42952,
     roas: 2.78,
     status: "healthy",
+    currencyCode: "USD",
+    monthlyBudget: 60000,
     hasGoogleOAuth: true,
   },
   {
@@ -109,6 +116,8 @@ export const mockClients: Client[] = [
     clicks: 20776,
     roas: 2.44,
     status: "warning",
+    currencyCode: "USD",
+    monthlyBudget: 45000,
     hasGoogleOAuth: true,
   },
   {
@@ -125,6 +134,8 @@ export const mockClients: Client[] = [
     clicks: 13875,
     roas: 1.58,
     status: "critical",
+    currencyCode: "EUR",
+    monthlyBudget: 38000,
     hasGoogleOAuth: true,
   },
   {
@@ -141,6 +152,8 @@ export const mockClients: Client[] = [
     clicks: 59738,
     roas: 2.98,
     status: "healthy",
+    currencyCode: "GBP",
+    monthlyBudget: 52000,
     hasGoogleOAuth: true,
   },
   {
@@ -157,6 +170,8 @@ export const mockClients: Client[] = [
     clicks: 14952,
     roas: 2.97,
     status: "healthy",
+    currencyCode: "AUD",
+    monthlyBudget: 32000,
     hasGoogleOAuth: true,
   },
   {
@@ -173,6 +188,8 @@ export const mockClients: Client[] = [
     clicks: 35310,
     roas: 2.42,
     status: "warning",
+    currencyCode: "INR",
+    monthlyBudget: 41000,
     hasGoogleOAuth: true,
   },
 ];

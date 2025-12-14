@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Search } from "lucide-react";
+import { Pencil, Search } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Input } from "./ui/input";
 import {
@@ -23,9 +23,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "./ui/alert-dialog";
-import { toast } from "sonner@2.0.3";
-import { GoogleAdsSyncControls } from "./google-ads-sync-controls";
+import { Toaster, toast } from "sonner";
 import { API_BASE_URL } from "../lib/api";
+import { currencyOptions, formatCurrency } from "../lib/currencies";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "./ui/dialog";
+import { Label } from "./ui/label";
+import { formatDateRangeLabel, useGoogleAdsSync } from "../lib/google-ads-sync-context";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 
 interface AccountsProps {
   onClientClick?: (clientId: string) => void;
@@ -36,7 +40,20 @@ export function Accounts({ onClientClick }: AccountsProps) {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [clientPendingDelete, setClientPendingDelete] = useState<{ id: string; name: string } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  const { clients, clientsLoading, deleteClient, viewerRole } = useData();
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [clientPendingEdit, setClientPendingEdit] = useState<
+    { id: string; name: string; customerIds?: string[]; currencyCode?: string; monthlyBudget?: number } | null
+  >(null);
+  const [editCustomerIds, setEditCustomerIds] = useState<string[]>([]);
+  const [editCustomerIdInput, setEditCustomerIdInput] = useState("");
+  const [editCustomerIdError, setEditCustomerIdError] = useState<string | null>(null);
+  const [editCurrencyCode, setEditCurrencyCode] = useState<string>("USD");
+  const [editMonthlyBudget, setEditMonthlyBudget] = useState<string>("");
+  const [editMonthlyBudgetError, setEditMonthlyBudgetError] = useState<string | null>(null);
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const { clients, clientsLoading, deleteClient, updateClient, viewerRole } = useData();
+  const { dateRange } = useGoogleAdsSync();
+  const rangeLabel = formatDateRangeLabel(dateRange);
 
   const isAdmin = viewerRole === "admin";
   const hasClients = clients.length > 0;
@@ -47,6 +64,97 @@ export function Accounts({ onClientClick }: AccountsProps) {
       (client.industry && client.industry.toLowerCase().includes(searchQuery.toLowerCase()))
     );
   }, [clients, searchQuery]);
+
+  const parseCustomerIdTokens = (raw: string) =>
+    raw
+      .split(/[,\s]+/)
+      .map((token) => token.replace(/\D/g, "").trim())
+      .filter(Boolean);
+
+  const openEditDialog = (client: {
+    id: string;
+    name: string;
+    customerIds?: string[];
+    currencyCode?: string;
+    monthlyBudget?: number;
+  }) => {
+    setClientPendingEdit(client);
+    setEditCustomerIds(client.customerIds ?? []);
+    setEditCustomerIdInput("");
+    setEditCustomerIdError(null);
+    setEditCurrencyCode(client.currencyCode || "USD");
+    setEditMonthlyBudget(
+      client.monthlyBudget != null && Number.isFinite(client.monthlyBudget)
+        ? String(client.monthlyBudget)
+        : ""
+    );
+    setEditMonthlyBudgetError(null);
+    setIsEditDialogOpen(true);
+  };
+
+  const addEditCustomerIdsFromInput = () => {
+    const tokens = parseCustomerIdTokens(editCustomerIdInput);
+    if (!tokens.length) {
+      setEditCustomerIdError("Please enter at least one numeric customer ID.");
+      return;
+    }
+
+    setEditCustomerIdError(null);
+    setEditCustomerIds((prev) => {
+      const existing = new Set(prev);
+      const next = [...prev];
+      tokens.forEach((id) => {
+        if (!existing.has(id)) {
+          existing.add(id);
+          next.push(id);
+        }
+      });
+      return next;
+    });
+    setEditCustomerIdInput("");
+  };
+
+  const removeEditCustomerId = (id: string) => {
+    setEditCustomerIds((prev) => prev.filter((existing) => existing !== id));
+  };
+
+  const handleSaveCustomerIds = async () => {
+    if (!clientPendingEdit) return;
+
+    const sanitizedIds = editCustomerIds.map((id) => id.replace(/\D/g, "").trim()).filter(Boolean);
+    if (!sanitizedIds.length) {
+      setEditCustomerIdError("Add at least one valid customer ID before saving.");
+      return;
+    }
+
+    const parsedMonthlyBudget = editMonthlyBudget.trim() ? Number(editMonthlyBudget) : undefined;
+    if (editMonthlyBudget.trim() && !Number.isFinite(parsedMonthlyBudget)) {
+      setEditMonthlyBudgetError("Enter a valid monthly budget amount.");
+      return;
+    }
+
+    setEditMonthlyBudgetError(null);
+
+    setIsSavingEdit(true);
+    try {
+      await updateClient(clientPendingEdit.id, {
+        customer_ids: sanitizedIds,
+        currency_code: editCurrencyCode,
+        monthly_budget: parsedMonthlyBudget,
+        // customer_id: sanitizedIds.join(","),
+      });
+      toast.success("Client updated", {
+        description: "Customer IDs saved successfully.",
+      });
+      setIsEditDialogOpen(false);
+      setClientPendingEdit(null);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to update client";
+      toast.error("Unable to save changes", { description: message });
+    } finally {
+      setIsSavingEdit(false);
+    }
+  };
 
   /**
    * Launch the Google OAuth flow for a particular client record.
@@ -65,19 +173,12 @@ export function Accounts({ onClientClick }: AccountsProps) {
     }
 
     try {
-      // open in new tab - backend will 302 to Google and set state cookie
-      const win = window.open(oauthUrl, "_blank", "noopener,noreferrer");
-      if (!win) {
-        toast.error("Popup blocked", {
-          description: "Please allow popups for this site or use the Connect link directly.",
-        });
-        return;
-      }
-      toast.info("Google OAuth launched", {
+      window.location.assign(oauthUrl);
+      toast.info("Redirecting to Google OAuth", {
         description: `Complete the Google consent screen for ${clientName} to sync live Google Ads data.`,
       });
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Unable to open OAuth window";
+      const message = err instanceof Error ? err.message : "Unable to start OAuth";
       toast.error("Google OAuth failed", { description: message });
     }
   };
@@ -90,7 +191,7 @@ export function Accounts({ onClientClick }: AccountsProps) {
         <p className="text-slate-500">Manage and monitor all client Google Ads accounts</p>
       </div>
 
-      <GoogleAdsSyncControls className="max-w-4xl" contextLabel="client account metrics" />
+      <p className="text-xs text-slate-500">Applying {rangeLabel} to Google Ads sync operations</p>
 
       {/* Client Accounts List */}
       <Card>
@@ -157,7 +258,7 @@ export function Accounts({ onClientClick }: AccountsProps) {
                       </span>
                     </TableCell>
                     <TableCell className="text-right">
-                      <p className="text-sm text-slate-900">${client.adSpend.toLocaleString()}</p>
+                      <p className="text-sm text-slate-900">{formatCurrency(client.adSpend, client.currencyCode)}</p>
                     </TableCell>
                     <TableCell className="text-right">
                       <p className="text-sm text-slate-900">{client.conversions.toLocaleString()}</p>
@@ -185,6 +286,11 @@ export function Accounts({ onClientClick }: AccountsProps) {
                         <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white" onClick={() => onClientClick?.(client.id)}>
                           View Details
                         </Button>
+                        {isAdmin && (
+                          <Button size="sm" variant="outline" onClick={() => openEditDialog(client)}>
+                            <Pencil className="mr-2 h-4 w-4" /> Edit
+                          </Button>
+                        )}
                         {isAdmin && (
                           <Button
                             size="sm"
@@ -217,16 +323,148 @@ export function Accounts({ onClientClick }: AccountsProps) {
               <p className="text-slate-500">No clients found matching your search</p>
             </div>
           )}
-        </CardContent>
-      </Card>
+      </CardContent>
+    </Card>
 
-      {/* AI Chatbot Assistant */}
-      <AccountsChatbot />
+    {/* AI Chatbot Assistant */}
+    <AccountsChatbot />
 
-      <AlertDialog
-        open={isDeleteDialogOpen}
-        onOpenChange={(open) => {
-          setIsDeleteDialogOpen(open);
+      <Dialog
+        open={isEditDialogOpen}
+        onOpenChange={(open: boolean) => {
+          setIsEditDialogOpen(open);
+          if (!open) {
+            setClientPendingEdit(null);
+            setEditCustomerIds([]);
+            setEditCustomerIdInput("");
+            setEditCustomerIdError(null);
+            setEditCurrencyCode("USD");
+            setEditMonthlyBudget("");
+            setEditMonthlyBudgetError(null);
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Client Settings</DialogTitle>
+            <DialogDescription>
+              Update Google Ads customer IDs linked to this client account and adjust billing preferences.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div>
+              <p className="text-sm font-medium text-slate-900">{clientPendingEdit?.name}</p>
+              <p className="text-xs text-slate-500">Add or remove customer IDs as needed.</p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-customer-id">Customer IDs</Label>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                <Input
+                  id="edit-customer-id"
+                  placeholder="e.g., 1234567890"
+                  value={editCustomerIdInput}
+                  onChange={(event) => setEditCustomerIdInput(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      addEditCustomerIdsFromInput();
+                    }
+                  }}
+                />
+                <Button type="button" variant="secondary" onClick={addEditCustomerIdsFromInput}>
+                  Add ID
+                </Button>
+              </div>
+
+              {editCustomerIdError && (
+                <p className="text-xs text-destructive">{editCustomerIdError}</p>
+              )}
+
+              {!!editCustomerIds.length && (
+                <div className="flex flex-wrap gap-2">
+                  {editCustomerIds.map((id) => (
+                    <span
+                      key={id}
+                      className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-700"
+                    >
+                      <span className="font-medium">{id}</span>
+                      <button
+                        type="button"
+                        className="text-slate-500 hover:text-slate-900"
+                        onClick={() => removeEditCustomerId(id)}
+                        aria-label={`Remove customer ID ${id}`}
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              <p className="text-xs text-slate-500">
+                Enter one or more numeric IDs separated by commas or spaces. Duplicates are ignored.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="edit-currency">Account Currency</Label>
+                <Select value={editCurrencyCode} onValueChange={setEditCurrencyCode}>
+                  <SelectTrigger id="edit-currency">
+                    <SelectValue placeholder="Select currency..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {currencyOptions.map((option) => (
+                      <SelectItem key={option.code} value={option.code}>
+                        {option.name} ({option.symbol} {option.code})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-monthly-budget">Monthly Budget ({editCurrencyCode || "Currency"})</Label>
+                <Input
+                  id="edit-monthly-budget"
+                  type="number"
+                  placeholder="e.g., 50000"
+                  value={editMonthlyBudget}
+                  onChange={(event) => setEditMonthlyBudget(event.target.value)}
+                />
+                {editMonthlyBudgetError && (
+                  <p className="text-xs text-destructive">{editMonthlyBudgetError}</p>
+                )}
+                {!editMonthlyBudgetError && clientPendingEdit?.monthlyBudget != null && (
+                  <p className="text-xs text-slate-500">
+                    Current budget: {formatCurrency(clientPendingEdit.monthlyBudget, editCurrencyCode)}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsEditDialogOpen(false)}
+              disabled={isSavingEdit}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleSaveCustomerIds} disabled={isSavingEdit || !clientPendingEdit}>
+              {isSavingEdit ? "Saving..." : "Save Changes"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+    <AlertDialog
+      open={isDeleteDialogOpen}
+      onOpenChange={(open: boolean) => {
+        setIsDeleteDialogOpen(open);
           if (!open && !isDeleting) {
             setClientPendingDelete(null);
           }
@@ -260,7 +498,7 @@ export function Accounts({ onClientClick }: AccountsProps) {
                     description: `${clientPendingDelete.name} has been removed from your managed accounts.`,
                   });
                 } catch (error) {
-                  const message = error instanceof Error ? err.message : "Failed to delete client";
+                  const message = error instanceof Error ? error.message : "Failed to delete client";
                   toast.error("Unable to delete client", { description: message });
                 } finally {
                   setIsDeleting(false);

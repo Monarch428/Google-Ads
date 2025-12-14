@@ -1,5 +1,5 @@
 # models/client_model.py
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, JSON
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from database import Base
@@ -15,7 +15,9 @@ class Client(Base):
     client_secret = Column(String(255))
     refresh_token = Column(String(500))
     customer_id = Column(String(255))
+    customer_ids = Column(JSON, default=list)
     login_customer_id = Column(String(255))
+    currency_code = Column(String(10), default="USD")
 
     created_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     assigned_manager_id = Column(Integer, ForeignKey("users.id"), nullable=True)

@@ -2,6 +2,7 @@ import { Card, CardContent } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { ArrowUpRight, TrendingUp, Target, DollarSign } from "lucide-react";
 import { Client } from "../lib/mock-data";
+import { formatCurrency } from "../lib/currencies";
 
 interface ClientCardProps {
   client: Client;
@@ -77,10 +78,10 @@ export function ClientCard({ client, onClick }: ClientCardProps) {
             <p className="text-slate-900">{client.ctr}%</p>
           </div>
           <div>
-            <p className="text-xs text-slate-500 mb-1">CPA</p>
-            <p className="text-slate-900">${client.cpa}</p>
-          </div>
+          <p className="text-xs text-slate-500 mb-1">CPA</p>
+          <p className="text-slate-900">{formatCurrency(client.cpa, client.currencyCode)}</p>
         </div>
+      </div>
 
         <div className="grid grid-cols-2 gap-3 py-3 border-t border-slate-200">
           <div className="flex items-center gap-2">
@@ -93,15 +94,15 @@ export function ClientCard({ client, onClick }: ClientCardProps) {
           <div className="flex items-center gap-2">
             <DollarSign className="w-4 h-4 text-green-600" />
             <div>
-              <p className="text-xs text-slate-500">Revenue</p>
-              <p className="text-sm text-slate-900">${(client.revenue / 1000).toFixed(0)}k</p>
-            </div>
+            <p className="text-xs text-slate-500">Revenue</p>
+            <p className="text-sm text-slate-900">{formatCurrency(client.revenue, client.currencyCode)}</p>
           </div>
+        </div>
         </div>
 
         <div className="flex items-center justify-between pt-3 border-t border-slate-200">
           <Badge variant="outline" className="text-xs">ROAS: {client.roas.toFixed(2)}</Badge>
-          <p className="text-sm text-slate-500">Ad Spend: ${(client.adSpend / 1000).toFixed(0)}k</p>
+          <p className="text-sm text-slate-500">Ad Spend: {formatCurrency(client.adSpend, client.currencyCode)}</p>
         </div>
       </CardContent>
     </Card>

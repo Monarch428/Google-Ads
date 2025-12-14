@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { DashboardApp } from "./dashboard-app";
 import { DataProvider } from "./lib/data-context";
+import { GoogleAdsSyncProvider } from "./lib/google-ads-sync-context";
 import { LoginPage } from "./components/auth/login-page";
 import { AuthResponse, BackendUser } from "./lib/api";
 import { Toaster } from "./components/ui/sonner";
@@ -222,12 +223,14 @@ export default function App() {
         currentUser={authState.user}
         authDetails={authState.details}
       >
-        <DashboardApp
-          user={authState.user}
-          token={authState.token}
-          onLogout={handleLogout}
-          onUserUpdated={handleUserUpdated}
-        />
+        <GoogleAdsSyncProvider>
+          <DashboardApp
+            user={authState.user}
+            token={authState.token}
+            onLogout={handleLogout}
+            onUserUpdated={handleUserUpdated}
+          />
+        </GoogleAdsSyncProvider>
       </DataProvider>
     );
   } else {

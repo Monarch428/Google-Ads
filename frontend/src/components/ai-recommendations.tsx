@@ -8,9 +8,9 @@ import { Lightbulb, Search, CheckCircle, XCircle, Edit, AlertTriangle } from "lu
 import { AIRecommendationsChatbot } from "./ai-recommendations-chatbot";
 import { useData } from "../lib/data-context";
 import { toast } from "sonner@2.0.3";
-import { GoogleAdsSyncControls } from "./google-ads-sync-controls";
 import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
 import { useRouter } from "../lib/router";
+import { formatDateRangeLabel, useGoogleAdsSync } from "../lib/google-ads-sync-context";
 
 interface AIRecommendationsProps {
   onBundleClick?: (bundleId: string) => void;
@@ -31,6 +31,8 @@ export function AIRecommendations({ onBundleClick }: AIRecommendationsProps) {
     authToken,
   } = useData();
   const { navigate } = useRouter();
+  const { dateRange } = useGoogleAdsSync();
+  const rangeLabel = formatDateRangeLabel(dateRange);
   const oauthPendingClients = authToken ? clients.filter((client) => !client.hasGoogleOAuth) : [];
   const showGoogleOAuthAlert = oauthPendingClients.length > 0;
 
@@ -167,7 +169,7 @@ export function AIRecommendations({ onBundleClick }: AIRecommendationsProps) {
         </Alert>
       )}
 
-      <GoogleAdsSyncControls className="max-w-5xl" contextLabel="AI recommendations" />
+      <p className="text-xs text-slate-500">Using {rangeLabel} for Google Ads syncs</p>
 
       {/* AI Chatbot Assistant */}
       <AIRecommendationsChatbot />

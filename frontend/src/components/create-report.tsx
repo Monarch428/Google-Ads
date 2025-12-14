@@ -25,7 +25,7 @@ import { DateRangePicker } from "./ui/date-range-picker";
 
 interface CreateReportProps {
   onBack: () => void;
-  onGenerate: () => void;
+  onGenerate: (clientId: string) => void;
 }
 
 export function CreateReport({ onBack, onGenerate }: CreateReportProps) {
@@ -75,16 +75,16 @@ export function CreateReport({ onBack, onGenerate }: CreateReportProps) {
         </div>
         <div className="flex items-center gap-3">
           <Button variant="outline" onClick={onBack}>Cancel</Button>
-          <Button 
+          <Button
             onClick={() => {
-              if (selectedClient) {
-                toast.success(`Generating report for ${selectedClientData?.name}...`);
-                setTimeout(() => {
-                  toast.success("Report generated successfully!");
-                  onGenerate();
-                }, 1500);
-              }
-            }} 
+              if (!selectedClient) return;
+
+              toast.success(`Generating report for ${selectedClientData?.name ?? "selected client"}...`);
+              setTimeout(() => {
+                toast.success("Report generated successfully!");
+                onGenerate(selectedClient);
+              }, 800);
+            }}
             disabled={!selectedClient}
           >
             <FileText className="w-4 h-4 mr-2" />

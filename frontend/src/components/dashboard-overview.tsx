@@ -26,9 +26,11 @@ import { RecentActivityPanel } from "./recent-activity-panel";
 import { CreateReport } from "./create-report";
 import { ReportPreview } from "./report-preview";
 import { ManagerDetails } from "./manager-details";
-import { createClient } from "../lib/api";
-import { toast } from "sonner@2.0.3";
+import { API_BASE_URL, createClient } from "../lib/api";
+import { Toaster, toast } from "sonner";
 import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
+import { currencyOptions } from "../lib/currencies";
+import { GoogleAdsSyncControls } from "./google-ads-sync-controls";
 
 type ClientFormState = {
   name: string;
@@ -37,9 +39,11 @@ type ClientFormState = {
   // client_id: string;
   // client_secret: string;
   refresh_token: string;
-  customer_id: string;
+  customer_ids: string[];
   // login_customer_id: string;
   assigned_manager_id: string;
+  currency_code: string;
+  monthly_budget: string;
 };
 
 const STATIC_DEVELOPER_TOKEN = import.meta.env.VITE_DEVELOPER_TOKEN ?? "";
@@ -89,17 +93,43 @@ export function DashboardOverview({
       // client_id: "",
       // client_secret: "",
       refresh_token: refreshToken ?? "",
-      customer_id: "",
+      customer_ids: [],
       // login_customer_id: "",
       assigned_manager_id: "",
+      currency_code: "USD",
+      monthly_budget: "",
     }),
     [refreshToken],
   );
   const [clientForm, setClientForm] = useState<ClientFormState>(() => createInitialClientForm());
+  const [customerIdInput, setCustomerIdInput] = useState("");
   const [isSubmittingClient, setIsSubmittingClient] = useState(false);
   const [customerIdError, setCustomerIdError] = useState<string | null>(null);
   const oauthPendingClients = authToken ? clients.filter((client) => !client.hasGoogleOAuth) : [];
   const showGoogleOAuthReminder = oauthPendingClients.length > 0;
+
+  const launchClientOAuth = useCallback((clientId: string | number, clientName: string) => {
+    const idStr = String(clientId);
+    const oauthUrl = `${API_BASE_URL}/auth/google-connect?client_db_id=${encodeURIComponent(idStr)}`;
+
+    if (typeof window === "undefined") {
+      toast.error("Unable to launch Google OAuth", {
+        description: "A browser window is required to complete the Google consent flow.",
+      });
+      return;
+    }
+
+    try {
+      window.location.assign(oauthUrl);
+
+      toast.info("Redirecting to Google OAuth", {
+        description: `Complete the consent screen for ${clientName} to finish connecting this account.`,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to start OAuth";
+      toast.error("Google OAuth failed", { description: message });
+    }
+  }, []);
 
   const handleClientDialogChange = (open: boolean) => {
     setIsAddClientDialogOpen(open);
@@ -108,30 +138,50 @@ export function DashboardOverview({
     } else {
       setClientForm(createInitialClientForm());
       setCustomerIdError(null);
+      setCustomerIdInput("");
     }
   };
 
   const handleClientInputChange = (field: keyof ClientFormState) =>
     (event: ChangeEvent<HTMLInputElement>) => {
       const value = event.target.value;
-       if (field === "customer_id") {
-        const sanitizedValue = value.replace(/\D/g, "");
-
-        if (!sanitizedValue) {
-          setCustomerIdError(null);
-        } else if (value.includes("-")) {
-          setCustomerIdError("Please remove \"-\" and enter only numbers.");
-        } else if (/\D/.test(value)) {
-          setCustomerIdError("Customer ID must contain numbers only.");
-        } else {
-          setCustomerIdError(null);
-        }
-
-        setClientForm((prev) => ({ ...prev, [field]: sanitizedValue }));
-        return;
-      }
       setClientForm((prev) => ({ ...prev, [field]: value }));
     };
+
+  const normalizeCustomerIdTokens = (value: string) =>
+    value
+      .split(/[,\s]+/)
+      .map((token) => token.replace(/\D/g, "").trim())
+      .filter(Boolean);
+
+  const addCustomerIdsFromInput = () => {
+    const tokens = normalizeCustomerIdTokens(customerIdInput);
+    if (!tokens.length) {
+      setCustomerIdError("Please enter at least one numeric customer ID.");
+      return;
+    }
+
+    setCustomerIdError(null);
+    setClientForm((prev) => {
+      const existing = new Set(prev.customer_ids);
+      const next = [...prev.customer_ids];
+      tokens.forEach((id) => {
+        if (!existing.has(id)) {
+          existing.add(id);
+          next.push(id);
+        }
+      });
+      return { ...prev, customer_ids: next };
+    });
+    setCustomerIdInput("");
+  };
+
+  const removeCustomerId = (id: string) => {
+    setClientForm((prev) => ({
+      ...prev,
+      customer_ids: prev.customer_ids.filter((existing) => existing !== id),
+    }));
+  };
 
   const handleCreateClient = async () => {
     if (!authToken) {
@@ -176,16 +226,36 @@ export function DashboardOverview({
       // "client_id",
       // "client_secret",
       "refresh_token",
-      "customer_id",
+      "currency_code",
     ];
 
-    const missingField = requiredFields.find((field) => !clientForm[field]?.trim());
+    const missingField = requiredFields.find((field) => !clientForm[field]?.toString().trim());
     if (missingField) {
       toast.error("Missing information", {
         description: "Please complete all required client credential fields.",
       });
       return;
     }
+
+    if (!clientForm.customer_ids.length) {
+      setCustomerIdError("Add at least one Google Ads customer ID.");
+      return;
+    }
+
+    const sanitizedCustomerIds = clientForm.customer_ids
+      .map((id) => id.replace(/\D/g, "").trim())
+      .filter(Boolean);
+
+    const parsedMonthlyBudget = clientForm.monthly_budget.trim()
+      ? Number(clientForm.monthly_budget)
+      : undefined;
+
+    if (!sanitizedCustomerIds.length) {
+      setCustomerIdError("Customer IDs must contain numbers only.");
+      return;
+    }
+
+    setCustomerIdError(null);
 
     setIsSubmittingClient(true);
     try {
@@ -202,21 +272,29 @@ export function DashboardOverview({
         client_id: STATIC_CLIENT_ID,
         client_secret: STATIC_CLIENT_SECRET,
         refresh_token: clientForm.refresh_token.trim(),
-        customer_id: clientForm.customer_id.trim(),
+        // customer_id: sanitizedCustomerIds.join(","),
+        customer_ids: sanitizedCustomerIds,
         // login_customer_id: clientForm.login_customer_id.trim() || null,
         login_customer_id: loginCustomerId,
+        currency_code: clientForm.currency_code,
+        monthly_budget: Number.isFinite(parsedMonthlyBudget) ? parsedMonthlyBudget : undefined,
         assigned_manager_id: clientForm.assigned_manager_id
           ? Number(clientForm.assigned_manager_id)
           : undefined,
       };
 
-      await createClient(payload, { accessToken: authToken, refreshToken });
+      const newClient = await createClient(payload, { accessToken: authToken, refreshToken });
       await refreshClients();
       toast.success("Client connected", {
-        description: `${clientForm.name} is now available in your workspace`,
+        description: `${clientForm.name} is now available in your workspace. Launching Google OAuth...`,
       });
       setIsAddClientDialogOpen(false);
       setClientForm(createInitialClientForm());
+
+      if (newClient?.id != null) {
+  const clientName = newClient.name ?? (clientForm.name || "new client");
+  launchClientOAuth(newClient.id, clientName);
+}
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unable to create client";
       toast.error("Failed to add client", { description: message });
@@ -241,9 +319,9 @@ export function DashboardOverview({
     return (
       <CreateReport
         onBack={() => setShowCreateReport(false)}
-        onGenerate={() => {
+        onGenerate={(clientId) => {
           setShowCreateReport(false);
-          if (onReportClick) onReportClick("new-report");
+          if (onReportClick) onReportClick(clientId);
         }}
       />
     );
@@ -347,6 +425,8 @@ export function DashboardOverview({
                     />
                   </div>
                   
+                 
+
                   {/* API Credentials Section */}
                   <div className="col-span-2 pt-2">
                     <h3 className="text-sm text-slate-700 mb-3">Google Ads API Credentials</h3>
@@ -355,17 +435,51 @@ export function DashboardOverview({
                         OAuth credentials are managed by your workspace and applied automatically when creating
                         clients. The configured client ID and secret will be used for all new accounts.
                       </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="google-ads-id">Google Ads Customer ID</Label>
-                        <Input
-                          id="google-ads-id"
-                          placeholder="e.g., 1234567890"
-                          value={clientForm.customer_id}
-                          onChange={handleClientInputChange("customer_id")}
-                        />
+                      <div className="space-y-2 col-span-2">
+                        <Label htmlFor="google-ads-id">Google Ads Customer IDs</Label>
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                          <Input
+                            id="google-ads-id"
+                            placeholder="e.g., 1234567890 (use commas for multiple)"
+                            value={customerIdInput}
+                            onChange={(event) => setCustomerIdInput(event.target.value)}
+                            onKeyDown={(event) => {
+                              if (event.key === "Enter") {
+                                event.preventDefault();
+                                addCustomerIdsFromInput();
+                              }
+                            }}
+                          />
+                          <Button type="button" variant="secondary" onClick={addCustomerIdsFromInput}>
+                            Add ID
+                          </Button>
+                        </div>
                         {customerIdError && (
                           <p className="text-xs text-destructive">{customerIdError}</p>
                         )}
+                        {!!clientForm.customer_ids.length && (
+                          <div className="flex flex-wrap gap-2">
+                            {clientForm.customer_ids.map((id) => (
+                              <span
+                                key={id}
+                                className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-700"
+                              >
+                                <span className="font-medium">{id}</span>
+                                <button
+                                  type="button"
+                                  className="text-slate-500 hover:text-slate-900"
+                                  onClick={() => removeCustomerId(id)}
+                                  aria-label={`Remove customer ID ${id}`}
+                                >
+                                  ×
+                                </button>
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                        <p className="text-xs text-slate-500">
+                          Enter one or more numeric IDs separated by commas or spaces. Duplicates are ignored.
+                        </p>
                       </div>
                       {/* <div className="space-y-2">
                         <Label htmlFor="login-customer-id">Login Customer ID</Label>
@@ -426,7 +540,7 @@ export function DashboardOverview({
                         <Label htmlFor="assign-manager">Assign Ad Manager</Label>
                         <Select
                           value={clientForm.assigned_manager_id}
-                          onValueChange={(value) =>
+                          onValueChange={(value: string) =>
                             setClientForm((prev) => ({ ...prev, assigned_manager_id: value }))
                           }
                           disabled={!displayManagers.length}
@@ -444,12 +558,40 @@ export function DashboardOverview({
                         </Select>
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="monthly-budget">Monthly Budget (USD)</Label>
-                        <Input id="monthly-budget" type="number" placeholder="e.g., 50000" />
+                        <Label htmlFor="account-currency">Account Currency</Label>
+                        <Select
+                          value={clientForm.currency_code}
+                          onValueChange={(value: string) =>
+                            setClientForm((prev) => ({ ...prev, currency_code: value }))
+                          }
+                        >
+                          <SelectTrigger id="account-currency">
+                            <SelectValue placeholder="Select currency..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {currencyOptions.map((option) => (
+                              <SelectItem key={option.code} value={option.code}>
+                                {option.name} ({option.symbol} {option.code})
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="industry">Industry</Label>
-                        <Select>
+                        <Label htmlFor="monthly-budget">
+                          Monthly Budget ({clientForm.currency_code || "Currency"})
+                        </Label>
+                        <Input
+                          id="monthly-budget"
+                          type="number"
+                          placeholder="e.g., 50000"
+                          value={clientForm.monthly_budget}
+                          onChange={handleClientInputChange("monthly_budget")}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                    <Label htmlFor="industry">Industry</Label>
+                    <Select>
                           <SelectTrigger id="industry">
                             <SelectValue placeholder="Select industry..." />
                           </SelectTrigger>
@@ -461,12 +603,12 @@ export function DashboardOverview({
                             <SelectItem value="healthcare">Healthcare</SelectItem>
                             <SelectItem value="education">Education</SelectItem>
                             <SelectItem value="other">Other</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
                 </div>
+              </div>
               </div>
               <DialogFooter>
                 <Button
@@ -508,25 +650,10 @@ export function DashboardOverview({
         </Alert>
       )}
 
-      {/* Alerts and Notifications */}
-      <AlertsPanel alerts={[]} onAlertClick={onAlertClick} />
+      {/* Global Google Ads Sync Controls */}
+      <GoogleAdsSyncControls className="max-w-5xl" contextLabel="Google Ads data" />
 
-      {/* AI Recommendations Overview */}
-      <AIRecommendationOverview
-        recommendations={recommendations}
-        loading={recommendationsLoading}
-        onViewAll={() => onNavigate?.("recommendations")}
-      />
-
-      {/* Manager Activity */}
-      {isAdmin && (
-        <ManagerActivityPanel
-          managers={displayManagers}
-          onManagerClick={onManagerClick}
-        />
-      )}
-
-      {/* Client Accounts */}
+       {/* Client Accounts */}
       <div>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-slate-900">Client Accounts</h2>
@@ -557,6 +684,26 @@ export function DashboardOverview({
           ))}
         </div>
       </div>
+      
+      {/* Alerts and Notifications */}
+      <AlertsPanel alerts={[]} onAlertClick={onAlertClick} />
+
+      {/* AI Recommendations Overview */}
+      <AIRecommendationOverview
+        recommendations={recommendations}
+        loading={recommendationsLoading}
+        onViewAll={() => onNavigate?.("recommendations")}
+      />
+
+      {/* Manager Activity */}
+      {isAdmin && (
+        <ManagerActivityPanel
+          managers={displayManagers}
+          onManagerClick={onManagerClick}
+        />
+      )}
+
+      
 
       {/* Recent Activity */}
       <RecentActivityPanel />

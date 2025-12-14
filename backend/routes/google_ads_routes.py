@@ -55,11 +55,11 @@ def oauth_callback(request: Request, code: str = None, error: str = None, client
     return JSONResponse({"status": "connected", "client_db_id": client_db_id})
 
 @router.get("/fetch-customized")
-def fetch_by_date(client_id: int, start_date: str, end_date: str, db: Session = Depends(get_db)):
+def fetch_by_date(client_id: int, start_date: str, end_date: str,customer_id: str | None = None, db: Session = Depends(get_db)):
     """📅 Fetch Google Ads data for selected calendar date range"""
-    return fetch_and_save_campaigns(db, client_id, start_date, end_date)
+    return fetch_and_save_campaigns(db, client_id, start_date, end_date, customer_id)
 
 @router.get("/fetch-daily")
-def fetch_today(client_id: int, db: Session = Depends(get_db)):
+def fetch_today(client_id: int, customer_id: str | None = None, db: Session = Depends(get_db)):
     """⚡ Automatically fetch today's Google Ads data"""
-    return fetch_and_save_daily_campaigns(db, client_id)
+    return fetch_and_save_daily_campaigns(db, client_id, customer_id)

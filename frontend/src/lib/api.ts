@@ -68,8 +68,12 @@ export interface BackendClient {
   client_id: string;
   client_secret: string;
   refresh_token: string;
-  customer_id: string | null;
+  customer_id?: string | null;
+  customer_ids?: string[] | null;
   login_customer_id: string | null;
+  industry?: string | null;
+  currency_code?: string | null;
+  monthly_budget?: number | null;
   has_google_ads_auth?: boolean;
   created_by_id?: number | null;
   assigned_manager_id?: number | null;
@@ -84,6 +88,10 @@ export interface BackendCampaign {
   clicks: number;
   cost: number;
   conversions: number;
+  ctr?: number;
+  average_cpc?: number;
+  conversion_value?: number;
+  cost_per_conversion?: number;
   client_id: number;
 }
 
@@ -177,6 +185,8 @@ export type CreateClientPayload = Omit<
   "id" | "created_at" | "updated_at" | "created_by_id"
 >;
 
+export type UpdateClientPayload = Partial<CreateClientPayload>;
+
 export interface ClientAssignmentResponse {
   manager_id: number;
   assigned_client_ids: number[];
@@ -267,6 +277,26 @@ export function createClient(
   });
 }
 
+export function updateClient(
+  clientId: number | string,
+  payload: UpdateClientPayload,
+  tokens?: { accessToken?: string; refreshToken?: string | null },
+) {
+  const headers: Record<string, string> = {};
+  if (tokens?.accessToken) {
+    headers.Authorization = `Bearer ${tokens.accessToken}`;
+  }
+  if (tokens?.refreshToken) {
+    headers["X-Refresh-Token"] = tokens.refreshToken;
+  }
+
+  return apiFetch<BackendClient>(`/clients/${clientId}`, {
+    method: "PUT",
+    body: JSON.stringify(payload),
+    ...(Object.keys(headers).length ? { headers } : undefined),
+  });
+}
+
 export function deleteClient(
   clientId: number | string,
   tokens?: { accessToken?: string; refreshToken?: string | null },
@@ -308,12 +338,17 @@ export function fetchGoogleAdsRange(
   startDate: string,
   endDate: string,
   token?: string,
+  customerId?: string,
 ) {
   const params = new URLSearchParams({
     client_id: String(clientId),
     start_date: startDate,
     end_date: endDate,
   });
+
+  if (customerId) {
+    params.append("customer_id", customerId);
+  }
 
   const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
 
@@ -323,8 +358,11 @@ export function fetchGoogleAdsRange(
   });
 }
 
-export function fetchGoogleAdsDaily(clientId: number | string, token?: string) {
+export function fetchGoogleAdsDaily(clientId: number | string, token?: string, customerId?: string) {
   const params = new URLSearchParams({ client_id: String(clientId) });
+  if (customerId) {
+    params.append("customer_id", customerId);
+  }
   const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
 
   return apiFetch<GoogleAdsSyncResponse>(`/google-ads/fetch-daily?${params.toString()}`, {

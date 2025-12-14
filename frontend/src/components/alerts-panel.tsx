@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { AlertTriangle, TrendingDown, DollarSign, XCircle } from "lucide-react";
 import { Alert as AlertType } from "../lib/mock-data";
-import { GoogleAdsSyncControls } from "./google-ads-sync-controls";
+import { formatDateRangeLabel, useGoogleAdsSync } from "../lib/google-ads-sync-context";
 
 interface AlertsPanelProps {
   alerts: AlertType[];
@@ -10,6 +10,9 @@ interface AlertsPanelProps {
 }
 
 export function AlertsPanel({ alerts, onAlertClick }: AlertsPanelProps) {
+  const { dateRange } = useGoogleAdsSync();
+  const rangeLabel = formatDateRangeLabel(dateRange);
+
   const handleAlertClick = (alert: AlertType) => {
     if (onAlertClick) {
       onAlertClick(alert);
@@ -62,11 +65,7 @@ export function AlertsPanel({ alerts, onAlertClick }: AlertsPanelProps) {
           </div>
         </CardHeader>
         <CardContent>
-          <GoogleAdsSyncControls
-            size="compact"
-            className="mb-4"
-            contextLabel="notification insights"
-          />
+          <p className="text-xs text-slate-500 mb-4">Custom sync range: {rangeLabel}</p>
           {alerts.length === 0 ? (
             <p className="text-sm text-slate-500">No alerts or notifications available.</p>
           ) : (
