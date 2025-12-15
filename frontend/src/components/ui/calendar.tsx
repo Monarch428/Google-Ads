@@ -56,19 +56,19 @@ function Calendar({
         ),
 
         day_selected:
-  "bg-green-500 text-black shadow-sm hover:bg-green-500 focus-visible:ring-2 focus-visible:ring-green-200",
+  // "bg-green-500 text-black shadow-sm hover:bg-green-500 focus-visible:ring-2 focus-visible:ring-green-200",
 
 
 
-        day_range_start:
-  "day-range-start aria-selected:rounded-l-md aria-selected:bg-green-500 aria-selected:text-black",
+  //       day_range_start:
+  // "day-range-start aria-selected:rounded-l-md aria-selected:bg-green-500 aria-selected:text-black",
 
-        day_range_end:
-  "day-range-end aria-selected:rounded-r-md aria-selected:bg-green-500 aria-selected:text-black",
+  //       day_range_end:
+  // "day-range-end aria-selected:rounded-r-md aria-selected:bg-green-500 aria-selected:text-black",
 
-  day_range_middle:
-  "aria-selected:bg-green-100 aria-selected:text-black",
-  
+  // day_range_middle:
+  // "aria-selected:bg-green-100 aria-selected:text-black",
+  "bg-gradient-to-br from-purple-500 to-indigo-500 text-white shadow-sm hover:from-purple-500 hover:to-indigo-500 focus-visible:ring-2 focus-visible:ring-purple-200",
         day_today:
           "border border-purple-400 text-purple-900 font-semibold bg-purple-100",
         day_outside:
