@@ -2,7 +2,13 @@ import { useState, useEffect, useMemo } from "react";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "./ui/select";
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -14,7 +20,14 @@ import {
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "./ui/sheet";
 import { Progress } from "./ui/progress";
 import { Separator } from "./ui/separator";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "./ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "./ui/dialog";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Textarea } from "./ui/textarea";
@@ -24,11 +37,33 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "./ui/tooltip";
-import { ArrowLeft, CheckCircle2, Clock, AlertCircle, Calendar as CalendarIcon, Target, TrendingUp, DollarSign, Users, Package, Play, Lightbulb, XCircle, Download, Settings, MessageSquare, User, FileText, Sparkles, Plus, ListFilter } from "lucide-react";
+import {
+  ArrowLeft,
+  CheckCircle2,
+  Clock,
+  AlertCircle,
+  Calendar as CalendarIcon,
+  Target,
+  TrendingUp,
+  DollarSign,
+  Users,
+  Package,
+  Play,
+  Lightbulb,
+  XCircle,
+  Download,
+  Settings,
+  MessageSquare,
+  User,
+  FileText,
+  Sparkles,
+  Plus,
+  ListFilter,
+} from "lucide-react";
 import { useData } from "../lib/data-context";
 import { ClientChatbotInline } from "./client-chatbot-inline";
 import { CreateBundle } from "./create-bundle";
-import { toast } from "sonner@2.0.3";
+import { toast } from "sonner";
 import { getCurrencyFormatter } from "../lib/currencies";
 import { GoogleAdsSyncControls } from "./google-ads-sync-controls";
 
@@ -81,7 +116,9 @@ interface ActionBundle {
 }
 
 // Month configuration
-const numberFormatter = new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 });
+const numberFormatter = new Intl.NumberFormat("en-US", {
+  maximumFractionDigits: 0,
+});
 const percentFormatter = new Intl.NumberFormat("en-US", {
   minimumFractionDigits: 0,
   maximumFractionDigits: 2,
@@ -93,51 +130,169 @@ const createMonthConfig = (monthKey: string) => {
   const days = new Date(year, month, 0).getDate();
   const startDay = startDate.getDay();
   const now = new Date();
-  const isCurrentMonth = now.getFullYear() === year && now.getMonth() === month - 1;
+  const isCurrentMonth =
+    now.getFullYear() === year && now.getMonth() === month - 1;
 
   return {
-    name: startDate.toLocaleDateString("en-US", { month: "long", year: "numeric" }),
+    name: startDate.toLocaleDateString("en-US", {
+      month: "long",
+      year: "numeric",
+    }),
     days,
     startDay,
     currentDay: isCurrentMonth ? now.getDate() : days,
   };
 };
+
+type QuickRange = "today" | "7days" | "30days" | "90days" | "custom";
+
+function buildRangeForQuickPreset(
+  preset: Exclude<QuickRange, "custom">,
+): { startDate: string; endDate: string } {
+  const today = new Date();
+  const end = new Date(
+    today.getFullYear(),
+    today.getMonth(),
+    today.getDate(),
+  );
+  const start = new Date(end.getTime());
+  const msPerDay = 1000 * 60 * 60 * 24;
+
+  if (preset === "today") {
+    // same day
+  } else if (preset === "7days") {
+    start.setTime(end.getTime() - 6 * msPerDay);
+  } else if (preset === "30days") {
+    start.setTime(end.getTime() - 29 * msPerDay);
+  } else if (preset === "90days") {
+    start.setTime(end.getTime() - 89 * msPerDay);
+  }
+
+  const toISO = (d: Date) => d.toISOString().slice(0, 10);
+  return { startDate: toISO(start), endDate: toISO(end) };
+}
+
 export function ClientDetails({ clientId, onBack }: ClientDetailsProps) {
-  const { clients, campaigns, clientsLoading } = useData();
+  const {
+    clients,
+    campaigns,
+    clientsLoading,
+    dateRange,
+    setDateRange,
+  } = useData();
+
   const [activeClientId, setActiveClientId] = useState(clientId);
+
   const client = useMemo(
     () => clients.find((c) => c.id === activeClientId),
-    [activeClientId, clients]
+    [activeClientId, clients],
   );
+
   const [selectedMonth, setSelectedMonth] = useState<string>(() => {
     const now = new Date();
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(
+      2,
+      "0",
+    )}`;
   });
-  const [currentMonthConfig, setCurrentMonthConfig] = useState(() => createMonthConfig(`${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`));
+
+  const [currentMonthConfig, setCurrentMonthConfig] = useState(() =>
+    createMonthConfig(
+      `${new Date().getFullYear()}-${String(
+        new Date().getMonth() + 1,
+      ).padStart(2, "0")}`,
+    ),
+  );
   const [monthlyData, setMonthlyData] = useState<DayStatus[]>([]);
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
 
+  // Quick range selector synced to global dateRange
+  const [quickRange, setQuickRange] = useState<QuickRange>("30days");
+
+  useEffect(() => {
+    if (!dateRange?.startDate || !dateRange?.endDate) {
+      setQuickRange("custom");
+      return;
+    }
+
+    const today = new Date();
+    const todayISO = new Date(
+      today.getFullYear(),
+      today.getMonth(),
+      today.getDate(),
+    )
+      .toISOString()
+      .slice(0, 10);
+
+    const parse = (s: string) => new Date(s + "T00:00:00");
+    const start = parse(dateRange.startDate);
+    const end = parse(dateRange.endDate);
+
+    const msPerDay = 1000 * 60 * 60 * 24;
+    const diffDays = Math.round((end.getTime() - start.getTime()) / msPerDay);
+
+    if (dateRange.startDate === todayISO && dateRange.endDate === todayISO) {
+      setQuickRange("today");
+      return;
+    }
+
+    if (dateRange.endDate === todayISO) {
+      if (diffDays === 6) {
+        setQuickRange("7days");
+        return;
+      }
+      if (diffDays === 29) {
+        setQuickRange("30days");
+        return;
+      }
+      if (diffDays === 89) {
+        setQuickRange("90days");
+        return;
+      }
+    }
+
+    setQuickRange("custom");
+  }, [dateRange]);
+
+  const handleQuickRangeChange = (value: string) => {
+    const preset = value as QuickRange;
+    setQuickRange(preset);
+
+    if (preset === "custom") return;
+
+    const range = buildRangeForQuickPreset(
+      preset as Exclude<QuickRange, "custom">,
+    );
+    setDateRange(range);
+  };
+
   // Scroll to top when component mounts
   useEffect(() => {
-    window.scrollTo({ top: 0, behavior: "instant" });
+    window.scrollTo({ top: 0, behavior: "auto" });
   }, []);
 
   useEffect(() => {
     setActiveClientId(clientId);
   }, [clientId]);
+
   const [isDayDetailsOpen, setIsDayDetailsOpen] = useState(false);
   const [selectedBundleId, setSelectedBundleId] = useState<string | null>(null);
   const [isCreatingBundle, setIsCreatingBundle] = useState(false);
   const [isAddTaskDialogOpen, setIsAddTaskDialogOpen] = useState(false);
-  const [bundleStatusFilter, setBundleStatusFilter] = useState<"all" | "in-progress" | "pending" | "completed">("in-progress");
-  
+  const [bundleStatusFilter, setBundleStatusFilter] = useState<
+    "all" | "in-progress" | "pending" | "completed"
+  >("in-progress");
+
   // New task form state
   const [newTaskType, setNewTaskType] = useState("");
-  const [newTaskPriority, setNewTaskPriority] = useState<"high" | "medium" | "low">("medium");
+  const [newTaskPriority, setNewTaskPriority] =
+    useState<"high" | "medium" | "low">("medium");
   const [newTaskRecommendation, setNewTaskRecommendation] = useState("");
   const [newTaskImpact, setNewTaskImpact] = useState("");
   const [newTaskCampaign, setNewTaskCampaign] = useState("");
-  const [selectedCampaignIds, setSelectedCampaignIds] = useState<string[]>(["overall"]);
+  const [selectedCampaignIds, setSelectedCampaignIds] = useState<string[]>([
+    "overall",
+  ]);
 
   useEffect(() => {
     setSelectedCampaignIds(["overall"]);
@@ -150,10 +305,15 @@ export function ClientDetails({ clientId, onBack }: ClientDetailsProps) {
     const now = new Date();
     return Array.from({ length: 6 }, (_, index) => {
       const date = new Date(now.getFullYear(), now.getMonth() - index, 1);
-      const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+      const key = `${date.getFullYear()}-${String(
+        date.getMonth() + 1,
+      ).padStart(2, "0")}`;
       return {
         key,
-        label: date.toLocaleDateString("en-US", { month: "long", year: "numeric" }),
+        label: date.toLocaleDateString("en-US", {
+          month: "long",
+          year: "numeric",
+        }),
       };
     });
   }, []);
@@ -161,7 +321,9 @@ export function ClientDetails({ clientId, onBack }: ClientDetailsProps) {
   const actionBundles: ActionBundle[] = [];
   const activityLogs: ActivityLog[] = [];
 
-  const displayedCustomerId = client.customerId || client.loginCustomerId || "Not set";
+  // SAFE: handle undefined client
+  const displayedCustomerId =
+    client?.customerId || client?.loginCustomerId || "Not set";
 
   const handleMonthChange = (month: string) => {
     setSelectedMonth(month);
@@ -185,7 +347,6 @@ export function ClientDetails({ clientId, onBack }: ClientDetailsProps) {
       return;
     }
 
-    // In a real app, this would save to backend
     console.log("Saving new task:", {
       type: newTaskType,
       priority: newTaskPriority,
@@ -193,10 +354,9 @@ export function ClientDetails({ clientId, onBack }: ClientDetailsProps) {
       impact: newTaskImpact,
       campaign: newTaskCampaign,
     });
-    
+
     toast.success("Task added successfully to the action bundle");
-    
-    // Reset form
+
     setNewTaskType("");
     setNewTaskPriority("medium");
     setNewTaskRecommendation("");
@@ -207,7 +367,6 @@ export function ClientDetails({ clientId, onBack }: ClientDetailsProps) {
 
   const handleExecuteRecommendation = (recId: string, recType: string) => {
     toast.success(`Executing "${recType}"...`);
-    // In a real app, this would execute the recommendation
     setTimeout(() => {
       toast.success(`"${recType}" executed successfully`);
     }, 1500);
@@ -215,10 +374,11 @@ export function ClientDetails({ clientId, onBack }: ClientDetailsProps) {
 
   const handleSkipRecommendation = (recId: string, recType: string) => {
     toast.info(`"${recType}" has been skipped`);
-    // In a real app, this would update the recommendation status
   };
 
-  const selectedDayData = selectedDay ? monthlyData.find((entry) => entry.date === selectedDay) ?? null : null;
+  const selectedDayData = selectedDay
+    ? monthlyData.find((entry) => entry.date === selectedDay) ?? null
+    : null;
   const selectedDayTasks: Task[] = selectedDayData ? [] : [];
 
   if (clientsLoading) {
@@ -232,12 +392,16 @@ export function ClientDetails({ clientId, onBack }: ClientDetailsProps) {
   const clientCurrency = client.currencyCode || "USD";
   const currencyFormatterWithCents = useMemo(
     () => getCurrencyFormatter(clientCurrency),
-    [clientCurrency]
+    [clientCurrency],
   );
 
+  // SAFE: if client is not yet defined, return empty list
   const campaignsForClient = useMemo(
-    () => campaigns.filter((campaign) => campaign.clientId === client.id),
-    [campaigns, client.id]
+    () =>
+      client
+        ? campaigns.filter((campaign) => campaign.clientId === client.id)
+        : [],
+    [campaigns, client],
   );
 
   const accountOptions = useMemo(
@@ -248,10 +412,10 @@ export function ClientDetails({ clientId, onBack }: ClientDetailsProps) {
         description: account.customerId
           ? `${account.name} • ${account.customerId}`
           : account.loginCustomerId
-            ? `${account.name} • ${account.loginCustomerId}`
-            : account.name,
+          ? `${account.name} • ${account.loginCustomerId}`
+          : account.name,
       })),
-    [clients]
+    [clients],
   );
 
   useEffect(() => {
@@ -261,15 +425,22 @@ export function ClientDetails({ clientId, onBack }: ClientDetailsProps) {
     }
 
     setSelectedCampaignIds((prev) => {
-      const availableIds = new Set(campaignsForClient.map((campaign) => campaign.id));
-      const filtered = prev.filter((id) => id === "overall" || availableIds.has(id));
+      const availableIds = new Set(
+        campaignsForClient.map((campaign) => campaign.id),
+      );
+      const filtered = prev.filter(
+        (id) => id === "overall" || availableIds.has(id),
+      );
 
       return filtered.length ? filtered : ["overall"];
     });
   }, [campaignsForClient]);
 
   const selectedCampaigns = useMemo(() => {
-    if (selectedCampaignIds.includes("overall") || selectedCampaignIds.length === 0) {
+    if (
+      selectedCampaignIds.includes("overall") ||
+      selectedCampaignIds.length === 0
+    ) {
       return campaignsForClient;
     }
 
@@ -300,7 +471,7 @@ export function ClientDetails({ clientId, onBack }: ClientDetailsProps) {
     });
   };
 
-  const { totals: campaignTotals, topCampaigns, hasMetrics } = useMemo(() => {
+  const { totals: campaignTotals, topCampaigns } = useMemo(() => {
     const totals = selectedCampaigns.reduce(
       (acc, campaign) => {
         acc.impressions += campaign.impressions;
@@ -310,7 +481,13 @@ export function ClientDetails({ clientId, onBack }: ClientDetailsProps) {
         acc.conversionValue += campaign.conversionValue;
         return acc;
       },
-      { impressions: 0, clicks: 0, conversions: 0, cost: 0, conversionValue: 0 }
+      {
+        impressions: 0,
+        clicks: 0,
+        conversions: 0,
+        cost: 0,
+        conversionValue: 0,
+      },
     );
 
     const sortedByCost = [...selectedCampaigns].sort((a, b) => {
@@ -323,42 +500,84 @@ export function ClientDetails({ clientId, onBack }: ClientDetailsProps) {
     return {
       totals,
       topCampaigns: sortedByCost.slice(0, 3),
-      hasMetrics: selectedCampaigns.some(
-        (campaign) => campaign.impressions > 0 || campaign.clicks > 0 || campaign.conversions > 0 || campaign.cost > 0
-      ),
     };
   }, [selectedCampaigns]);
 
   const totalImpressions = campaignTotals.impressions || client.impressions || 0;
   const totalClicks = campaignTotals.clicks || client.clicks || 0;
-  const totalConversions = campaignTotals.conversions || client.conversions || 0;
+  const totalConversions =
+    campaignTotals.conversions || client.conversions || 0;
   const totalCost = campaignTotals.cost || client.adSpend || 0;
-  const totalConversionValue = campaignTotals.conversionValue || client.revenue || 0;
+  const totalConversionValue =
+    campaignTotals.conversionValue || client.revenue || 0;
 
-  const ctr = totalImpressions > 0 ? (totalClicks / totalImpressions) * 100 : client.ctr || 0;
-  const conversionRate = totalClicks > 0 ? (totalConversions / totalClicks) * 100 : client.conversionRate || 0;
-  const averageCpc = totalClicks > 0
-    ? totalCost / totalClicks
-    : client.clicks > 0 && client.adSpend > 0
+  const ctr =
+    totalImpressions > 0
+      ? (totalClicks / totalImpressions) * 100
+      : client.ctr || 0;
+  const conversionRate =
+    totalClicks > 0
+      ? (totalConversions / totalClicks) * 100
+      : client.conversionRate || 0;
+  const averageCpc =
+    totalClicks > 0
+      ? totalCost / totalClicks
+      : client.clicks > 0 && client.adSpend > 0
       ? client.adSpend / client.clicks
       : 0;
-  const averageCpa = totalConversions > 0 ? totalCost / totalConversions : client.cpa || 0;
-  const totalRevenue = Number.isFinite(totalConversionValue) && totalConversionValue > 0
-    ? totalConversionValue
-    : Number.isFinite(client.revenue) && (client.revenue ?? 0) > 0
+  const averageCpa =
+    totalConversions > 0 ? totalCost / totalConversions : client.cpa || 0;
+  const totalRevenue =
+    Number.isFinite(totalConversionValue) && totalConversionValue > 0
+      ? totalConversionValue
+      : Number.isFinite(client.revenue) && (client.revenue ?? 0) > 0
       ? client.revenue
       : totalConversions * 120;
   const roas = totalCost > 0 && totalRevenue > 0 ? totalRevenue / totalCost : 0;
 
   const safeAverageCpc = Number.isFinite(averageCpc) ? averageCpc : 0;
   const safeAverageCpa = Number.isFinite(averageCpa) ? averageCpa : 0;
-  const safeConversionValue = Number.isFinite(totalConversionValue) ? totalConversionValue : 0;
+  const safeConversionValue = Number.isFinite(totalConversionValue)
+    ? totalConversionValue
+    : 0;
   const safeRevenue = Number.isFinite(totalRevenue) ? totalRevenue : 0;
   const safeRoas = Number.isFinite(roas) ? roas : 0;
   const safeCtr = Number.isFinite(ctr) ? ctr : 0;
-  const safeConversionRate = Number.isFinite(conversionRate) ? conversionRate : 0;
+  const safeConversionRate = Number.isFinite(conversionRate)
+    ? conversionRate
+    : 0;
   const isOverallSelected = selectedCampaignIds.includes("overall");
   const selectedCount = selectedCampaigns.length;
+
+  const performanceMaxCampaigns = useMemo(
+    () =>
+      selectedCampaigns.filter(
+        (campaign) =>
+          campaign.name.toLowerCase().includes("performance") ||
+          campaign.name.toLowerCase().includes("pmax"),
+      ),
+    [selectedCampaigns],
+  );
+
+  const performanceMaxTotals = useMemo(
+    () =>
+      performanceMaxCampaigns.reduce(
+        (acc, campaign) => {
+          acc.impressions += campaign.impressions;
+          acc.clicks += campaign.clicks;
+          acc.conversions += campaign.conversions;
+          acc.cost += campaign.cost;
+          return acc;
+        },
+        { impressions: 0, clicks: 0, conversions: 0, cost: 0 },
+      ),
+    [performanceMaxCampaigns],
+  );
+
+  const performanceMaxCtr =
+    performanceMaxTotals.impressions > 0
+      ? (performanceMaxTotals.clicks / performanceMaxTotals.impressions) * 100
+      : 0;
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -376,12 +595,14 @@ export function ClientDetails({ clientId, onBack }: ClientDetailsProps) {
   };
 
   const getStatusIcon = (status: string, withColor = false) => {
-    const colorClass = withColor ? (
-      status === "completed" ? "text-green-600" :
-      status === "pending" ? "text-yellow-600" :
-      "text-red-600"
-    ) : "";
-    
+    const colorClass = withColor
+      ? status === "completed"
+        ? "text-green-600"
+        : status === "pending"
+        ? "text-yellow-600"
+        : "text-red-600"
+      : "";
+
     switch (status) {
       case "completed":
         return <CheckCircle2 className={`w-4 h-4 ${colorClass}`} />;
@@ -559,12 +780,10 @@ export function ClientDetails({ clientId, onBack }: ClientDetailsProps) {
   if (isCreatingBundle) {
     return (
       <>
-        <CreateBundle 
+        <CreateBundle
           onBack={() => setIsCreatingBundle(false)}
           onSave={() => {
             setIsCreatingBundle(false);
-            // In a real app, this would save the bundle to the backend
-            // For now, we just close the form
           }}
           preSelectedClientId={client.id}
         />
@@ -574,11 +793,20 @@ export function ClientDetails({ clientId, onBack }: ClientDetailsProps) {
 
   // Render bundle details view
   if (selectedBundleId) {
-    const selectedBundle = actionBundles.find(b => b.id === selectedBundleId);
-    const completedCount = bundleRecommendations.filter(r => r.status === "completed").length;
-    const inProgressCount = bundleRecommendations.filter(r => r.status === "in-progress").length;
-    const pendingCount = bundleRecommendations.filter(r => r.status === "pending").length;
-    const progressPercentage = (completedCount / bundleRecommendations.length) * 100;
+    const selectedBundle = actionBundles.find(
+      (b) => b.id === selectedBundleId,
+    );
+    const completedCount = bundleRecommendations.filter(
+      (r) => r.status === "completed",
+    ).length;
+    const inProgressCount = bundleRecommendations.filter(
+      (r) => r.status === "in-progress",
+    ).length;
+    const pendingCount = bundleRecommendations.filter(
+      (r) => r.status === "pending",
+    ).length;
+    const progressPercentage =
+      (completedCount / bundleRecommendations.length) * 100;
 
     return (
       <>
@@ -586,17 +814,27 @@ export function ClientDetails({ clientId, onBack }: ClientDetailsProps) {
           {/* Header */}
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-4">
-              <Button variant="ghost" size="sm" onClick={() => setSelectedBundleId(null)}>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSelectedBundleId(null)}
+              >
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Back to {client.name}
               </Button>
               <div>
                 <h1 className="text-slate-900">Action Bundle Details</h1>
-                <p className="text-slate-500">{client.name} • Created by {selectedBundle?.managerName}</p>
+                <p className="text-slate-500">
+                  {client.name} • Created by {selectedBundle?.managerName}
+                </p>
               </div>
             </div>
             <div className="flex flex-col items-end gap-2">
-              <Button variant="outline" onClick={() => setIsAddTaskDialogOpen(true)} className="w-full min-w-[200px]">
+              <Button
+                variant="outline"
+                onClick={() => setIsAddTaskDialogOpen(true)}
+                className="w-full min-w-[200px]"
+              >
                 <Plus className="w-4 h-4 mr-2" />
                 Add New Task
               </Button>
@@ -618,7 +856,9 @@ export function ClientDetails({ clientId, onBack }: ClientDetailsProps) {
                 <div className="flex items-start justify-between">
                   <div className="space-y-2">
                     <p className="text-sm text-slate-500">Total Actions</p>
-                    <p className="text-slate-900">{bundleRecommendations.length}</p>
+                    <p className="text-slate-900">
+                      {bundleRecommendations.length}
+                    </p>
                   </div>
                   <div className="p-3 bg-blue-50 rounded-lg">
                     <Package className="w-5 h-5 text-blue-600" />
@@ -632,7 +872,9 @@ export function ClientDetails({ clientId, onBack }: ClientDetailsProps) {
                 <div className="flex items-start justify-between">
                   <div className="space-y-2">
                     <p className="text-sm text-slate-500">Completed</p>
-                    <p className="text-slate-900 text-green-600">{completedCount}</p>
+                    <p className="text-slate-900 text-green-600">
+                      {completedCount}
+                    </p>
                   </div>
                   <div className="p-3 bg-green-50 rounded-lg">
                     <CheckCircle2 className="w-5 h-5 text-green-600" />
@@ -646,7 +888,9 @@ export function ClientDetails({ clientId, onBack }: ClientDetailsProps) {
                 <div className="flex items-start justify-between">
                   <div className="space-y-2">
                     <p className="text-sm text-slate-500">In Progress</p>
-                    <p className="text-slate-900 text-blue-600">{inProgressCount}</p>
+                    <p className="text-slate-900 text-blue-600">
+                      {inProgressCount}
+                    </p>
                   </div>
                   <div className="p-3 bg-blue-50 rounded-lg">
                     <Clock className="w-5 h-5 text-blue-600" />
@@ -660,7 +904,9 @@ export function ClientDetails({ clientId, onBack }: ClientDetailsProps) {
                 <div className="flex items-start justify-between">
                   <div className="space-y-2">
                     <p className="text-sm text-slate-500">Pending</p>
-                    <p className="text-slate-900 text-yellow-600">{pendingCount}</p>
+                    <p className="text-slate-900 text-yellow-600">
+                      {pendingCount}
+                    </p>
                   </div>
                   <div className="p-3 bg-yellow-50 rounded-lg">
                     <AlertCircle className="w-5 h-5 text-yellow-600" />
@@ -678,19 +924,29 @@ export function ClientDetails({ clientId, onBack }: ClientDetailsProps) {
             <CardContent className="space-y-4">
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-slate-600">Overall Completion</span>
-                  <span className="text-sm text-slate-900">{Math.round(progressPercentage)}%</span>
+                  <span className="text-sm text-slate-600">
+                    Overall Completion
+                  </span>
+                  <span className="text-sm text-slate-900">
+                    {Math.round(progressPercentage)}%
+                  </span>
                 </div>
                 <Progress value={progressPercentage} className="h-2" />
               </div>
               <div className="grid grid-cols-3 gap-4 pt-2">
                 <div className="text-center">
-                  <p className="text-xs text-slate-500 mb-1">Estimated Impact</p>
-                  <p className="text-sm text-green-600">{selectedBundle?.estimatedImpact}</p>
+                  <p className="text-xs text-slate-500 mb-1">
+                    Estimated Impact
+                  </p>
+                  <p className="text-sm text-green-600">
+                    {selectedBundle?.estimatedImpact}
+                  </p>
                 </div>
                 <div className="text-center">
                   <p className="text-xs text-slate-500 mb-1">Created Date</p>
-                  <p className="text-sm text-slate-900">{selectedBundle?.createdAt}</p>
+                  <p className="text-sm text-slate-900">
+                    {selectedBundle?.createdAt}
+                  </p>
                 </div>
                 <div className="text-center">
                   <p className="text-xs text-slate-500 mb-1">Last Updated</p>
@@ -708,9 +964,22 @@ export function ClientDetails({ clientId, onBack }: ClientDetailsProps) {
                   <div className="flex items-center justify-between">
                     <CardTitle>Recommendations Breakdown</CardTitle>
                     <div className="flex items-center gap-2">
-                      <Label htmlFor="status-filter" className="text-sm text-slate-600">Filter by status:</Label>
-                      <Select value={bundleStatusFilter} onValueChange={(value: any) => setBundleStatusFilter(value)}>
-                        <SelectTrigger id="status-filter" className="w-[180px]">
+                      <Label
+                        htmlFor="status-filter"
+                        className="text-sm text-slate-600"
+                      >
+                        Filter by status:
+                      </Label>
+                      <Select
+                        value={bundleStatusFilter}
+                        onValueChange={(value: any) =>
+                          setBundleStatusFilter(value)
+                        }
+                      >
+                        <SelectTrigger
+                          id="status-filter"
+                          className="w-[180px]"
+                        >
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -745,101 +1014,145 @@ export function ClientDetails({ clientId, onBack }: ClientDetailsProps) {
                 </CardHeader>
                 <CardContent>
                   {(() => {
-                    // Filter and sort recommendations
-                    const statusOrder = { "in-progress": 1, "pending": 2, "completed": 3 };
-                    const filteredRecs = bundleStatusFilter === "all" 
-                      ? bundleRecommendations.sort((a, b) => statusOrder[a.status] - statusOrder[b.status])
-                      : bundleRecommendations.filter(r => r.status === bundleStatusFilter);
-                    
+                    const statusOrder = {
+                      "in-progress": 1,
+                      pending: 2,
+                      completed: 3,
+                    } as const;
+
+                    const filteredRecs =
+                      bundleStatusFilter === "all"
+                        ? [...bundleRecommendations].sort(
+                            (a, b) =>
+                              statusOrder[
+                                a.status as keyof typeof statusOrder
+                              ] -
+                              statusOrder[
+                                b.status as keyof typeof statusOrder
+                              ],
+                          )
+                        : bundleRecommendations.filter(
+                            (r) => r.status === bundleStatusFilter,
+                          );
+
                     if (filteredRecs.length === 0) {
                       return (
                         <div className="text-center py-12">
                           <AlertCircle className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-                          <p className="text-slate-500">No recommendations with this status</p>
+                          <p className="text-slate-500">
+                            No recommendations with this status
+                          </p>
                         </div>
                       );
                     }
-                    
+
                     return (
                       <div className="space-y-4">
                         {filteredRecs.map((rec, index) => {
-                      const statusBadge = getStatusBadge2(rec.status);
-                      return (
-                        <div key={rec.id}>
-                          <div className="flex items-start gap-4">
-                            <div className="w-10 h-10 bg-purple-50 rounded-lg flex items-center justify-center flex-shrink-0">
-                              {getStatusIcon2(rec.status)}
-                            </div>
-                            <div className="flex-1">
-                              <div className="flex items-start justify-between mb-2">
-                                <div>
-                                  <div className="flex items-center gap-2 mb-1">
-                                    <h4 className="text-slate-900">#{index + 1} {rec.type}</h4>
-                                    <Badge variant={getPriorityBadge(rec.priority)} className="text-xs">
-                                      {rec.priority}
-                                    </Badge>
-                                    <Badge variant={statusBadge.variant} className="text-xs">
-                                      {statusBadge.label}
-                                    </Badge>
-                                  </div>
-                                  <p className="text-sm text-slate-500 mb-2">{rec.campaign}</p>
+                          const statusBadge = getStatusBadge2(rec.status);
+                          return (
+                            <div key={rec.id}>
+                              <div className="flex items-start gap-4">
+                                <div className="w-10 h-10 bg-purple-50 rounded-lg flex items-center justify-center flex-shrink-0">
+                                  {getStatusIcon2(rec.status)}
                                 </div>
-                              </div>
+                                <div className="flex-1">
+                                  <div className="flex items-start justify-between mb-2">
+                                    <div>
+                                      <div className="flex items-center gap-2 mb-1">
+                                        <h4 className="text-slate-900">
+                                          #{index + 1} {rec.type}
+                                        </h4>
+                                        <Badge
+                                          variant={getPriorityBadge(rec.priority)}
+                                          className="text-xs"
+                                        >
+                                          {rec.priority}
+                                        </Badge>
+                                        <Badge
+                                          variant={statusBadge.variant}
+                                          className="text-xs"
+                                        >
+                                          {statusBadge.label}
+                                        </Badge>
+                                      </div>
+                                      <p className="text-sm text-slate-500 mb-2">
+                                        {rec.campaign}
+                                      </p>
+                                    </div>
+                                  </div>
 
-                              <p className="text-sm text-slate-700 mb-3">{rec.recommendation}</p>
-
-                              <div className="grid grid-cols-2 gap-4 mb-3">
-                                <div>
-                                  <p className="text-xs text-slate-500 mb-1">Expected Impact</p>
-                                  <p className="text-sm text-green-600 flex items-center gap-1">
-                                    <TrendingUp className="w-3 h-3" />
-                                    {rec.impact}
+                                  <p className="text-sm text-slate-700 mb-3">
+                                    {rec.recommendation}
                                   </p>
-                                </div>
-                                {rec.status === "completed" && rec.result && (
-                                  <div>
-                                    <p className="text-xs text-slate-500 mb-1">Actual Result</p>
-                                    <p className="text-sm text-green-600 flex items-center gap-1">
-                                      <CheckCircle2 className="w-3 h-3" />
-                                      {rec.result}
-                                    </p>
+
+                                  <div className="grid grid-cols-2 gap-4 mb-3">
+                                    <div>
+                                      <p className="text-xs text-slate-500 mb-1">
+                                        Expected Impact
+                                      </p>
+                                      <p className="text-sm text-green-600 flex items-center gap-1">
+                                        <TrendingUp className="w-3 h-3" />
+                                        {rec.impact}
+                                      </p>
+                                    </div>
+                                    {rec.status === "completed" &&
+                                      rec.result && (
+                                        <div>
+                                          <p className="text-xs text-slate-500 mb-1">
+                                            Actual Result
+                                          </p>
+                                          <p className="text-sm text-green-600 flex items-center gap-1">
+                                            <CheckCircle2 className="w-3 h-3" />
+                                            {rec.result}
+                                          </p>
+                                        </div>
+                                      )}
                                   </div>
-                                )}
-                              </div>
 
-                              {rec.executedAt && (
-                                <p className="text-xs text-slate-400">
-                                  Executed on {rec.executedAt}
-                                </p>
-                              )}
+                                  {rec.executedAt && (
+                                    <p className="text-xs text-slate-400">
+                                      Executed on {rec.executedAt}
+                                    </p>
+                                  )}
 
-                              {rec.status === "pending" && (
-                                <div className="flex gap-2 mt-3">
-                                  <Button 
-                                    variant="outline" 
-                                    size="sm"
-                                    onClick={() => handleSkipRecommendation(rec.id, rec.type)}
-                                  >
-                                    <XCircle className="w-4 h-4 mr-1" />
-                                    Skip
-                                  </Button>
-                                  <Button 
-                                    size="sm"
-                                    onClick={() => handleExecuteRecommendation(rec.id, rec.type)}
-                                  >
-                                    <Play className="w-4 h-4 mr-1" />
-                                    Execute Now
-                                  </Button>
+                                  {rec.status === "pending" && (
+                                    <div className="flex gap-2 mt-3">
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() =>
+                                          handleSkipRecommendation(
+                                            rec.id,
+                                            rec.type,
+                                          )
+                                        }
+                                      >
+                                        <XCircle className="w-4 h-4 mr-1" />
+                                        Skip
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        onClick={() =>
+                                          handleExecuteRecommendation(
+                                            rec.id,
+                                            rec.type,
+                                          )
+                                        }
+                                      >
+                                        <Play className="w-4 h-4 mr-1" />
+                                        Execute Now
+                                      </Button>
+                                    </div>
+                                  )}
                                 </div>
+                              </div>
+                              {index < filteredRecs.length - 1 && (
+                                <Separator className="my-4" />
                               )}
                             </div>
-                          </div>
-                          {index < filteredRecs.length - 1 && (
-                            <Separator className="my-4" />
-                          )}
-                        </div>
-                      );
-                    })}
+                          );
+                        })}
                       </div>
                     );
                   })()}
@@ -869,12 +1182,16 @@ export function ClientDetails({ clientId, onBack }: ClientDetailsProps) {
                               )}
                             </div>
                             <div className="flex-1 pb-4">
-                              <p className="text-sm text-slate-900 mb-1">{activity.action}</p>
+                              <p className="text-sm text-slate-900 mb-1">
+                                {activity.action}
+                              </p>
                               <div className="flex items-center gap-2 text-xs text-slate-500">
                                 <User className="w-3 h-3" />
                                 <span>{activity.user}</span>
                               </div>
-                              <p className="text-xs text-slate-400 mt-1">{activity.timestamp}</p>
+                              <p className="text-xs text-slate-400 mt-1">
+                                {activity.timestamp}
+                              </p>
                             </div>
                           </div>
                         </div>
@@ -908,7 +1225,10 @@ export function ClientDetails({ clientId, onBack }: ClientDetailsProps) {
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="task-priority">Priority</Label>
-                <Select value={newTaskPriority} onValueChange={(value: any) => setNewTaskPriority(value)}>
+                <Select
+                  value={newTaskPriority}
+                  onValueChange={(value: any) => setNewTaskPriority(value)}
+                >
                   <SelectTrigger id="task-priority">
                     <SelectValue />
                   </SelectTrigger>
@@ -920,7 +1240,9 @@ export function ClientDetails({ clientId, onBack }: ClientDetailsProps) {
                 </Select>
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="task-recommendation">Recommendation Description</Label>
+                <Label htmlFor="task-recommendation">
+                  Recommendation Description
+                </Label>
                 <Textarea
                   id="task-recommendation"
                   placeholder="Describe the recommendation in detail..."
@@ -949,12 +1271,13 @@ export function ClientDetails({ clientId, onBack }: ClientDetailsProps) {
               </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setIsAddTaskDialogOpen(false)}>
+              <Button
+                variant="outline"
+                onClick={() => setIsAddTaskDialogOpen(false)}
+              >
                 Cancel
               </Button>
-              <Button onClick={handleSaveNewTask}>
-                Add Task
-              </Button>
+              <Button onClick={handleSaveNewTask}>Add Task</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -979,8 +1302,13 @@ export function ClientDetails({ clientId, onBack }: ClientDetailsProps) {
           </div>
           <div className="flex flex-wrap items-center gap-4">
             <div className="grid gap-1">
-              <span className="text-xs font-medium text-slate-500">Google Ads customer ID</span>
-              <Select value={activeClientId} onValueChange={setActiveClientId}>
+              <span className="text-xs font-medium text-slate-500">
+                Google Ads customer ID
+              </span>
+              <Select
+                value={activeClientId}
+                onValueChange={setActiveClientId}
+              >
                 <SelectTrigger className="w-[260px]">
                   <SelectValue placeholder="Select account" />
                 </SelectTrigger>
@@ -992,860 +1320,1332 @@ export function ClientDetails({ clientId, onBack }: ClientDetailsProps) {
                   ))}
                 </SelectContent>
               </Select>
-              <p className="text-xs text-slate-500">Currently showing {displayedCustomerId}</p>
+              <p className="text-xs text-slate-500">
+                Currently showing {displayedCustomerId}
+              </p>
             </div>
-            <Badge className={
-              client.status === "healthy" ? "bg-green-600" :
-              client.status === "warning" ? "bg-yellow-500" :
-              "bg-red-600"
-            }>
+
+            <div className="grid gap-1">
+              <span className="text-xs font-medium text-slate-500">
+                Date range
+              </span>
+              <Select
+                value={quickRange}
+                onValueChange={handleQuickRangeChange}
+              >
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="today">Today</SelectItem>
+                  <SelectItem value="7days">Last 7 Days</SelectItem>
+                  <SelectItem value="30days">Last 30 Days</SelectItem>
+                  <SelectItem value="90days">Last 90 Days</SelectItem>
+                  <SelectItem value="custom">Custom</SelectItem>
+                </SelectContent>
+              </Select>
+              {dateRange?.startDate && dateRange?.endDate && (
+                <p className="text-xs text-slate-500">
+                  {dateRange.startDate} – {dateRange.endDate}
+                </p>
+              )}
+            </div>
+
+            <Badge
+              className={
+                client.status === "healthy"
+                  ? "bg-green-600"
+                  : client.status === "warning"
+                  ? "bg-yellow-500"
+                  : "bg-red-600"
+              }
+            >
               {client.status}
             </Badge>
           </div>
         </div>
 
-        <GoogleAdsSyncControls className="max-w-4xl" contextLabel="client performance data" />
+        <GoogleAdsSyncControls
+          className="max-w-4xl"
+          contextLabel="client performance data"
+        />
 
-      {/* Key Performance Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-3">
-              <div className="p-3 bg-green-50 rounded-lg">
-                <CheckCircle2 className="w-5 h-5 text-green-600" />
+        {/* Key Performance Metrics */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-3">
+                <div className="p-3 bg-green-50 rounded-lg">
+                  <CheckCircle2 className="w-5 h-5 text-green-600" />
+                </div>
+                <div>
+                  <p className="text-sm text-slate-500">Completed Tasks</p>
+                  <p className="text-slate-900">
+                    {
+                      monthlyData.filter((d) => d.status === "completed")
+                        .length
+                    }{" "}
+                    days
+                  </p>
+                </div>
               </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-3">
+                <div className="p-3 bg-yellow-50 rounded-lg">
+                  <Clock className="w-5 h-5 text-yellow-600" />
+                </div>
+                <div>
+                  <p className="text-sm text-slate-500">Pending Tasks</p>
+                  <p className="text-slate-900">
+                    {monthlyData.filter((d) => d.status === "pending").length}{" "}
+                    days
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-3">
+                <div className="p-3 bg-red-50 rounded-lg">
+                  <AlertCircle className="w-5 h-5 text-red-600" />
+                </div>
+                <div>
+                  <p className="text-sm text-slate-500">Critical Days</p>
+                  <p className="text-slate-900">
+                    {monthlyData.filter((d) => d.status === "critical").length}{" "}
+                    days
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-3">
+                <div className="p-3 bg-blue-50 rounded-lg">
+                  <CalendarIcon className="w-5 h-5 text-blue-600" />
+                </div>
+                <div>
+                  <p className="text-sm text-slate-500">Month Progress</p>
+                  <p className="text-slate-900">
+                    {Math.round(
+                      (monthlyData.filter((d) => d.status === "completed")
+                        .length /
+                        (currentMonthConfig.currentDay - 1 || 1)) *
+                        100,
+                    )}
+                    %
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Account Details Section */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Account Overview</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
               <div>
-                <p className="text-sm text-slate-500">Completed Tasks</p>
-                <p className="text-slate-900">
-                  {monthlyData.filter(d => d.status === "completed").length} days
+                <p className="text-sm text-slate-600">
+                  Viewing{" "}
+                  {isOverallSelected
+                    ? "overall performance"
+                    : `${selectedCount} campaign${
+                        selectedCount === 1 ? "" : "s"
+                      }`}{" "}
+                  out of {campaignsForClient.length}.
+                </p>
+                <p className="text-xs text-slate-500">
+                  Campaign selection instantly recalculates spend, CTR, CPA,
+                  billing, and bidding insights pulled from the synced Google
+                  Ads data.
                 </p>
               </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-3">
-              <div className="p-3 bg-yellow-50 rounded-lg">
-                <Clock className="w-5 h-5 text-yellow-600" />
-              </div>
-              <div>
-                <p className="text-sm text-slate-500">Pending Tasks</p>
-                <p className="text-slate-900">
-                  {monthlyData.filter(d => d.status === "pending").length} days
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-3">
-              <div className="p-3 bg-red-50 rounded-lg">
-                <AlertCircle className="w-5 h-5 text-red-600" />
-              </div>
-              <div>
-                <p className="text-sm text-slate-500">Critical Days</p>
-                <p className="text-slate-900">
-                  {monthlyData.filter(d => d.status === "critical").length} days
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-3">
-              <div className="p-3 bg-blue-50 rounded-lg">
-                <CalendarIcon className="w-5 h-5 text-blue-600" />
-              </div>
-              <div>
-                <p className="text-sm text-slate-500">Month Progress</p>
-                <p className="text-slate-900">
-                  {Math.round((monthlyData.filter(d => d.status === "completed").length / (currentMonthConfig.currentDay - 1 || 1)) * 100)}%
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Account Details Section */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Account Overview</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between mb-4">
-            <div>
-              <p className="text-sm text-slate-600">
-                Viewing {isOverallSelected ? "overall performance" : `${selectedCount} campaign${selectedCount === 1 ? "" : "s"}`} out of {campaignsForClient.length}.
-              </p>
-              <p className="text-xs text-slate-500">Select campaigns to recalculate spend and performance metrics.</p>
-            </div>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="flex items-center gap-2">
-                  <ListFilter className="w-4 h-4" />
-                  <span>
-                    {isOverallSelected
-                      ? `Overall (${campaignsForClient.length})`
-                      : `${selectedCount} selected`}
-                  </span>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-64">
-                <DropdownMenuLabel>Campaign filters</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuCheckboxItem
-                  checked={isOverallSelected}
-                  onCheckedChange={() => handleCampaignToggle("overall")}
-                >
-                  Overall ({campaignsForClient.length} total)
-                </DropdownMenuCheckboxItem>
-                {campaignsForClient.map((campaign) => (
-                  <DropdownMenuCheckboxItem
-                    key={campaign.id}
-                    checked={selectedCampaignIds.includes(campaign.id)}
-                    onCheckedChange={() => handleCampaignToggle(campaign.id)}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex items-center gap-2"
                   >
-                    {campaign.name}
-                  </DropdownMenuCheckboxItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* Campaign Performance */}
-            <div className="space-y-4">
-              <div className="flex items-center gap-2 mb-4">
-                <div className="p-2 bg-blue-50 rounded-lg">
-                  <Target className="w-4 h-4 text-blue-600" />
-                </div>
-                <h3 className="text-sm text-slate-900">Campaign Performance</h3>
-              </div>
-              <div className="space-y-3">
-                {topCampaigns.length > 0 ? (
-                  topCampaigns.map((campaign) => (
-                    <div key={campaign.id} className="p-3 bg-slate-50 rounded-lg">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm text-slate-900">{campaign.name}</span>
-                        <Badge variant="outline" className="text-xs">
-                          {numberFormatter.format(campaign.conversions)} conversions
-                        </Badge>
-                      </div>
-                      <div className="grid grid-cols-2 gap-2 text-xs">
-                        <div>
-                          <p className="text-slate-500">Impressions</p>
-                          <p className="text-slate-900">{numberFormatter.format(campaign.impressions)}</p>
-                        </div>
-                        <div>
-                          <p className="text-slate-500">CTR</p>
-                          <p className="text-green-600">{percentFormatter.format(campaign.ctr)}%</p>
-                        </div>
-                        <div>
-                          <p className="text-slate-500">Spend</p>
-                          <p className="text-slate-900">{currencyFormatterWithCents.format(campaign.cost)}</p>
-                        </div>
-                        <div>
-                          <p className="text-slate-500">CPA</p>
-                          <p className="text-slate-900">{currencyFormatterWithCents.format(campaign.cpa)}</p>
-                        </div>
-                        <div>
-                          <p className="text-slate-500">Conversion Value</p>
-                          <p className="text-slate-900">{currencyFormatterWithCents.format(campaign.conversionValue)}</p>
-                        </div>
-                        <div>
-                          <p className="text-slate-500">Cost/Conversion</p>
-                          <p className="text-slate-900">{currencyFormatterWithCents.format(campaign.costPerConversion)}</p>
-                        </div>
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <div className="p-3 bg-slate-50 rounded-lg text-sm text-slate-600">
-                    Campaign level analytics will appear once data is available for this account.
-                  </div>
-                )}
-                {selectedCampaigns.length > topCampaigns.length && (
-                  <p className="text-xs text-slate-500">
-                    Showing top {topCampaigns.length} of {selectedCampaigns.length} campaigns by spend.
-                  </p>
-                )}
-              </div>
-            </div>
-
-            {/* Financial Metrics */}
-            <div className="space-y-4">
-              <div className="flex items-center gap-2 mb-4">
-                <div className="p-2 bg-green-50 rounded-lg">
-                  <DollarSign className="w-4 h-4 text-green-600" />
-                </div>
-                <h3 className="text-sm text-slate-900">Financial Performance</h3>
-              </div>
-              <div className="space-y-3">
-                {!hasMetrics && (
-                  <div className="p-3 bg-slate-50 rounded-lg text-sm text-slate-600">
-                    No campaign performance data is available for this account yet. Values shown below reflect the latest synced totals.
-                  </div>
-                )}
-                <div className="p-3 border rounded-lg">
-                  <p className="text-xs text-slate-500 mb-1">Total Spend</p>
-                  <p className="text-lg text-slate-900">{currencyFormatterWithCents.format(totalCost)}</p>
-                  {selectedCampaigns.length > 0 && (
-                    <p className="text-xs text-slate-500 mt-1">
-                      Aggregated from {selectedCampaigns.length} campaign{selectedCampaigns.length === 1 ? "" : "s"}
-                    </p>
-                  )}
-                </div>
-                <div className="p-3 border rounded-lg">
-                  <p className="text-xs text-slate-500 mb-1">Revenue</p>
-                  <p className="text-lg text-slate-900">{currencyFormatterWithCents.format(safeRevenue)}</p>
-                  <p className="text-xs text-green-600 flex items-center gap-1 mt-1">
-                    <TrendingUp className="w-3 h-3" />
-                    ROAS {safeRoas.toFixed(2)}x
-                  </p>
-                </div>
-                <div className="p-3 border rounded-lg">
-                  <p className="text-xs text-slate-500 mb-1">Conversion Value</p>
-                  <p className="text-lg text-slate-900">{currencyFormatterWithCents.format(safeConversionValue)}</p>
-                  <p className="text-xs text-slate-500 mt-1">Directly from Google Ads conversions</p>
-                </div>
-                <div className="p-3 border rounded-lg">
-                  <p className="text-xs text-slate-500 mb-1">Average CPC</p>
-                  <p className="text-lg text-slate-900">{currencyFormatterWithCents.format(safeAverageCpc)}</p>
-                  <p className="text-xs text-slate-500 mt-1">{numberFormatter.format(totalClicks)} clicks</p>
-                </div>
-                <div className="p-3 border rounded-lg">
-                  <p className="text-xs text-slate-500 mb-1">Cost per Conversion</p>
-                  <p className="text-lg text-slate-900">{currencyFormatterWithCents.format(safeAverageCpa)}</p>
-                  <p className="text-xs text-slate-500 mt-1">{numberFormatter.format(totalConversions)} conversions</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Engagement & Conversion Metrics */}
-            <div className="space-y-4">
-              <div className="flex items-center gap-2 mb-4">
-                <div className="p-2 bg-purple-50 rounded-lg">
-                  <TrendingUp className="w-4 h-4 text-purple-600" />
-                </div>
-                <h3 className="text-sm text-slate-900">Engagement & Conversions</h3>
-              </div>
-              <div className="space-y-3">
-                {!hasMetrics && (
-                  <div className="p-3 bg-slate-50 rounded-lg text-sm text-slate-600">
-                    No engagement data has been recorded for this account yet. Once campaigns start receiving traffic, metrics will appear here.
-                  </div>
-                )}
-                <div className="p-3 bg-purple-50 rounded-lg">
-                  <p className="text-xs text-purple-700 mb-1">Total Conversions</p>
-                  <p className="text-2xl text-purple-900">{numberFormatter.format(totalConversions)}</p>
-                  <p className="text-xs text-purple-600 mt-1">Conversion Rate {percentFormatter.format(safeConversionRate)}%</p>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="p-3 border rounded-lg">
-                    <p className="text-xs text-slate-500 mb-1">Impressions</p>
-                    <p className="text-lg text-slate-900">{numberFormatter.format(totalImpressions)}</p>
-                  </div>
-                  <div className="p-3 border rounded-lg">
-                    <p className="text-xs text-slate-500 mb-1">Clicks</p>
-                    <p className="text-lg text-slate-900">{numberFormatter.format(totalClicks)}</p>
-                  </div>
-                  <div className="p-3 border rounded-lg">
-                    <p className="text-xs text-slate-500 mb-1">CTR</p>
-                    <p className="text-lg text-slate-900">{percentFormatter.format(safeCtr)}%</p>
-                  </div>
-                  <div className="p-3 border rounded-lg">
-                    <p className="text-xs text-slate-500 mb-1">Conversion Rate</p>
-                    <p className="text-lg text-slate-900">{percentFormatter.format(safeConversionRate)}%</p>
-                  </div>
-                </div>
-                <div className="p-3 border rounded-lg">
-                  <p className="text-xs text-slate-500 mb-1">Account Health</p>
-                  <div className="flex items-center gap-2">
-                    <Badge
-                      variant="outline"
-                      className={`text-xs capitalize ${
-                        client.status === "healthy"
-                          ? "text-green-600 border-green-200"
-                          : client.status === "warning"
-                          ? "text-yellow-600 border-yellow-200"
-                          : "text-red-600 border-red-200"
-                      }`}
-                    >
-                      {client.status}
-                    </Badge>
-                    <span className="text-xs text-slate-500">
-                      Based on current CTR and conversion trends
+                    <ListFilter className="w-4 h-4" />
+                    <span>
+                      {isOverallSelected
+                        ? `Overall (${campaignsForClient.length})`
+                        : `${selectedCount} selected`}
                     </span>
-                  </div>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-64">
+                  <DropdownMenuLabel>Campaign filters</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuCheckboxItem
+                    checked={isOverallSelected}
+                    onCheckedChange={() => handleCampaignToggle("overall")}
+                  >
+                    Overall ({campaignsForClient.length} total)
+                  </DropdownMenuCheckboxItem>
+                  {campaignsForClient.map((campaign) => (
+                    <DropdownMenuCheckboxItem
+                      key={campaign.id}
+                      checked={selectedCampaignIds.includes(campaign.id)}
+                      onCheckedChange={() =>
+                        handleCampaignToggle(campaign.id)
+                      }
+                    >
+                      {campaign.name}
+                    </DropdownMenuCheckboxItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="p-4 rounded-lg border bg-slate-50">
+                <p className="text-xs text-slate-500 mb-1">Total Spend</p>
+                <div className="flex items-center gap-2">
+                  <p className="text-lg text-slate-900">
+                    {currencyFormatterWithCents.format(totalCost)}
+                  </p>
                 </div>
+                <p className="text-xs text-slate-500 mt-1">
+                  Aggregated across selected campaigns
+                </p>
+              </div>
+              <div className="p-4 rounded-lg border bg-slate-50">
+                <p className="text-xs text-slate-500 mb-1">Conversions</p>
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-purple-600" />
+                  <p className="text-lg text-slate-900">
+                    {numberFormatter.format(totalConversions)}
+                  </p>
+                </div>
+                <p className="text-xs text-slate-500 mt-1">
+                  Value {currencyFormatterWithCents.format(safeConversionValue)}
+                </p>
+              </div>
+              <div className="p-4 rounded-lg border bg-slate-50">
+                <p className="text-xs text-slate-500 mb-1">CTR</p>
+                <div className="flex items-center gap-2">
+                  <Target className="w-4 h-4 text-blue-600" />
+                  <p className="text-lg text-slate-900">
+                    {percentFormatter.format(safeCtr)}%
+                  </p>
+                </div>
+                <p className="text-xs text-slate-500 mt-1">
+                  {numberFormatter.format(totalImpressions)} impressions
+                </p>
+              </div>
+              <div className="p-4 rounded-lg border bg-slate-50">
+                <p className="text-xs text-slate-500 mb-1">
+                  Cost per Conversion
+                </p>
+                <div className="flex items-center gap-2">
+                  <Users className="w-4 h-4 text-emerald-600" />
+                  <p className="text-lg text-slate-900">
+                    {currencyFormatterWithCents.format(safeAverageCpa)}
+                  </p>
+                </div>
+                <p className="text-xs text-slate-500 mt-1">
+                  Avg. CPC {currencyFormatterWithCents.format(safeAverageCpc)}
+                </p>
               </div>
             </div>
-          </div>
-        </CardContent>
-      </Card>
 
-      {/* Action Bundles Section */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2">
-              <Package className="w-5 h-5" />
-              Action Bundles
-            </CardTitle>
-            <Button variant="outline" size="sm" onClick={() => setIsCreatingBundle(true)}>
-              <Package className="w-4 h-4 mr-2" />
-              Create New Bundle
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {actionBundles
-              .filter(bundle => bundle.clientName === client.name)
-              .map((bundle) => {
-                const getStatusColor = (status: string) => {
-                  switch (status) {
-                    case "completed":
-                      return "bg-green-50 text-green-600 border-green-200";
-                    case "in-progress":
-                      return "bg-blue-50 text-blue-600 border-blue-200";
-                    case "pending":
-                      return "bg-yellow-50 text-yellow-600 border-yellow-200";
-                    default:
-                      return "bg-slate-50 text-slate-600 border-slate-200";
-                  }
-                };
-
-                const getStatusIcon = (status: string) => {
-                  switch (status) {
-                    case "completed":
-                      return <CheckCircle2 className="w-4 h-4" />;
-                    case "in-progress":
-                      return <Clock className="w-4 h-4" />;
-                    case "pending":
-                      return <AlertCircle className="w-4 h-4" />;
-                    default:
-                      return null;
-                  }
-                };
-
-                const getStatusBadge = (status: string) => {
-                  switch (status) {
-                    case "completed":
-                      return { variant: "default" as const, label: "Completed" };
-                    case "in-progress":
-                      return { variant: "outline" as const, label: "In Progress" };
-                    case "pending":
-                      return { variant: "secondary" as const, label: "Pending" };
-                    default:
-                      return { variant: "secondary" as const, label: "Unknown" };
-                  }
-                };
-
-                const statusBadge = getStatusBadge(bundle.status);
-
-                return (
-                  <div
-                    key={bundle.id}
-                    className={`p-4 border-2 rounded-lg transition-all hover:shadow-md ${getStatusColor(bundle.status)}`}
-                  >
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="flex items-start gap-3">
-                        <div className="p-2 bg-white rounded-lg shadow-sm">
-                          {getStatusIcon(bundle.status)}
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-2 mb-1">
-                            <h4 className="text-slate-900">Bundle #{bundle.id}</h4>
-                            <Badge variant={statusBadge.variant}>
-                              {statusBadge.label}
+            <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+              <div className="xl:col-span-2 space-y-4">
+                <div className="p-4 border rounded-lg bg-white">
+                  <div className="flex items-start justify-between mb-4">
+                    <div>
+                      <h3 className="text-sm text-slate-900">Top campaigns</h3>
+                      <p className="text-xs text-slate-500">
+                        Sorted by spend with CTR, CPA, and conversion value
+                        from the synced Google Ads feed.
+                      </p>
+                    </div>
+                    <Badge variant="outline" className="text-[10px]">
+                      Top 3
+                    </Badge>
+                  </div>
+                  <div className="space-y-3">
+                    {topCampaigns.length > 0 ? (
+                      topCampaigns.map((campaign) => (
+                        <div
+                          key={campaign.id}
+                          className="p-3 rounded-lg border bg-slate-50"
+                        >
+                          <div className="flex items-center justify-between mb-2">
+                            <div>
+                              <p className="text-sm font-medium text-slate-900">
+                                {campaign.name}
+                              </p>
+                              <p className="text-xs text-slate-500">
+                                CTR{" "}
+                                {percentFormatter.format(campaign.ctr)}
+                                % • CPC{" "}
+                                {currencyFormatterWithCents.format(
+                                  campaign.averageCpc,
+                                )}
+                              </p>
+                            </div>
+                            <Badge
+                              variant="secondary"
+                              className="text-[11px]"
+                            >
+                              {numberFormatter.format(campaign.conversions)}{" "}
+                              conv
                             </Badge>
                           </div>
-                          <p className="text-sm text-slate-600">
-                            Created by {bundle.managerName} • {bundle.createdAt}
+                          <div className="grid grid-cols-2 gap-3 text-xs">
+                            <div>
+                              <p className="text-slate-500">Spend</p>
+                              <p className="text-slate-900">
+                                {currencyFormatterWithCents.format(
+                                  campaign.cost,
+                                )}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-slate-500">Cost / Conv</p>
+                              <p className="text-slate-900">
+                                {currencyFormatterWithCents.format(
+                                  campaign.costPerConversion,
+                                )}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-slate-500">Clicks</p>
+                              <p className="text-slate-900">
+                                {numberFormatter.format(campaign.clicks)}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-slate-500">
+                                Conversion Value
+                              </p>
+                              <p className="text-slate-900">
+                                {currencyFormatterWithCents.format(
+                                  campaign.conversionValue,
+                                )}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="p-3 bg-slate-50 rounded-lg text-sm text-slate-600">
+                        Campaign level analytics will appear once data is
+                        available for this account.
+                      </div>
+                    )}
+                    {selectedCampaigns.length > topCampaigns.length && (
+                      <p className="text-xs text-slate-500">
+                        Showing top {topCampaigns.length} of{" "}
+                        {selectedCampaigns.length} campaigns by spend.
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="p-4 border rounded-lg bg-white">
+                  <div className="flex items-start justify-between mb-3">
+                    <div>
+                      <h3 className="text-sm text-slate-900">
+                        Campaign performance details
+                      </h3>
+                      <p className="text-xs text-slate-500">
+                        Every selected campaign with impressions, CTR, CPC, CPA
+                        and spend pulled from the API.
+                      </p>
+                    </div>
+                    <Badge variant="outline" className="text-[10px]">
+                      {selectedCampaigns.length} campaigns
+                    </Badge>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs">
+                      <thead className="text-slate-500">
+                        <tr className="border-b">
+                          <th className="py-2 pr-4">Campaign</th>
+                          <th className="py-2 pr-4">Impr.</th>
+                          <th className="py-2 pr-4">Clicks</th>
+                          <th className="py-2 pr-4">CTR</th>
+                          <th className="py-2 pr-4">Spend</th>
+                          <th className="py-2 pr-4">Conv.</th>
+                          <th className="py-2 pr-4">CPC</th>
+                          <th className="py-2">CPA</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y">
+                        {selectedCampaigns.length > 0 ? (
+                          selectedCampaigns.map((campaign) => (
+                            <tr key={campaign.id} className="align-top">
+                              <td className="py-2 pr-4">
+                                <p className="text-slate-900 font-medium">
+                                  {campaign.name}
+                                </p>
+                                <p className="text-slate-500">
+                                  Value{" "}
+                                  {currencyFormatterWithCents.format(
+                                    campaign.conversionValue,
+                                  )}
+                                </p>
+                              </td>
+                              <td className="py-2 pr-4">
+                                {numberFormatter.format(
+                                  campaign.impressions,
+                                )}
+                              </td>
+                              <td className="py-2 pr-4">
+                                {numberFormatter.format(campaign.clicks)}
+                              </td>
+                              <td className="py-2 pr-4">
+                                {percentFormatter.format(campaign.ctr)}%
+                              </td>
+                              <td className="py-2 pr-4">
+                                {currencyFormatterWithCents.format(
+                                  campaign.cost,
+                                )}
+                              </td>
+                              <td className="py-2 pr-4">
+                                {numberFormatter.format(campaign.conversions)}
+                              </td>
+                              <td className="py-2 pr-4">
+                                {currencyFormatterWithCents.format(
+                                  campaign.averageCpc,
+                                )}
+                              </td>
+                              <td className="py-2">
+                                {currencyFormatterWithCents.format(
+                                  campaign.cpa,
+                                )}
+                              </td>
+                            </tr>
+                          ))
+                        ) : (
+                          <tr>
+                            <td
+                              className="py-3 pr-4 text-slate-500"
+                              colSpan={8}
+                            >
+                              Campaign performance will populate automatically
+                              once Google Ads data syncs for this client.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div className="p-4 border rounded-lg bg-slate-50">
+                  <div className="flex items-start justify-between mb-2">
+                    <div>
+                      <h3 className="text-sm text-slate-900">
+                        Performance Max & assets
+                      </h3>
+                      <p className="text-xs text-slate-500">
+                        Directly reflecting asset, bidding, and PMAX metrics
+                        fetched for this account.
+                      </p>
+                    </div>
+                    <Badge variant="outline" className="text-[10px]">
+                      {performanceMaxCampaigns.length} PMAX
+                    </Badge>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3 text-xs">
+                    <div className="p-3 rounded-lg bg-white border">
+                      <p className="text-slate-500">PMAX Spend</p>
+                      <p className="text-slate-900 text-sm">
+                        {currencyFormatterWithCents.format(
+                          performanceMaxTotals.cost,
+                        )}
+                      </p>
+                    </div>
+                    <div className="p-3 rounded-lg bg-white border">
+                      <p className="text-slate-500">PMAX CTR</p>
+                      <p className="text-slate-900 text-sm">
+                        {percentFormatter.format(performanceMaxCtr)}%
+                      </p>
+                    </div>
+                    <div className="p-3 rounded-lg bg-white border">
+                      <p className="text-slate-500">PMAX Conversions</p>
+                      <p className="text-slate-900 text-sm">
+                        {numberFormatter.format(
+                          performanceMaxTotals.conversions,
+                        )}
+                      </p>
+                    </div>
+                    <div className="p-3 rounded-lg bg-white border">
+                      <p className="text-slate-500">PMAX Clicks</p>
+                      <p className="text-slate-900 text-sm">
+                        {numberFormatter.format(performanceMaxTotals.clicks)}
+                      </p>
+                    </div>
+                  </div>
+                  <Separator className="my-3" />
+                  <p className="text-xs text-slate-600">
+                    Assets, creative coverage, and Performance Max metrics will
+                    surface here as soon as the backend delivers them for this
+                    customer.
+                  </p>
+                </div>
+
+                <div className="p-4 border rounded-lg bg-slate-50">
+                  <div className="flex items-start justify-between mb-2">
+                    <div>
+                      <h3 className="text-sm text-slate-900">
+                        Billing & budgets
+                      </h3>
+                      <p className="text-xs text-slate-500">
+                        Shows spend, monthly budget, currency, and billing
+                        identifiers received from the API.
+                      </p>
+                    </div>
+                    <Badge variant="outline" className="text-[10px]">
+                      {client.currencyCode || "USD"}
+                    </Badge>
+                  </div>
+                  <div className="space-y-2 text-xs">
+                    <div className="flex items-center justify-between p-2 bg-white rounded border">
+                      <span className="text-slate-500">Latest spend</span>
+                      <span className="text-slate-900">
+                        {currencyFormatterWithCents.format(
+                          totalCost || client.adSpend || 0,
+                        )}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between p-2 bg-white rounded border">
+                      <span className="text-slate-500">Monthly budget</span>
+                      <span className="text-slate-900">
+                        {client.monthlyBudget
+                          ? currencyFormatterWithCents.format(
+                              client.monthlyBudget,
+                            )
+                          : "Not provided"}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between p-2 bg-white rounded border">
+                      <span className="text-slate-500">Customer ID</span>
+                      <span className="text-slate-900">
+                        {client.customerId || "Not set"}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between p-2 bg-white rounded border">
+                      <span className="text-slate-500">Login customer</span>
+                      <span className="text-slate-900">
+                        {client.loginCustomerId || "Not set"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-4 border rounded-lg bg-slate-50">
+                  <div className="flex items-start justify-between mb-2">
+                    <div>
+                      <h3 className="text-sm text-slate-900">
+                        Bidding & delivery
+                      </h3>
+                      <p className="text-xs text-slate-500">
+                        Real-time CTR, CPC, CPA, ROAS, and conversion rate
+                        pulled from live campaign metrics.
+                      </p>
+                    </div>
+                    <Badge variant="outline" className="text-[10px]">
+                      Live
+                    </Badge>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3 text-xs">
+                    <div className="p-3 rounded-lg bg-white border">
+                      <p className="text-slate-500">Average CPC</p>
+                      <p className="text-slate-900 text-sm">
+                        {currencyFormatterWithCents.format(safeAverageCpc)}
+                      </p>
+                    </div>
+                    <div className="p-3 rounded-lg bg-white border">
+                      <p className="text-slate-500">CPA</p>
+                      <p className="text-slate-900 text-sm">
+                        {currencyFormatterWithCents.format(safeAverageCpa)}
+                      </p>
+                    </div>
+                    <div className="p-3 rounded-lg bg-white border">
+                      <p className="text-slate-500">CTR</p>
+                      <p className="text-slate-900 text-sm">
+                        {percentFormatter.format(safeCtr)}%
+                      </p>
+                    </div>
+                    <div className="p-3 rounded-lg bg-white border">
+                      <p className="text-slate-500">Conversion rate</p>
+                      <p className="text-slate-900 text-sm">
+                        {percentFormatter.format(safeConversionRate)}%
+                      </p>
+                    </div>
+                    <div className="p-3 rounded-lg bg-white border">
+                      <p className="text-slate-500">ROAS</p>
+                      <p className="text-slate-900 text-sm">
+                        {safeRoas.toFixed(2)}x
+                      </p>
+                    </div>
+                    <div className="p-3 rounded-lg bg-white border">
+                      <p className="text-slate-500">Revenue</p>
+                      <p className="text-slate-900 text-sm">
+                        {currencyFormatterWithCents.format(safeRevenue)}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Action Bundles Section */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2">
+                <Package className="w-5 h-5" />
+                Action Bundles
+              </CardTitle>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsCreatingBundle(true)}
+              >
+                <Package className="w-4 h-4 mr-2" />
+                Create New Bundle
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {actionBundles
+                .filter((bundle) => bundle.clientName === client.name)
+                .map((bundle) => {
+                  const getStatusColorCard = (status: string) => {
+                    switch (status) {
+                      case "completed":
+                        return "bg-green-50 text-green-600 border-green-200";
+                      case "in-progress":
+                        return "bg-blue-50 text-blue-600 border-blue-200";
+                      case "pending":
+                        return "bg-yellow-50 text-yellow-600 border-yellow-200";
+                      default:
+                        return "bg-slate-50 text-slate-600 border-slate-200";
+                    }
+                  };
+
+                  const getStatusIconCard = (status: string) => {
+                    switch (status) {
+                      case "completed":
+                        return <CheckCircle2 className="w-4 h-4" />;
+                      case "in-progress":
+                        return <Clock className="w-4 h-4" />;
+                      case "pending":
+                        return <AlertCircle className="w-4 h-4" />;
+                      default:
+                        return null;
+                    }
+                  };
+
+                  const getStatusBadgeCard = (status: string) => {
+                    switch (status) {
+                      case "completed":
+                        return {
+                          variant: "default" as const,
+                          label: "Completed",
+                        };
+                      case "in-progress":
+                        return {
+                          variant: "outline" as const,
+                          label: "In Progress",
+                        };
+                      case "pending":
+                        return {
+                          variant: "secondary" as const,
+                          label: "Pending",
+                        };
+                      default:
+                        return {
+                          variant: "secondary" as const,
+                          label: "Unknown",
+                        };
+                    }
+                  };
+
+                  const statusBadge = getStatusBadgeCard(bundle.status);
+
+                  return (
+                    <div
+                      key={bundle.id}
+                      className={`p-4 border-2 rounded-lg transition-all hover:shadow-md ${getStatusColorCard(
+                        bundle.status,
+                      )}`}
+                    >
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex items-start gap-3">
+                          <div className="p-2 bg-white rounded-lg shadow-sm">
+                            {getStatusIconCard(bundle.status)}
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2 mb-1">
+                              <h4 className="text-slate-900">
+                                Bundle #{bundle.id}
+                              </h4>
+                              <Badge variant={statusBadge.variant}>
+                                {statusBadge.label}
+                              </Badge>
+                            </div>
+                            <p className="text-sm text-slate-600">
+                              Created by {bundle.managerName} •{" "}
+                              {bundle.createdAt}
+                            </p>
+                          </div>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setSelectedBundleId(bundle.id)}
+                        >
+                          View Details
+                        </Button>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 bg-white rounded-lg">
+                            <Lightbulb className="w-4 h-4 text-purple-600" />
+                          </div>
+                          <div>
+                            <p className="text-xs text-slate-500">
+                              Total Actions
+                            </p>
+                            <p className="text-slate-900">
+                              {bundle.recommendationsCount}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 bg-white rounded-lg">
+                            <TrendingUp className="w-4 h-4 text-green-600" />
+                          </div>
+                          <div>
+                            <p className="text-xs text-slate-500">
+                              Estimated Impact
+                            </p>
+                            <p className="text-green-600">
+                              {bundle.estimatedImpact}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {bundle.status === "pending" && (
+                        <div className="mt-4 pt-4 border-t flex gap-2">
+                          <Button variant="outline" size="sm">
+                            Edit Bundle
+                          </Button>
+                          <Button size="sm">
+                            <Play className="w-4 h-4 mr-1" />
+                            Execute Actions
+                          </Button>
+                        </div>
+                      )}
+
+                      {bundle.status === "in-progress" && (
+                        <div className="mt-4 pt-4 border-t">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-xs text-slate-600">
+                              Progress
+                            </span>
+                            <span className="text-xs text-slate-900">40%</span>
+                          </div>
+                          <div className="w-full bg-slate-200 rounded-full h-2">
+                            <div
+                              className="bg-blue-600 h-2 rounded-full"
+                              style={{ width: "40%" }}
+                            ></div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+
+              {actionBundles.filter(
+                (bundle) => bundle.clientName === client.name,
+              ).length === 0 && (
+                <div className="text-center py-8">
+                  <Package className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                  <p className="text-slate-500 mb-4">
+                    No action bundles created yet
+                  </p>
+                  <Button onClick={() => setIsCreatingBundle(true)}>
+                    <Package className="w-4 h-4 mr-2" />
+                    Create First Bundle
+                  </Button>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Monthly Calendar */}
+          <div className="lg:col-span-2">
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="flex items-center gap-2">
+                    <CalendarIcon className="w-5 h-5" />
+                    Daily Task Status
+                  </CardTitle>
+                  <Select
+                    value={selectedMonth}
+                    onValueChange={handleMonthChange}
+                  >
+                    <SelectTrigger className="w-48">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {monthOptions.map((option) => (
+                        <SelectItem key={option.key} value={option.key}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {monthlyData.length === 0 && (
+                  <div className="p-4 bg-slate-50 rounded-lg text-sm text-slate-600 mb-4">
+                    No daily tasks available for {currentMonthConfig.name}.
+                    Create the daily task module to start tracking work.
+                  </div>
+                )}
+                <div className="space-y-4">
+                  {/* Day Labels */}
+                  <div className="grid grid-cols-7 gap-2">
+                    {dayLabels.map((label) => (
+                      <div
+                        key={label}
+                        className="text-center text-xs text-slate-500 py-2"
+                      >
+                        {label}
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Calendar Days */}
+                  <TooltipProvider>
+                    <div className="grid grid-cols-7 gap-2">
+                      {/* Empty cells for days before the 1st */}
+                      {[...Array(currentMonthConfig.startDay)].map((_, i) => (
+                        <div key={`empty-${i}`} className="aspect-square" />
+                      ))}
+
+                      {monthlyData.map((day) => (
+                        <Tooltip key={day.date} delayDuration={200}>
+                          <TooltipTrigger asChild>
+                            <button
+                              onClick={() => handleDayClick(day.date)}
+                              className={`
+                                aspect-square rounded-lg border-2 transition-all
+                                flex flex-col items-center justify-center gap-1
+                                ${
+                                  selectedDay === day.date
+                                    ? "border-blue-500 ring-2 ring-blue-200"
+                                    : "border-transparent"
+                                }
+                                ${getStatusColor(day.status)}
+                                ${
+                                  day.status === "none" ||
+                                  day.status === "sunday"
+                                    ? "cursor-default"
+                                    : "cursor-pointer"
+                                }
+                              `}
+                              disabled={
+                                day.status === "none" || day.status === "sunday"
+                              }
+                            >
+                              <span
+                                className={`text-sm ${
+                                  day.status === "none"
+                                    ? "text-slate-400"
+                                    : day.status === "sunday"
+                                    ? "text-slate-600"
+                                    : "text-white"
+                                }`}
+                              >
+                                {day.date}
+                              </span>
+                              {day.status !== "none" &&
+                                day.status !== "sunday" && (
+                                  <span className="text-white opacity-90">
+                                    {getStatusIcon(day.status)}
+                                  </span>
+                                )}
+                            </button>
+                          </TooltipTrigger>
+                          {day.status === "sunday" ? (
+                            <TooltipContent side="top" className="max-w-xs">
+                              <div className="space-y-1">
+                                <span className="text-sm">
+                                  {currentMonthConfig.name.split(" ")[0]}{" "}
+                                  {day.date}, 2025
+                                </span>
+                                <p className="text-xs text-slate-500">
+                                  No tasks scheduled - Weekend
+                                </p>
+                              </div>
+                            </TooltipContent>
+                          ) : (
+                            day.status !== "none" && (
+                              <TooltipContent side="top" className="max-w-xs">
+                                <div className="space-y-2">
+                                  <div className="flex items-center justify-between gap-3">
+                                    <span className="text-sm">
+                                      {currentMonthConfig.name.split(" ")[0]}{" "}
+                                      {day.date}, 2025
+                                    </span>
+                                    <Badge
+                                      className={
+                                        day.status === "completed"
+                                          ? "bg-green-600"
+                                          : day.status === "pending"
+                                          ? "bg-yellow-500"
+                                          : "bg-red-600"
+                                      }
+                                    >
+                                      {day.status}
+                                    </Badge>
+                                  </div>
+                                  <div className="space-y-1">
+                                    <div className="flex items-center justify-between text-xs">
+                                      <span className="text-slate-500">
+                                        Tasks Progress
+                                      </span>
+                                      <span className="text-slate-700">
+                                        {day.tasksCompleted} / {day.totalTasks}{" "}
+                                        completed
+                                      </span>
+                                    </div>
+                                    <div className="w-full bg-slate-200 rounded-full h-1.5">
+                                      <div
+                                        className={`h-1.5 rounded-full transition-all ${
+                                          day.status === "completed"
+                                            ? "bg-green-600"
+                                            : day.status === "pending"
+                                            ? "bg-yellow-500"
+                                            : "bg-red-600"
+                                        }`}
+                                        style={{
+                                          width: `${
+                                            (day.tasksCompleted /
+                                              day.totalTasks) *
+                                            100
+                                          }%`,
+                                        }}
+                                      />
+                                    </div>
+                                    <p className="text-xs text-slate-500 pt-1">
+                                      {day.status === "completed"
+                                        ? "All tasks completed successfully"
+                                        : day.status === "pending"
+                                        ? "Some tasks still in progress"
+                                        : "Critical tasks need attention"}
+                                    </p>
+                                  </div>
+                                </div>
+                              </TooltipContent>
+                            )
+                          )}
+                        </Tooltip>
+                      ))}
+                    </div>
+                  </TooltipProvider>
+
+                  {/* Legend */}
+                  <div className="flex items-center justify-center gap-6 pt-4 border-t">
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 bg-green-500 rounded" />
+                      <span className="text-xs text-slate-600">Completed</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 bg-yellow-500 rounded" />
+                      <span className="text-xs text-slate-600">Pending</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 bg-red-500 rounded" />
+                      <span className="text-xs text-slate-600">Critical</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 bg-slate-300 rounded" />
+                      <span className="text-xs text-slate-600">Sunday</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 bg-slate-100 rounded border border-slate-200" />
+                      <span className="text-xs text-slate-600">Future</span>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Actions & Updates Log */}
+          <div className="lg:col-span-1">
+            <Card className="h-full">
+              <CardHeader>
+                <CardTitle className="text-base">
+                  Actions & Updates
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2">
+                  {activityLogs.length === 0 && (
+                    <div className="text-sm text-slate-500">
+                      No actions or updates available for this client yet.
+                    </div>
+                  )}
+                  {activityLogs.map((log) => (
+                    <div
+                      key={log.id}
+                      className="pb-4 border-b border-slate-100 last:border-0"
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <Badge
+                              variant="outline"
+                              className={`text-xs ${getActivityTypeColor(
+                                log.type,
+                              )}`}
+                            >
+                              {getActivityTypeLabel(log.type)}
+                            </Badge>
+                          </div>
+                          <p className="text-sm text-slate-700 mb-2">
+                            {log.action}
+                          </p>
+                          <div className="flex items-center gap-2 text-xs text-slate-500">
+                            <span>{log.date}</span>
+                            <span>•</span>
+                            <span>{log.time}</span>
+                          </div>
+                          <p className="text-xs text-slate-500 mt-1">
+                            by {log.user}
                           </p>
                         </div>
                       </div>
-                      <Button 
-                        variant="ghost" 
-                        size="sm"
-                        onClick={() => setSelectedBundleId(bundle.id)}
-                      >
-                        View Details
-                      </Button>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 bg-white rounded-lg">
-                          <Lightbulb className="w-4 h-4 text-purple-600" />
-                        </div>
-                        <div>
-                          <p className="text-xs text-slate-500">Total Actions</p>
-                          <p className="text-slate-900">{bundle.recommendationsCount}</p>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 bg-white rounded-lg">
-                          <TrendingUp className="w-4 h-4 text-green-600" />
-                        </div>
-                        <div>
-                          <p className="text-xs text-slate-500">Estimated Impact</p>
-                          <p className="text-green-600">{bundle.estimatedImpact}</p>
-                        </div>
-                      </div>
-                    </div>
-
-                    {bundle.status === "pending" && (
-                      <div className="mt-4 pt-4 border-t flex gap-2">
-                        <Button variant="outline" size="sm">
-                          Edit Bundle
-                        </Button>
-                        <Button size="sm">
-                          <Play className="w-4 h-4 mr-1" />
-                          Execute Actions
-                        </Button>
-                      </div>
-                    )}
-
-                    {bundle.status === "in-progress" && (
-                      <div className="mt-4 pt-4 border-t">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-xs text-slate-600">Progress</span>
-                          <span className="text-xs text-slate-900">40%</span>
-                        </div>
-                        <div className="w-full bg-slate-200 rounded-full h-2">
-                          <div className="bg-blue-600 h-2 rounded-full" style={{ width: "40%" }}></div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-
-            {actionBundles.filter(bundle => bundle.clientName === client.name).length === 0 && (
-              <div className="text-center py-8">
-                <Package className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-                <p className="text-slate-500 mb-4">No action bundles created yet</p>
-                <Button onClick={() => setIsCreatingBundle(true)}>
-                  <Package className="w-4 h-4 mr-2" />
-                  Create First Bundle
-                </Button>
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Monthly Calendar */}
-        <div className="lg:col-span-2">
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle className="flex items-center gap-2">
-                  <CalendarIcon className="w-5 h-5" />
-                  Daily Task Status
-                </CardTitle>
-                <Select value={selectedMonth} onValueChange={handleMonthChange}>
-                  <SelectTrigger className="w-48">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {monthOptions.map((option) => (
-                      <SelectItem key={option.key} value={option.key}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {/* Calendar Grid */}
-              {monthlyData.length === 0 && (
-                <div className="p-4 bg-slate-50 rounded-lg text-sm text-slate-600 mb-4">
-                  No daily tasks available for {currentMonthConfig.name}. Create the daily task module to start tracking work.
-                </div>
-              )}
-              <div className="space-y-4">
-                {/* Day Labels */}
-                <div className="grid grid-cols-7 gap-2">
-                  {dayLabels.map(label => (
-                    <div key={label} className="text-center text-xs text-slate-500 py-2">
-                      {label}
                     </div>
                   ))}
                 </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
 
-                {/* Calendar Days */}
-                <TooltipProvider>
-                  <div className="grid grid-cols-7 gap-2">
-                    {/* Empty cells for days before the 1st */}
-                    {[...Array(currentMonthConfig.startDay)].map((_, i) => (
-                      <div key={`empty-${i}`} className="aspect-square" />
-                    ))}
-                    
-                    {monthlyData.map((day) => (
-                      <Tooltip key={day.date} delayDuration={200}>
-                        <TooltipTrigger asChild>
-                          <button
-                            onClick={() => handleDayClick(day.date)}
-                            className={`
-                              aspect-square rounded-lg border-2 transition-all
-                              flex flex-col items-center justify-center gap-1
-                              ${selectedDay === day.date ? "border-blue-500 ring-2 ring-blue-200" : "border-transparent"}
-                              ${getStatusColor(day.status)}
-                              ${day.status === "none" || day.status === "sunday" ? "cursor-default" : "cursor-pointer"}
-                            `}
-                            disabled={day.status === "none" || day.status === "sunday"}
+        {/* AI Assistant Chatbot */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
+                <Sparkles className="w-5 h-5 text-white" />
+              </div>
+              AI Assistant
+            </CardTitle>
+            <p className="text-xs text-slate-500">
+              Ask me anything about your accounts
+            </p>
+          </CardHeader>
+          <CardContent>
+            <ClientChatbotInline clientName={client.name} />
+          </CardContent>
+        </Card>
+
+        {/* Day Details Sheet */}
+        <Sheet open={isDayDetailsOpen} onOpenChange={setIsDayDetailsOpen}>
+          <SheetContent
+            side="right"
+            className="w-full sm:max-w-2xl overflow-y-auto p-0"
+          >
+            <div className="px-6 py-6">
+              <SheetHeader>
+                <div className="flex items-center justify-between">
+                  <SheetTitle>
+                    {selectedDay &&
+                      `${currentMonthConfig.name.split(" ")[0]} ${selectedDay}, 2025`}
+                  </SheetTitle>
+                  {selectedDayData && (
+                    <Badge
+                      className={
+                        selectedDayData.status === "completed"
+                          ? "bg-green-600"
+                          : selectedDayData.status === "pending"
+                          ? "bg-yellow-500"
+                          : "bg-red-600"
+                      }
+                    >
+                      {selectedDayData.status}
+                    </Badge>
+                  )}
+                </div>
+              </SheetHeader>
+
+              <div className="mt-6 space-y-6">
+                {/* Summary Stats */}
+                {selectedDayData && (
+                  <div className="grid grid-cols-2 gap-4">
+                    <Card>
+                      <CardContent className="pt-4">
+                        <div className="flex items-center gap-3">
+                          <div
+                            className={`p-2 rounded-lg ${
+                              selectedDayData.status === "completed"
+                                ? "bg-green-50"
+                                : selectedDayData.status === "pending"
+                                ? "bg-yellow-50"
+                                : "bg-red-50"
+                            }`}
                           >
-                            <span className={`text-sm ${day.status === "none" ? "text-slate-400" : day.status === "sunday" ? "text-slate-600" : "text-white"}`}>
-                              {day.date}
-                            </span>
-                            {day.status !== "none" && day.status !== "sunday" && (
-                              <span className="text-white opacity-90">
-                                {getStatusIcon(day.status)}
-                              </span>
+                            {getStatusIcon(selectedDayData.status, true)}
+                          </div>
+                          <div>
+                            <p className="text-xs text-slate-500">
+                              Tasks Completed
+                            </p>
+                            <p className="text-lg text-slate-900">
+                              {selectedDayData.tasksCompleted} /{" "}
+                              {selectedDayData.totalTasks}
+                            </p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    <Card>
+                      <CardContent className="pt-4">
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 bg-blue-50 rounded-lg">
+                            <Target className="w-4 h-4 text-blue-600" />
+                          </div>
+                          <div>
+                            <p className="text-xs text-slate-500">
+                              Completion Rate
+                            </p>
+                            <p className="text-lg text-slate-900">
+                              {selectedDayData.totalTasks > 0
+                                ? Math.round(
+                                    (selectedDayData.tasksCompleted /
+                                      selectedDayData.totalTasks) *
+                                      100,
+                                  )
+                                : 0}
+                              %
+                            </p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+                )}
+
+                {/* Progress Bar */}
+                {selectedDayData && (
+                  <Card>
+                    <CardContent className="pt-4">
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-slate-600">
+                            Overall Progress
+                          </span>
+                          <span className="text-slate-900">
+                            {Math.round(
+                              (selectedDayData.tasksCompleted /
+                                selectedDayData.totalTasks) *
+                                100,
                             )}
-                          </button>
-                        </TooltipTrigger>
-                        {day.status === "sunday" ? (
-                          <TooltipContent side="top" className="max-w-xs">
-                            <div className="space-y-1">
-                              <span className="text-sm">{currentMonthConfig.name.split(' ')[0]} {day.date}, 2025</span>
-                              <p className="text-xs text-slate-500">No tasks scheduled - Weekend</p>
-                            </div>
-                          </TooltipContent>
-                        ) : day.status !== "none" && (
-                          <TooltipContent side="top" className="max-w-xs">
-                            <div className="space-y-2">
-                              <div className="flex items-center justify-between gap-3">
-                                <span className="text-sm">{currentMonthConfig.name.split(' ')[0]} {day.date}, 2025</span>
-                                <Badge className={
-                                  day.status === "completed" ? "bg-green-600" :
-                                  day.status === "pending" ? "bg-yellow-500" :
-                                  "bg-red-600"
-                                }>
-                                  {day.status}
+                            %
+                          </span>
+                        </div>
+                        <div className="w-full bg-slate-200 rounded-full h-2">
+                          <div
+                            className={`h-2 rounded-full transition-all ${
+                              selectedDayData.status === "completed"
+                                ? "bg-green-600"
+                                : selectedDayData.status === "pending"
+                                ? "bg-yellow-500"
+                                : "bg-red-600"
+                            }`}
+                            style={{
+                              width: `${
+                                (selectedDayData.tasksCompleted /
+                                  selectedDayData.totalTasks) *
+                                100
+                              }%`,
+                            }}
+                          />
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Tasks List */}
+                <div className="space-y-3">
+                  <h3 className="text-sm text-slate-900">Tasks</h3>
+                  {selectedDayTasks.length === 0 && (
+                    <p className="text-sm text-slate-500">
+                      No tasks recorded for this day. Create the daily task
+                      module to add and track work items.
+                    </p>
+                  )}
+                  {selectedDayTasks.map((task) => (
+                    <Card
+                      key={task.id}
+                      className={`border-l-4 ${
+                        task.status === "completed"
+                          ? "border-l-green-500"
+                          : task.status === "pending"
+                          ? "border-l-yellow-500"
+                          : "border-l-red-500"
+                      }`}
+                    >
+                      <CardContent className="pt-4">
+                        <div className="space-y-3">
+                          {/* Task Header */}
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-1">
+                                <h4 className="text-sm text-slate-900">
+                                  {task.title}
+                                </h4>
+                                <Badge
+                                  variant="outline"
+                                  className={`text-xs ${
+                                    task.priority === "high"
+                                      ? "border-red-300 text-red-700"
+                                      : task.priority === "medium"
+                                      ? "border-yellow-300 text-yellow-700"
+                                      : "border-slate-300 text-slate-700"
+                                  }`}
+                                >
+                                  {task.priority}
                                 </Badge>
                               </div>
-                              <div className="space-y-1">
-                                <div className="flex items-center justify-between text-xs">
-                                  <span className="text-slate-500">Tasks Progress</span>
-                                  <span className="text-slate-700">
-                                    {day.tasksCompleted} / {day.totalTasks} completed
-                                  </span>
-                                </div>
-                                <div className="w-full bg-slate-200 rounded-full h-1.5">
-                                  <div 
-                                    className={`h-1.5 rounded-full transition-all ${
-                                      day.status === "completed" ? "bg-green-600" :
-                                      day.status === "pending" ? "bg-yellow-500" :
-                                      "bg-red-600"
-                                    }`}
-                                    style={{
-                                      width: `${(day.tasksCompleted / day.totalTasks) * 100}%`
-                                    }}
-                                  />
-                                </div>
-                                <p className="text-xs text-slate-500 pt-1">
-                                  {day.status === "completed" 
-                                    ? "All tasks completed successfully" 
-                                    : day.status === "pending"
-                                    ? "Some tasks still in progress"
-                                    : "Critical tasks need attention"}
+                              <p className="text-xs text-slate-600">
+                                {task.description}
+                              </p>
+                            </div>
+                            <Badge
+                              variant={
+                                task.status === "completed"
+                                  ? "default"
+                                  : "secondary"
+                              }
+                              className={
+                                task.status === "completed"
+                                  ? "bg-green-600"
+                                  : task.status === "pending"
+                                  ? "bg-yellow-500"
+                                  : "bg-red-600"
+                              }
+                            >
+                              {task.status}
+                            </Badge>
+                          </div>
+
+                          {/* Task Details */}
+                          <div className="flex items-center gap-4 text-xs text-slate-500">
+                            <div className="flex items-center gap-1">
+                              <Users className="w-3 h-3" />
+                              <span>{task.assignedTo}</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <Badge variant="outline" className="text-xs">
+                                {task.category}
+                              </Badge>
+                            </div>
+                            {task.completedAt && (
+                              <div className="flex items-center gap-1">
+                                <CheckCircle2 className="w-3 h-3" />
+                                <span>{task.completedAt}</span>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Metrics */}
+                          {task.metrics && task.status === "completed" && (
+                            <div className="grid grid-cols-4 gap-2 pt-2 border-t border-slate-100">
+                              <div className="text-center">
+                                <p className="text-xs text-slate-500">
+                                  Impressions
+                                </p>
+                                <p className="text-sm text-slate-900">
+                                  {task.metrics.impressions?.toLocaleString()}
+                                </p>
+                              </div>
+                              <div className="text-center">
+                                <p className="text-xs text-slate-500">
+                                  Clicks
+                                </p>
+                                <p className="text-sm text-slate-900">
+                                  {task.metrics.clicks?.toLocaleString()}
+                                </p>
+                              </div>
+                              <div className="text-center">
+                                <p className="text-xs text-slate-500">
+                                  Conv.
+                                </p>
+                                <p className="text-sm text-slate-900">
+                                  {task.metrics.conversions}
+                                </p>
+                              </div>
+                              <div className="text-center">
+                                <p className="text-xs text-slate-500">
+                                  Spend
+                                </p>
+                                <p className="text-sm text-slate-900">
+                                  ${task.metrics.spend}
                                 </p>
                               </div>
                             </div>
-                          </TooltipContent>
-                        )}
-                      </Tooltip>
-                    ))}
-                  </div>
-                </TooltipProvider>
-
-                {/* Legend */}
-                <div className="flex items-center justify-center gap-6 pt-4 border-t">
-                  <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 bg-green-500 rounded" />
-                    <span className="text-xs text-slate-600">Completed</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 bg-yellow-500 rounded" />
-                    <span className="text-xs text-slate-600">Pending</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 bg-red-500 rounded" />
-                    <span className="text-xs text-slate-600">Critical</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 bg-slate-300 rounded" />
-                    <span className="text-xs text-slate-600">Sunday</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 bg-slate-100 rounded border border-slate-200" />
-                    <span className="text-xs text-slate-600">Future</span>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Actions & Updates Log */}
-        <div className="lg:col-span-1">
-          <Card className="h-full">
-            <CardHeader>
-              <CardTitle className="text-base">Actions & Updates</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2">
-                {activityLogs.length === 0 && (
-                  <div className="text-sm text-slate-500">No actions or updates available for this client yet.</div>
-                )}
-                {activityLogs.map((log) => (
-                  <div key={log.id} className="pb-4 border-b border-slate-100 last:border-0">
-                    <div className="flex items-start gap-3">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <Badge variant="outline" className={`text-xs ${getActivityTypeColor(log.type)}`}>
-                            {getActivityTypeLabel(log.type)}
-                          </Badge>
-                        </div>
-                        <p className="text-sm text-slate-700 mb-2">{log.action}</p>
-                        <div className="flex items-center gap-2 text-xs text-slate-500">
-                          <span>{log.date}</span>
-                          <span>•</span>
-                          <span>{log.time}</span>
-                        </div>
-                        <p className="text-xs text-slate-500 mt-1">by {log.user}</p>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-
-      {/* AI Assistant Chatbot */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
-              <Sparkles className="w-5 h-5 text-white" />
-            </div>
-            AI Assistant
-          </CardTitle>
-          <p className="text-xs text-slate-500">Ask me anything about your accounts</p>
-        </CardHeader>
-        <CardContent>
-          <ClientChatbotInline clientName={client.name} />
-        </CardContent>
-      </Card>
-
-      {/* Day Details Sheet */}
-      <Sheet open={isDayDetailsOpen} onOpenChange={setIsDayDetailsOpen}>
-        <SheetContent side="right" className="w-full sm:max-w-2xl overflow-y-auto p-0">
-          <div className="px-6 py-6">
-            <SheetHeader>
-              <div className="flex items-center justify-between">
-                <SheetTitle>
-                  {selectedDay && `${currentMonthConfig.name.split(' ')[0]} ${selectedDay}, 2025`}
-                </SheetTitle>
-                {selectedDayData && (
-                  <Badge className={
-                    selectedDayData.status === "completed" ? "bg-green-600" :
-                    selectedDayData.status === "pending" ? "bg-yellow-500" :
-                    "bg-red-600"
-                  }>
-                    {selectedDayData.status}
-                  </Badge>
-                )}
-              </div>
-            </SheetHeader>
-
-            <div className="mt-6 space-y-6">
-              {/* Summary Stats */}
-              {selectedDayData && (
-                <div className="grid grid-cols-2 gap-4">
-                  <Card>
-                    <CardContent className="pt-4">
-                      <div className="flex items-center gap-3">
-                        <div className={`p-2 rounded-lg ${
-                          selectedDayData.status === "completed" ? "bg-green-50" :
-                          selectedDayData.status === "pending" ? "bg-yellow-50" :
-                          "bg-red-50"
-                        }`}>
-                          {getStatusIcon(selectedDayData.status, true)}
-                        </div>
-                        <div>
-                          <p className="text-xs text-slate-500">Tasks Completed</p>
-                          <p className="text-lg text-slate-900">
-                            {selectedDayData.tasksCompleted} / {selectedDayData.totalTasks}
-                          </p>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardContent className="pt-4">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 bg-blue-50 rounded-lg">
-                          <Target className="w-4 h-4 text-blue-600" />
-                        </div>
-                        <div>
-                          <p className="text-xs text-slate-500">Completion Rate</p>
-                          <p className="text-lg text-slate-900">
-                            {selectedDayData.totalTasks > 0 
-                              ? Math.round((selectedDayData.tasksCompleted / selectedDayData.totalTasks) * 100) 
-                              : 0}%
-                          </p>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-              )}
-
-              {/* Progress Bar */}
-              {selectedDayData && (
-                <Card>
-                  <CardContent className="pt-4">
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-slate-600">Overall Progress</span>
-                        <span className="text-slate-900">
-                          {Math.round((selectedDayData.tasksCompleted / selectedDayData.totalTasks) * 100)}%
-                        </span>
-                      </div>
-                      <div className="w-full bg-slate-200 rounded-full h-2">
-                        <div 
-                          className={`h-2 rounded-full transition-all ${
-                            selectedDayData.status === "completed" ? "bg-green-600" :
-                            selectedDayData.status === "pending" ? "bg-yellow-500" :
-                            "bg-red-600"
-                          }`}
-                          style={{
-                            width: `${(selectedDayData.tasksCompleted / selectedDayData.totalTasks) * 100}%`
-                          }}
-                        />
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-
-              {/* Tasks List */}
-              <div className="space-y-3">
-                <h3 className="text-sm text-slate-900">Tasks</h3>
-                {selectedDayTasks.length === 0 && (
-                  <p className="text-sm text-slate-500">
-                    No tasks recorded for this day. Create the daily task module to add and track work items.
-                  </p>
-                )}
-                {selectedDayTasks.map((task, index) => (
-                  <Card key={task.id} className={`border-l-4 ${
-                    task.status === "completed" ? "border-l-green-500" :
-                    task.status === "pending" ? "border-l-yellow-500" :
-                    "border-l-red-500"
-                  }`}>
-                    <CardContent className="pt-4">
-                      <div className="space-y-3">
-                        {/* Task Header */}
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-1">
-                              <h4 className="text-sm text-slate-900">{task.title}</h4>
-                              <Badge variant="outline" className={`text-xs ${
-                                task.priority === "high" ? "border-red-300 text-red-700" :
-                                task.priority === "medium" ? "border-yellow-300 text-yellow-700" :
-                                "border-slate-300 text-slate-700"
-                              }`}>
-                                {task.priority}
-                              </Badge>
-                            </div>
-                            <p className="text-xs text-slate-600">{task.description}</p>
-                          </div>
-                          <Badge variant={task.status === "completed" ? "default" : "secondary"} className={
-                            task.status === "completed" ? "bg-green-600" :
-                            task.status === "pending" ? "bg-yellow-500" :
-                            "bg-red-600"
-                          }>
-                            {task.status}
-                          </Badge>
-                        </div>
-
-                        {/* Task Details */}
-                        <div className="flex items-center gap-4 text-xs text-slate-500">
-                          <div className="flex items-center gap-1">
-                            <Users className="w-3 h-3" />
-                            <span>{task.assignedTo}</span>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <Badge variant="outline" className="text-xs">
-                              {task.category}
-                            </Badge>
-                          </div>
-                          {task.completedAt && (
-                            <div className="flex items-center gap-1">
-                              <CheckCircle2 className="w-3 h-3" />
-                              <span>{task.completedAt}</span>
-                            </div>
                           )}
                         </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
 
-                        {/* Metrics */}
-                        {task.metrics && task.status === "completed" && (
-                          <div className="grid grid-cols-4 gap-2 pt-2 border-t border-slate-100">
-                            <div className="text-center">
-                              <p className="text-xs text-slate-500">Impressions</p>
-                              <p className="text-sm text-slate-900">{task.metrics.impressions?.toLocaleString()}</p>
-                            </div>
-                            <div className="text-center">
-                              <p className="text-xs text-slate-500">Clicks</p>
-                              <p className="text-sm text-slate-900">{task.metrics.clicks?.toLocaleString()}</p>
-                            </div>
-                            <div className="text-center">
-                              <p className="text-xs text-slate-500">Conv.</p>
-                              <p className="text-sm text-slate-900">{task.metrics.conversions}</p>
-                            </div>
-                            <div className="text-center">
-                              <p className="text-xs text-slate-500">Spend</p>
-                              <p className="text-sm text-slate-900">${task.metrics.spend}</p>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex gap-3 pt-4">
-                <Button className="flex-1">
-                  Export Tasks
-                </Button>
-                <Button variant="outline" className="flex-1">
-                  Generate Report
-                </Button>
+                {/* Action Buttons */}
+                <div className="flex gap-3 pt-4">
+                  <Button className="flex-1">Export Tasks</Button>
+                  <Button variant="outline" className="flex-1">
+                    Generate Report
+                  </Button>
+                </div>
               </div>
             </div>
-          </div>
-        </SheetContent>
-      </Sheet>
-    </div>
+          </SheetContent>
+        </Sheet>
+      </div>
     </>
   );
 }

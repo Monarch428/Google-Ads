@@ -74,8 +74,16 @@ def save_google_account(
     # customer_id = client_record.customer_id
     customer_ids = getattr(client_record, "customer_ids", None) or []
     customer_id = customer_ids[0] if customer_ids else client_record.customer_id
+    # login_customer_from_client = client_record.login_customer_id
+    # effective_login_customer_id = login_customer_id or login_customer_from_client
     login_customer_from_client = client_record.login_customer_id
-    effective_login_customer_id = login_customer_id or login_customer_from_client
+    env_login_customer = os.getenv("LOGIN_CUSTOMER_ID")
+
+    effective_login_customer_id = (
+        login_customer_id
+        or login_customer_from_client
+        or env_login_customer
+    )
 
     existing = (
         db.query(GoogleAdsAccount)

@@ -287,31 +287,74 @@ def refresh_access_token(
 
 # -------------------- STEP 2: RUN GOOGLE ADS QUERY --------------------
 def run_google_ads_query(
-    access_token: str, customer_id: str, query: str, developer_token: str | None = None
+    access_token: str,
+    customer_id: str,
+    query: str,
+    developer_token: str | None = None,
+    login_customer_id: str | None = None,
 ):
-    """
-    Run a GAQL (Google Ads Query Language) query via searchStream.
-    Returns the raw JSON: list[batch], each with "results".
-    """
+    customer_id_clean = "".join(ch for ch in str(customer_id) if ch.isdigit())
+    login_customer_id_clean = (
+        "".join(ch for ch in str(login_customer_id) if ch.isdigit())
+        if login_customer_id
+        else None
+    )
+
     headers = {
         "Authorization": f"Bearer {access_token}",
         "developer-token": developer_token or os.getenv("DEVELOPER_TOKEN"),
         "Content-Type": "application/json",
-        "login-customer-id": customer_id,
     }
+    if login_customer_id_clean:
+        headers["login-customer-id"] = login_customer_id_clean
+
+    url = f"{GOOGLE_ADS_SEARCH_URL}/{customer_id_clean}/googleAds:searchStream"
+
+    logger.info(
+        "📡 Calling Google Ads API: url=%s customer_id=%s login_customer_id=%s",
+        url,
+        customer_id_clean,
+        login_customer_id_clean,
+    )
 
     try:
         response = requests.post(
-            f"{GOOGLE_ADS_SEARCH_URL}/{customer_id}/googleAds:searchStream",
+            url,
             headers=headers,
             json={"query": query},
             timeout=30,
         )
         response.raise_for_status()
-        logger.info("✅ Google Ads query executed successfully.")
+        logger.info(
+            "✅ Google Ads query OK. customer_id=%s login_customer_id=%s",
+            customer_id_clean,
+            login_customer_id_clean,
+        )
         return response.json()
+    except requests.HTTPError as e:
+        logger.error(
+            "❌ Google Ads API query failed (HTTP %s): %s\n"
+            "customer_id=%s login_customer_id=%s\n"
+            "URL=%s\nQuery=%s\nBody=%s",
+            response.status_code if "response" in locals() else "N/A",
+            e,
+            customer_id_clean,
+            login_customer_id_clean,
+            url,
+            query,
+            getattr(response, "text", ""),
+        )
+        raise HTTPException(status_code=500, detail=f"Google Ads query failed: {e}")
     except Exception as e:
-        logger.error(f"❌ Google Ads API query failed: {e}")
+        logger.error(
+            "❌ Google Ads API query failed (non-HTTP): %s\n"
+            "customer_id=%s login_customer_id=%s\nURL=%s\nQuery=%s",
+            e,
+            customer_id_clean,
+            login_customer_id_clean,
+            url,
+            query,
+        )
         raise HTTPException(status_code=500, detail=f"Google Ads query failed: {e}")
 
 
@@ -494,7 +537,8 @@ def fetch_and_save_campaigns(
 
     refresh_token = credentials["refresh_token"]
     login_customer_id = credentials.get("login_customer_id")
-    customer_id = credentials.get("customer_id")
+    raw_customer_id = credentials.get("customer_id")
+    # customer_id = credentials.get("customer_id")
     developer_token = credentials.get("developer_token")
     currency_code = credentials.get("currency_code", "USD")
 
@@ -504,12 +548,56 @@ def fetch_and_save_campaigns(
         google_client_secret=credentials.get("google_client_secret"),
     )
 
-    customer_id = customer_id or login_customer_id or os.getenv("LOGIN_CUSTOMER_ID")
-    if not customer_id:
+    # customer_id = customer_id or login_customer_id or os.getenv("LOGIN_CUSTOMER_ID")
+    # if not customer_id:
+    #     raise HTTPException(
+    #         status_code=400,
+    #         detail="Missing login_customer_id for Google Ads request",
+    #     )
+     # -------------------- RESOLVE EFFECTIVE CUSTOMER --------------------
+    # We MUST query the *client* account (customer_id) to match the UI numbers.
+    # raw_customer_id = credentials.get("customer_id")
+    # if not raw_customer_id:
+    #     raise HTTPException(
+    #         status_code=400,
+    #         detail="Missing customer_id for Google Ads request. "
+    #                "Please ensure the client's Google Ads customer ID is stored.",
+    #     )
+
+    # # Clean IDs (remove dashes/spaces for safety; Google accepts either but we keep it clean)
+    # customer_id = "".join(ch for ch in str(raw_customer_id) if ch.isdigit())
+    # login_customer_id_clean = (
+    #     "".join(ch for ch in str(login_customer_id) if ch.isdigit())
+    #     if login_customer_id
+    #     else None
+    # )
+
+    if not raw_customer_id:
         raise HTTPException(
             status_code=400,
-            detail="Missing login_customer_id for Google Ads request",
+            detail="Missing customer_id for Google Ads request. "
+                   "Ensure the client's Google Ads customer ID is stored.",
         )
+    customer_id_clean = "".join(ch for ch in str(raw_customer_id) if ch.isdigit())
+
+    # manager / MCC account we call *through*
+    raw_login_customer_id = (
+        login_customer_id
+        or os.getenv("LOGIN_CUSTOMER_ID")
+    )
+    if not raw_login_customer_id:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Missing login_customer_id (MCC id). Google requires a manager customer id "
+                "in the 'login-customer-id' header when accessing a client customer. "
+                "Set LOGIN_CUSTOMER_ID env or store login_customer_id in GoogleAdsAccount."
+            ),
+        )
+
+    login_customer_id_clean = "".join(
+        ch for ch in str(raw_login_customer_id) if ch.isdigit()
+    )
 
     # -------------------- GAQL QUERIES --------------------
     campaign_query = f"""
@@ -583,7 +671,6 @@ def fetch_and_save_campaigns(
           metrics.conversions,
           metrics.conversions_value,
           metrics.cost_micros,
-          metrics.view_through_conversions,
           segments.date
         FROM campaign_asset
         WHERE segments.date BETWEEN '{start_date}' AND '{end_date}'
@@ -662,17 +749,11 @@ def fetch_and_save_campaigns(
           campaign.name,
           segments.date,
           segments.conversion_action,
-          conversion_action.resource_name,
-          conversion_action.name,
-          conversion_action.category,
-          conversion_action.type,
           metrics.conversions,
           metrics.conversions_value,
           metrics.all_conversions,
           metrics.all_conversions_value,
-          metrics.view_through_conversions,
-          metrics.cost_per_conversion,
-          metrics.cost_per_all_conversions
+          metrics.view_through_conversions
         FROM campaign
         WHERE segments.date BETWEEN '{start_date}' AND '{end_date}'
     """
@@ -692,77 +773,76 @@ def fetch_and_save_campaigns(
     """
 
     # -------------------- EXECUTE QUERIES --------------------
+    common_kwargs = {
+        "access_token": access_token,
+        "customer_id": customer_id_clean,
+        "developer_token": developer_token,
+        "login_customer_id": login_customer_id_clean,
+    }
+
     campaign_rows = run_google_ads_query(
-        access_token=access_token,
-        customer_id=customer_id,
         query=campaign_query,
-        developer_token=developer_token,
+        **common_kwargs,
     )
 
     asset_rows = run_google_ads_query(
-        access_token=access_token,
-        customer_id=customer_id,
         query=asset_query,
-        developer_token=developer_token,
+        **common_kwargs,
     )
 
     campaign_asset_rows = run_google_ads_query(
-        access_token=access_token,
-        customer_id=customer_id,
         query=campaign_asset_query,
-        developer_token=developer_token,
+        **common_kwargs,
     )
 
     asset_set_rows = run_google_ads_query(
-        access_token=access_token,
-        customer_id=customer_id,
         query=asset_set_query,
-        developer_token=developer_token,
+        **common_kwargs,
     )
 
     asset_set_asset_rows = run_google_ads_query(
-        access_token=access_token,
-        customer_id=customer_id,
         query=asset_set_asset_query,
-        developer_token=developer_token,
+        **common_kwargs,
     )
 
     campaign_asset_set_rows = run_google_ads_query(
-        access_token=access_token,
-        customer_id=customer_id,
         query=campaign_asset_set_query,
-        developer_token=developer_token,
+        **common_kwargs,
     )
 
     customer_asset_set_rows = run_google_ads_query(
-        access_token=access_token,
-        customer_id=customer_id,
         query=customer_asset_set_query,
-        developer_token=developer_token,
+        **common_kwargs,
     )
 
     conversion_action_rows = run_google_ads_query(
-        access_token=access_token,
-        customer_id=customer_id,
         query=conversion_action_query,
-        developer_token=developer_token,
+        **common_kwargs,
     )
 
     campaign_conv_by_action_rows = run_google_ads_query(
-        access_token=access_token,
-        customer_id=customer_id,
         query=campaign_conversion_by_action_query,
-        developer_token=developer_token,
+        **common_kwargs,
     )
 
     bidding_strategy_rows = run_google_ads_query(
-        access_token=access_token,
-        customer_id=customer_id,
         query=bidding_strategy_query,
-        developer_token=developer_token,
+        **common_kwargs,
     )
 
     # -------------------- CLEAR OLD CAMPAIGNS --------------------
+    # db.query(Campaign).filter(Campaign.client_id == client_db_id).delete()
+    # db.commit()
+
+    db.query(CampaignAssetPerformance).filter(
+        CampaignAssetPerformance.client_id == client_db_id
+    ).delete()
+    db.query(CampaignConversionStat).filter(
+        CampaignConversionStat.client_id == client_db_id
+    ).delete()
+    db.commit()
+
+    # 2) Now it's safe to delete the campaigns
     db.query(Campaign).filter(Campaign.client_id == client_db_id).delete()
     db.commit()
 

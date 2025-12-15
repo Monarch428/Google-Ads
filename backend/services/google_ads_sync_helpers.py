@@ -31,23 +31,45 @@ def save_campaigns_from_rows(db: Session, client_id: int, rows: list[dict]):
       { "results": [ { "campaign": {...}, "metrics": {...}, "segments": {...} }, ... ] },
       ...
     ]
+
+    Each row is already segmented only by segments.date, so this matches the
+    "Campaigns" view in the Google Ads UI when you use the same date range.
     """
+    # Clear existing rows for this client & date range is handled outside (in fetch_and_save_campaigns)
     for batch in rows:
         for row in batch.get("results", []):
-            campaign = row.get("campaign", {})
-            metrics = row.get("metrics", {})
-            segments = row.get("segments", {})
+            campaign = row.get("campaign", {}) or {}
+            metrics = row.get("metrics", {}) or {}
+            segments = row.get("segments", {}) or {}
 
             google_id = str(campaign.get("id")) if campaign.get("id") is not None else None
             resource_name = campaign.get("resourceName") or campaign.get("resource_name")
 
             date_val = _parse_date(segments.get("date"))
 
-            average_cpc_micros = metrics.get("averageCpc", 0) or 0
-            average_cpc = average_cpc_micros / 1_000_000
+            # GA JSON uses camelCase (averageCpc, costMicros, conversionsValue, etc.)
+            average_cpc_micros = float(metrics.get("averageCpc", 0) or 0)
+            average_cpc = average_cpc_micros / 1_000_000 if average_cpc_micros else 0.0
 
-            cost_micros = metrics.get("costMicros", 0) or 0
-            cost = cost_micros / 1_000_000
+            cost_micros = float(metrics.get("costMicros", 0) or 0)
+            cost = cost_micros / 1_000_000 if cost_micros else 0.0
+
+            impressions = int(metrics.get("impressions", 0) or 0)
+            clicks = int(metrics.get("clicks", 0) or 0)
+            conversions = float(metrics.get("conversions", 0.0) or 0.0)
+            ctr = float(metrics.get("ctr", 0.0) or 0.0)
+
+            conversion_value = float(metrics.get("conversionsValue", 0.0) or 0.0)
+            cost_per_conversion_micros = float(metrics.get("costPerConversion", 0.0) or 0.0)
+            cost_per_conversion = (
+                cost_per_conversion_micros / 1_000_000 if cost_per_conversion_micros else 0.0
+            )
+
+            all_conversions = float(metrics.get("allConversions", 0.0) or 0.0)
+            all_conversions_value = float(metrics.get("allConversionsValue", 0.0) or 0.0)
+            view_through_conversions = float(
+                metrics.get("viewThroughConversions", 0.0) or 0.0
+            )
 
             obj = Campaign(
                 client_id=client_id,
@@ -64,18 +86,17 @@ def save_campaigns_from_rows(db: Session, client_id: int, rows: list[dict]):
                 end_date=_parse_date(campaign.get("endDate")),
                 serving_status=campaign.get("servingStatus"),
                 optimization_score=campaign.get("optimizationScore"),
-                impressions=metrics.get("impressions", 0),
-                clicks=metrics.get("clicks", 0),
-                conversions=metrics.get("conversions", 0.0),
-                ctr=metrics.get("ctr", 0.0),
+                impressions=impressions,
+                clicks=clicks,
+                conversions=conversions,
+                ctr=ctr,  # already percentage as in UI
                 average_cpc=average_cpc,
                 cost=cost,
-                conversion_value=metrics.get("conversionsValue", 0.0)
-                or metrics.get("conversionsValue", 0.0),
-                cost_per_conversion=metrics.get("costPerConversion", 0.0),
-                all_conversions=metrics.get("allConversions", 0.0),
-                all_conversions_value=metrics.get("allConversionsValue", 0.0),
-                view_through_conversions=metrics.get("viewThroughConversions", 0.0),
+                conversion_value=conversion_value,
+                cost_per_conversion=cost_per_conversion,
+                all_conversions=all_conversions,
+                all_conversions_value=all_conversions_value,
+                view_through_conversions=view_through_conversions,
                 date=date_val,
             )
             db.add(obj)
@@ -135,13 +156,19 @@ def save_assets_from_rows(db: Session, client_id: int, rows: list[dict]):
 
 
 def save_campaign_assets_from_rows(db: Session, client_id: int, rows: list[dict]):
+    # """
+    # rows = searchStream response from campaign_asset_query.
+    # """
     """
     rows = searchStream response from campaign_asset_query.
+
+    Assumes old CampaignAssetPerformance rows for this client were already
+    cleared in fetch_and_save_campaigns.
     """
-    db.query(CampaignAssetPerformance).filter(
-        CampaignAssetPerformance.client_id == client_id
-    ).delete()
-    db.commit()
+    # db.query(CampaignAssetPerformance).filter(
+    #     CampaignAssetPerformance.client_id == client_id
+    # ).delete()
+    # db.commit()
 
     campaigns_by_resource = {
         c.resource_name: c
@@ -351,10 +378,16 @@ def save_campaign_conversion_stats_from_rows(
     client_id: int,
     rows: list[dict],
 ):
-    db.query(CampaignConversionStat).filter(
-        CampaignConversionStat.client_id == client_id
-    ).delete()
-    db.commit()
+    """
+    rows = searchStream response from campaign_conversion_by_action_query.
+
+    Assumes old CampaignConversionStat rows for this client were already
+    cleared in fetch_and_save_campaigns.
+    """
+    # db.query(CampaignConversionStat).filter(
+    #     CampaignConversionStat.client_id == client_id
+    # ).delete()
+    # db.commit()
 
     campaigns_by_resource = {
         c.resource_name: c

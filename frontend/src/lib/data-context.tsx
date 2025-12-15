@@ -38,6 +38,11 @@ type CampaignSummary = {
   averageCpc: number;
 };
 
+type DateRange = {
+  startDate: string;
+  endDate: string;
+};
+
 type DataContextValue = {
   clients: Client[];
   clientsLoading: boolean;
@@ -69,6 +74,11 @@ type DataContextValue = {
     endDate: string,
   ) => Promise<GoogleAdsSyncResponse>;
   syncGoogleAdsDaily: (clientId: string, customerId: string) => Promise<GoogleAdsSyncResponse>;
+
+  // Global date range and sync state
+  dateRange: DateRange;
+  setDateRange: (range: DateRange) => void;
+  isSyncingGoogleAds: boolean;
 };
 
 const DataContext = createContext<DataContextValue | undefined>(undefined);
@@ -151,21 +161,21 @@ function mapClients(
     return [];
   }
 
-    return backendClients.map((client, index) => {
-      const metrics = metricsByClient.get(client.id) ?? {
-        impressions: 0,
-        clicks: 0,
-        conversions: 0,
-        cost: 0,
-        conversionValue: 0,
-      };
+  return backendClients.map((client, index) => {
+    const metrics = metricsByClient.get(client.id) ?? {
+      impressions: 0,
+      clicks: 0,
+      conversions: 0,
+      cost: 0,
+      conversionValue: 0,
+    };
 
     const customerIds =
       client.customer_ids && client.customer_ids.length > 0
         ? client.customer_ids
         : client.customer_id
-        ? client.customer_id.split(",").map((value) => value.trim()).filter(Boolean)
-        : [];
+          ? client.customer_id.split(",").map((value) => value.trim()).filter(Boolean)
+          : [];
 
     const impressions = Number(metrics.impressions ?? 0);
     const clicks = Number(metrics.clicks ?? 0);
@@ -177,46 +187,47 @@ function mapClients(
         ? Number(client.monthly_budget)
         : undefined;
 
-      const ctr = impressions > 0 ? (clicks / impressions) * 100 : 0;
-      const conversionRate = clicks > 0 ? (conversions / clicks) * 100 : 0;
-      const cpa = conversions > 0 ? cost / conversions : 0;
+    const ctr = impressions > 0 ? (clicks / impressions) * 100 : 0;
+    const conversionRate = clicks > 0 ? (conversions / clicks) * 100 : 0;
+    const cpa = conversions > 0 ? cost / conversions : 0;
 
-      const revenue = metrics.conversionValue > 0 ? metrics.conversionValue : conversions > 0 ? conversions * 120 : 0;
-      const roas = cost > 0 && revenue > 0 ? revenue / cost : 0;
+    const revenue = metrics.conversionValue > 0 ? metrics.conversionValue : conversions > 0 ? conversions * 120 : 0;
+    const roas = cost > 0 && revenue > 0 ? revenue / cost : 0;
+
     const hasGoogleOAuth =
       typeof client.has_google_ads_auth === "boolean"
         ? client.has_google_ads_auth
         : Boolean(client.refresh_token);
 
-      return {
-        id: String(client.id),
-        name: client.name || `Client ${index + 1}`,
-        adSpend: Number(cost.toFixed(2)),
-        currencyCode: client.currency_code || "USD",
-        conversions,
-        ctr: Number(ctr.toFixed(2)),
-        cpa: Number(cpa.toFixed(2)),
-        conversionRate: Number(conversionRate.toFixed(2)),
-        revenue: Number(revenue.toFixed(2)),
-        impressions,
-        clicks,
-        roas: Number(roas.toFixed(2)),
-        status: deriveStatus(conversionRate, ctr, conversions, "critical"),
-        industry: client.industry || undefined,
-        monthlyBudget,
-        customerIds,
-        assignedManagerId:
-          client.assigned_manager_id != null
-            ? String(client.assigned_manager_id)
-            : undefined,
-        createdById:
-          client.created_by_id != null ? String(client.created_by_id) : undefined,
-        hasGoogleOAuth,
-        customerId: client.customer_id ?? undefined,
-        loginCustomerId: client.login_customer_id ?? undefined,
-      };
-    });
-  }
+    return {
+      id: String(client.id),
+      name: client.name || `Client ${index + 1}`,
+      adSpend: Number(cost.toFixed(2)),
+      currencyCode: client.currency_code || "USD",
+      conversions,
+      ctr: Number(ctr.toFixed(2)),
+      cpa: Number(cpa.toFixed(2)),
+      conversionRate: Number(conversionRate.toFixed(2)),
+      revenue: Number(revenue.toFixed(2)),
+      impressions,
+      clicks,
+      roas: Number(roas.toFixed(2)),
+      status: deriveStatus(conversionRate, ctr, conversions, "critical"),
+      industry: client.industry || undefined,
+      monthlyBudget,
+      customerIds,
+      assignedManagerId:
+        client.assigned_manager_id != null
+          ? String(client.assigned_manager_id)
+          : undefined,
+      createdById:
+        client.created_by_id != null ? String(client.created_by_id) : undefined,
+      hasGoogleOAuth,
+      customerId: client.customer_id ?? undefined,
+      loginCustomerId: client.login_customer_id ?? undefined,
+    };
+  });
+}
 
 function normalizePriority(priority: BackendRecommendation["priority"], fallback: AIRecommendation["priority"]): AIRecommendation["priority"] {
   if (!priority) return fallback;
@@ -364,6 +375,17 @@ function mapManagers(
   });
 }
 
+function getDefaultDateRange(): DateRange {
+  const today = new Date();
+  const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+  const toISO = (d: Date) => d.toISOString().slice(0, 10);
+
+  return {
+    startDate: toISO(startOfMonth),
+    endDate: toISO(today),
+  };
+}
+
 export function DataProvider({
   children,
   authToken,
@@ -392,6 +414,22 @@ export function DataProvider({
   const [recommendations, setRecommendations] = useState<AIRecommendation[]>([]);
   const [recommendationsLoading, setRecommendationsLoading] = useState(true);
   const [recommendationsError, setRecommendationsError] = useState<string | null>(null);
+
+  // Global date range and sync flag
+  const [dateRange, setDateRangeState] = useState<DateRange>(() => getDefaultDateRange());
+  const [isSyncingGoogleAds, setIsSyncingGoogleAds] = useState(false);
+
+  const setDateRange = useCallback((range: DateRange) => {
+    setDateRangeState((prev) => {
+      if (
+        prev.startDate === range.startDate &&
+        prev.endDate === range.endDate
+      ) {
+        return prev;
+      }
+      return range;
+    });
+  }, []);
 
   const loadClients = useCallback(async () => {
     if (!authToken) {
@@ -564,16 +602,30 @@ export function DataProvider({
         throw new Error("Sign in to sync Google Ads data");
       }
 
+      // Update global date range and mark syncing
+      setDateRange({ startDate, endDate });
+      setIsSyncingGoogleAds(true);
+
       try {
-        const response = await fetchGoogleAdsRange(clientId, startDate, endDate, authToken, customerId);
+        const response = await fetchGoogleAdsRange(
+          clientId,
+          startDate,
+          endDate,
+          authToken,
+          customerId,
+        );
+
         await Promise.all([loadClients(), loadRecommendations()]);
         return response;
       } catch (error) {
         const message = error instanceof Error ? error.message : "Failed to sync Google Ads data";
+        console.error(message, error);
         throw error;
+      } finally {
+        setIsSyncingGoogleAds(false);
       }
     },
-    [authToken, loadClients, loadRecommendations],
+    [authToken, loadClients, loadRecommendations, setDateRange],
   );
 
   const handleSyncGoogleAdsDaily = useCallback(
@@ -582,13 +634,18 @@ export function DataProvider({
         throw new Error("Sign in to sync Google Ads data");
       }
 
+      setIsSyncingGoogleAds(true);
+
       try {
         const response = await fetchGoogleAdsDaily(clientId, authToken, customerId);
         await Promise.all([loadClients(), loadRecommendations()]);
         return response;
       } catch (error) {
         const message = error instanceof Error ? error.message : "Failed to sync Google Ads data";
+        console.error(message, error);
         throw error;
+      } finally {
+        setIsSyncingGoogleAds(false);
       }
     },
     [authToken, loadClients, loadRecommendations],
@@ -632,6 +689,10 @@ export function DataProvider({
     authDetails: authDetails ?? null,
     syncGoogleAdsRange: handleSyncGoogleAdsRange,
     syncGoogleAdsDaily: handleSyncGoogleAdsDaily,
+
+    dateRange,
+    setDateRange,
+    isSyncingGoogleAds,
   }), [
     clients,
     clientsLoading,
@@ -658,6 +719,9 @@ export function DataProvider({
     authDetails,
     handleSyncGoogleAdsRange,
     handleSyncGoogleAdsDaily,
+    dateRange,
+    setDateRange,
+    isSyncingGoogleAds,
   ]);
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
