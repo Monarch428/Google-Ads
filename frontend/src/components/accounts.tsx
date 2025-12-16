@@ -54,6 +54,7 @@ export function Accounts({ onClientClick }: AccountsProps) {
   const { clients, clientsLoading, deleteClient, updateClient, viewerRole } = useData();
   const { dateRange } = useGoogleAdsSync();
   const rangeLabel = formatDateRangeLabel(dateRange);
+  const hasWorkspaceOAuth = clients.some((client) => client.hasGoogleOAuth);
 
   const isAdmin = viewerRole === "admin";
   const hasClients = clients.length > 0;
@@ -160,10 +161,12 @@ export function Accounts({ onClientClick }: AccountsProps) {
    * Launch the Google OAuth flow for a particular client record.
    * Backend is expected to expose /auth/google-connect?client_db_id=<id>
    */
-  const handleGoogleOAuthConnect = (clientId: string | number, clientName: string) => {
+  // const handleGoogleOAuthConnect = (clientId: string | number, clientName: string) => {
     // ensure clientId is string and safely encoded
-    const idStr = String(clientId);
-    const oauthUrl = `${API_BASE_URL}/auth/google-connect?client_db_id=${encodeURIComponent(idStr)}`;
+    // const idStr = String(clientId);
+    // const oauthUrl = `${API_BASE_URL}/auth/google-connect?client_db_id=${encodeURIComponent(idStr)}`;
+    const handleWorkspaceOAuth = () => {
+    const oauthUrl = `${API_BASE_URL}/auth/google-connect?apply_to_all=true`;
 
     if (typeof window === "undefined") {
       toast.error("Unable to launch Google OAuth", {
@@ -175,7 +178,7 @@ export function Accounts({ onClientClick }: AccountsProps) {
     try {
       window.location.assign(oauthUrl);
       toast.info("Redirecting to Google OAuth", {
-        description: `Complete the Google consent screen for ${clientName} to sync live Google Ads data.`,
+        description: "Use your MCC account to authorize Google Ads for all clients.",
       });
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unable to start OAuth";
@@ -192,6 +195,26 @@ export function Accounts({ onClientClick }: AccountsProps) {
       </div>
 
       <p className="text-xs text-slate-500">Applying {rangeLabel} to Google Ads sync operations</p>
+
+      <Card className="border-slate-200 bg-slate-50">
+        <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between pt-4">
+          <div>
+            <p className="text-sm font-semibold text-slate-800">MCC OAuth</p>
+            <p className="text-xs text-slate-600">
+              Connect once with your manager account. The resulting refresh token is stored for every client automatically.
+            </p>
+            <p className="mt-1 text-xs font-medium text-slate-700">
+              Status: {hasWorkspaceOAuth ? "Connected" : "Not connected"}
+            </p>
+          </div>
+          <Button
+            variant={hasWorkspaceOAuth ? "secondary" : "default"}
+            onClick={handleWorkspaceOAuth}
+          >
+            {hasWorkspaceOAuth ? "Reconnect Google OAuth" : "Connect Google OAuth"}
+          </Button>
+        </CardContent>
+      </Card>
 
       {/* Client Accounts List */}
       <Card>
@@ -223,7 +246,7 @@ export function Accounts({ onClientClick }: AccountsProps) {
                   <TableHead className="text-right">Ad Spend</TableHead>
                   <TableHead className="text-right">Conversions</TableHead>
                   <TableHead className="text-right">ROAS</TableHead>
-                  <TableHead className="text-center">Google OAuth</TableHead>
+                  <TableHead className="text-center">MCC OAuth</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -267,18 +290,21 @@ export function Accounts({ onClientClick }: AccountsProps) {
                       <p className="text-sm text-slate-900">{client.roas.toFixed(2)}x</p>
                     </TableCell>
                     <TableCell className="text-center">
-                      {client.hasGoogleOAuth ? (
+                      {hasWorkspaceOAuth ? (
                         <span className="inline-flex items-center justify-center rounded-full bg-green-50 px-3 py-1 text-xs font-medium text-green-700">
                           Connected
                         </span>
                       ) : (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleGoogleOAuthConnect(client.id, client.name)}
-                        >
-                          Connect
-                        </Button>
+                        // <Button
+                        //   size="sm"
+                        //   variant="outline"
+                        //   onClick={() => handleGoogleOAuthConnect(client.id, client.name)}
+                        // >
+                        //   Connect
+                        // </Button>
+                        <span className="inline-flex items-center justify-center rounded-full bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700">
+                          Connect MCC OAuth
+                        </span>
                       )}
                     </TableCell>
                     <TableCell className="text-right">

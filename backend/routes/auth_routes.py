@@ -20,7 +20,11 @@ from services.auth_service import (
     create_refresh_token,
     decode_token,
 )
-from services.google_oauth_service import save_google_account
+# from services.google_oauth_service import save_google_account
+from services.google_oauth_service import (
+    save_google_account,
+    sync_refresh_token_to_all_clients,
+)
 # other model imports are used dynamically in callbacks (user_model)
 
 from services.auth_service import register_user, login_user, create_access_token, create_refresh_token, decode_token
@@ -72,8 +76,10 @@ def _set_session_cookies(resp: Response, access_token: str, refresh_token: str):
 
 
 # ---------- Helpers for state (encode client_db_id into state) -------------
-def _encode_state(nonce: str, client_db_id: str | None) -> str:
-    payload = {"nonce": nonce, "client_db_id": client_db_id}
+# def _encode_state(nonce: str, client_db_id: str | None) -> str:
+#     payload = {"nonce": nonce, "client_db_id": client_db_id}
+def _encode_state(nonce: str, client_db_id: str | None, apply_to_all: bool = False) -> str:
+    payload = {"nonce": nonce, "client_db_id": client_db_id, "apply_to_all": apply_to_all}
     raw = json.dumps(payload).encode("utf-8")
     return base64.urlsafe_b64encode(raw).decode("utf-8")
 
@@ -105,7 +111,7 @@ def login(user_data: UserLogin, db: Session = Depends(get_db)):
 
 # ---------------------- Google OAuth: connect ------------------------------
 @router.get("/google-connect")
-async def google_connect(client_db_id: str | None = None):
+async def google_connect(client_db_id: str | None = None, apply_to_all: bool = False):
     """
     Redirects user to Google OAuth consent screen.
     Optional query param client_db_id will be encoded into state so the callback can persist refresh_token.
@@ -126,7 +132,7 @@ async def google_connect(client_db_id: str | None = None):
         )
 
     nonce = secrets.token_urlsafe(24)
-    state_token = _encode_state(nonce, client_db_id)
+    state_token = _encode_state(nonce, client_db_id, apply_to_all)
 
     params = {
         "client_id": CLIENT_ID,
@@ -179,6 +185,7 @@ async def google_callback(
 
     decoded = _decode_state(state)
     client_db_id = decoded.get("client_db_id") if decoded else None
+    apply_to_all_clients = bool(decoded.get("apply_to_all")) if decoded else False
     is_client_connect_flow = bool(client_db_id)
     if client_db_id:
         print(f"Decoded client_db_id from state: {client_db_id}")
@@ -223,22 +230,54 @@ async def google_callback(
         return RedirectResponse(f"{FRONTEND_BASE}/login?error=no_google_access_token")
 
     # Persist refresh token into google_ads_accounts when client_db_id present
-    if refresh_token_google and client_db_id:
-        try:
-            save_google_account(
-                db=db,
-                client_db_id=int(client_db_id),
-                tokens={"refresh_token": refresh_token_google},
-                login_customer_id=None,
-                developer_token=os.getenv("DEVELOPER_TOKEN"),
-            )
-            print(
-                f"✅ Persisted refresh_token into google_ads_accounts for client_id={client_db_id}"
-            )
-        except HTTPException as exc:
-            print(
-                f"❌ Failed to persist refresh token to DB for client_id={client_db_id}: {exc.detail}"
-            )
+    # if refresh_token_google and client_db_id:
+    #     try:
+    #         save_google_account(
+    #             db=db,
+    #             client_db_id=int(client_db_id),
+    #             tokens={"refresh_token": refresh_token_google},
+    #             login_customer_id=None,
+    #             developer_token=os.getenv("DEVELOPER_TOKEN"),
+    #         )
+    #         print(
+    #             f"✅ Persisted refresh_token into google_ads_accounts for client_id={client_db_id}"
+    #         )
+    #     except HTTPException as exc:
+    #         print(
+    #             f"❌ Failed to persist refresh token to DB for client_id={client_db_id}: {exc.detail}"
+    #         )
+
+    if refresh_token_google:
+        if apply_to_all_clients:
+            try:
+                updated = sync_refresh_token_to_all_clients(
+                    db=db,
+                    refresh_token=refresh_token_google,
+                    developer_token=os.getenv("DEVELOPER_TOKEN"),
+                )
+                logger.info(
+                    "Applied MCC refresh token to %s client accounts", updated
+                )
+            except Exception as exc:
+                logger.exception(
+                    "Failed to propagate refresh token to all clients: %s", exc
+                )
+        elif client_db_id:
+            try:
+                save_google_account(
+                    db=db,
+                    client_db_id=int(client_db_id),
+                    tokens={"refresh_token": refresh_token_google},
+                    login_customer_id=None,
+                    developer_token=os.getenv("DEVELOPER_TOKEN"),
+                )
+                print(
+                    f"✅ Persisted refresh_token into google_ads_accounts for client_id={client_db_id}"
+                )
+            except HTTPException as exc:
+                print(
+                    f"❌ Failed to persist refresh token to DB for client_id={client_db_id}: {exc.detail}"
+                )
 
 # If this OAuth run was initiated from the "connect client" flow, finish early without requiring an app user
     if is_client_connect_flow:
@@ -249,6 +288,13 @@ async def google_callback(
             "Google OAuth callback completed for client connection (client_db_id=%s)",
             client_db_id,
         )
+        return resp
+
+    if apply_to_all_clients:
+        redirect_target = f"{FRONTEND_BASE}/dashboard?google_auth=workspace_success"
+        resp = RedirectResponse(url=redirect_target, status_code=302)
+        resp.delete_cookie("oauth_state", path="/")
+        logger.info("Google OAuth callback completed for MCC workspace token")
         return resp
 
     # Get userinfo to read verified email and proceed with app login flow

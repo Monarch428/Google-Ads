@@ -43,7 +43,7 @@ import { GoogleAdsSyncControls } from "./google-ads-sync-controls";
 type ClientFormState = {
   name: string;
   email: string;
-  refresh_token: string;
+  // refresh_token: string;
   customer_ids: string[];
   assigned_manager_id: string;
   currency_code: string;
@@ -115,7 +115,7 @@ export function DashboardOverview({
     recommendationsLoading,
     refreshClients,
     authToken,
-    refreshToken,
+    // refreshToken,
     viewerRole,
     authDetails,
 
@@ -133,13 +133,13 @@ export function DashboardOverview({
     (): ClientFormState => ({
       name: "",
       email: "",
-      refresh_token: refreshToken ?? "",
+      // refresh_token: refreshToken ?? "",
       customer_ids: [],
       assigned_manager_id: "",
       currency_code: "USD",
       monthly_budget: "",
     }),
-    [refreshToken],
+    [],
   );
 
   const [clientForm, setClientForm] = useState<ClientFormState>(() =>
@@ -149,10 +149,12 @@ export function DashboardOverview({
   const [isSubmittingClient, setIsSubmittingClient] = useState(false);
   const [customerIdError, setCustomerIdError] = useState<string | null>(null);
 
-  const oauthPendingClients = authToken
-    ? clients.filter((client) => !client.hasGoogleOAuth)
-    : [];
-  const showGoogleOAuthReminder = oauthPendingClients.length > 0;
+  // const oauthPendingClients = authToken
+  //   ? clients.filter((client) => !client.hasGoogleOAuth)
+  //   : [];
+  // const showGoogleOAuthReminder = oauthPendingClients.length > 0;
+  const hasWorkspaceOAuth = clients.some((client) => client.hasGoogleOAuth);
+  const showGoogleOAuthReminder = authToken ? !hasWorkspaceOAuth : false;
 
   // NEW: quick range selector state (kept in sync with global dateRange)
   const [quickRange, setQuickRange] = useState<QuickRange>("30days");
@@ -216,11 +218,13 @@ export function DashboardOverview({
     setDateRange(range);
   };
 
-  const launchClientOAuth = useCallback((clientId: string | number, clientName: string) => {
-    const idStr = String(clientId);
-    const oauthUrl = `${API_BASE_URL}/auth/google-connect?client_db_id=${encodeURIComponent(
-      idStr,
-    )}`;
+  // const launchClientOAuth = useCallback((clientId: string | number, clientName: string) => {
+  //   const idStr = String(clientId);
+  //   const oauthUrl = `${API_BASE_URL}/auth/google-connect?client_db_id=${encodeURIComponent(
+  //     idStr,
+  //   )}`;
+    const launchWorkspaceOAuth = useCallback(() => {
+      const oauthUrl = `${API_BASE_URL}/auth/google-connect?apply_to_all=true`;
 
     if (typeof window === "undefined") {
       toast.error("Unable to launch Google OAuth", {
@@ -233,7 +237,7 @@ export function DashboardOverview({
       window.location.assign(oauthUrl);
 
       toast.info("Redirecting to Google OAuth", {
-        description: `Complete the consent screen for ${clientName} to finish connecting this account.`,
+        description: "Use your MCC to grant access once for all managed clients.",
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unable to start OAuth";
@@ -243,13 +247,16 @@ export function DashboardOverview({
 
   const handleClientDialogChange = (open: boolean) => {
     setIsAddClientDialogOpen(open);
-    if (open) {
-      setClientForm((prev) => ({ ...prev, refresh_token: refreshToken ?? "" }));
-    } else {
-      setClientForm(createInitialClientForm());
-      setCustomerIdError(null);
-      setCustomerIdInput("");
-    }
+    // if (open) {
+    //   setClientForm((prev) => ({ ...prev, refresh_token: refreshToken ?? "" }));
+    // } else {
+    //   setClientForm(createInitialClientForm());
+    //   setCustomerIdError(null);
+    //   setCustomerIdInput("");
+    // }
+    setClientForm(createInitialClientForm());
+    setCustomerIdError(null);
+    setCustomerIdInput("");
   };
 
   const handleClientInputChange =
@@ -301,12 +308,12 @@ export function DashboardOverview({
       return;
     }
 
-    if (!refreshToken) {
-      toast.error("Session expired", {
-        description: "Please sign in again to manage clients.",
-      });
-      return;
-    }
+    // if (!refreshToken) {
+    //   toast.error("Session expired", {
+    //     description: "Please sign in again to manage clients.",
+    //   });
+    //   return;
+    // }
 
     if (!STATIC_DEVELOPER_TOKEN) {
       toast.error("Configuration required", {
@@ -334,7 +341,7 @@ export function DashboardOverview({
     const requiredFields: Array<keyof ClientFormState> = [
       "name",
       "email",
-      "refresh_token",
+      // "refresh_token",
       "currency_code",
     ];
 
@@ -379,7 +386,7 @@ export function DashboardOverview({
         developer_token: developerToken,
         client_id: STATIC_CLIENT_ID,
         client_secret: STATIC_CLIENT_SECRET,
-        refresh_token: clientForm.refresh_token.trim(),
+        // refresh_token: clientForm.refresh_token.trim(),
         customer_ids: sanitizedCustomerIds,
         login_customer_id: loginCustomerId,
         currency_code: clientForm.currency_code,
@@ -391,18 +398,23 @@ export function DashboardOverview({
           : undefined,
       };
 
+      // const newClient = await createClient(payload, { accessToken: authToken, refreshToken });
       const newClient = await createClient(payload, { accessToken: authToken, refreshToken });
       await refreshClients();
-      toast.success("Client connected", {
-        description: `${clientForm.name} is now available in your workspace. Launching Google OAuth...`,
+      // toast.success("Client connected", {
+      //   description: `${clientForm.name} is now available in your workspace. Launching Google OAuth...`,
+      toast.success("Client added", {
+        description: hasWorkspaceOAuth
+          ? `${clientForm.name} is now available. MCC authentication will be reused for syncing.`
+          : "Connect your MCC Google OAuth to start syncing this account.",
       });
       setIsAddClientDialogOpen(false);
       setClientForm(createInitialClientForm());
 
-      if (newClient?.id != null) {
-        const clientName = newClient.name ?? (clientForm.name || "new client");
-        launchClientOAuth(newClient.id, clientName);
-      }
+      // if (newClient?.id != null) {
+      //   const clientName = newClient.name ?? (clientForm.name || "new client");
+      //   launchClientOAuth(newClient.id, clientName);
+      // }
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Unable to create client";
@@ -412,11 +424,11 @@ export function DashboardOverview({
     }
   };
 
-  useEffect(() => {
-    if (isAddClientDialogOpen) {
-      setClientForm((prev) => ({ ...prev, refresh_token: refreshToken ?? "" }));
-    }
-  }, [isAddClientDialogOpen, refreshToken]);
+  // useEffect(() => {
+  //   if (isAddClientDialogOpen) {
+  //     setClientForm((prev) => ({ ...prev, refresh_token: refreshToken ?? "" }));
+  //   }
+  // }, [isAddClientDialogOpen, refreshToken]);
 
   const maskToken = useCallback((token: string) => {
     if (!token) return "";
@@ -529,6 +541,25 @@ export function DashboardOverview({
                       </details>
                     </div>
                   )}
+                  <div className="mb-6 rounded-lg border border-slate-200 bg-slate-50 p-4">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <p className="text-sm font-semibold text-slate-800">MCC account</p>
+                        <p className="text-xs text-slate-600">
+                          Connect your Google Ads manager account once; the refresh token will be saved to every client automatically.
+                        </p>
+                        <p className="mt-1 text-xs font-medium text-slate-700">
+                          Status: {hasWorkspaceOAuth ? "Connected" : "Not connected"}
+                        </p>
+                      </div>
+                      <Button
+                        variant={hasWorkspaceOAuth ? "secondary" : "default"}
+                        onClick={launchWorkspaceOAuth}
+                      >
+                        {hasWorkspaceOAuth ? "Reconnect Google OAuth" : "Connect Google OAuth"}
+                      </Button>
+                    </div>
+                  </div>
                   <div className="py-4">
                     <div className="grid grid-cols-2 gap-x-6 gap-y-4">
                       {/* Left Column */}
@@ -621,7 +652,7 @@ export function DashboardOverview({
                               or spaces. Duplicates are ignored.
                             </p>
                           </div>
-                          <div className="space-y-2">
+                          {/* <div className="space-y-2">
                             <Label htmlFor="refresh-token">Refresh Token</Label>
                             <Input
                               id="refresh-token"
@@ -630,7 +661,7 @@ export function DashboardOverview({
                               value={clientForm.refresh_token}
                               onChange={handleClientInputChange("refresh_token")}
                             />
-                          </div>
+                          </div> */}
                         </div>
                       </div>
 
@@ -774,20 +805,21 @@ export function DashboardOverview({
             <div className="flex items-start gap-3">
               <AlertTriangle className="mt-1 h-5 w-5 text-amber-600" />
               <div>
-                <AlertTitle>Connect Google OAuth for client data</AlertTitle>
+                <AlertTitle>Connect your MCC Google OAuth</AlertTitle>
                 <AlertDescription>
-                  {oauthPendingClients.length === 1
+                  {/* {oauthPendingClients.length === 1
                     ? `${oauthPendingClients[0].name} still needs Google OAuth before live metrics and AI recommendations can sync.`
-                    : `${oauthPendingClients.length} client accounts still need Google OAuth before live metrics and recommendations can sync.`}
+                    : `${oauthPendingClients.length} client accounts still need Google OAuth before live metrics and recommendations can sync.`} */}
+                  Authorize your manager account once to reuse the same refresh token across every client account.
                 </AlertDescription>
               </div>
             </div>
             <Button
               variant="outline"
               size="sm"
-              onClick={() => onNavigate?.("accounts")}
+              onClick={launchWorkspaceOAuth}
             >
-              Review client connections
+              Connect now
             </Button>
           </div>
         </Alert>
