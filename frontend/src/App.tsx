@@ -6,7 +6,7 @@ import { LoginPage } from "./components/auth/login-page";
 import { AuthResponse, BackendUser } from "./lib/api";
 import { Toaster } from "./components/ui/sonner";
 import { useRouter } from "./lib/router";
-import { toast } from "sonner@2.0.3";
+import { toast } from "sonner";
 import type { AuthDetails, AuthMethod } from "./lib/auth-types";
 
 const AUTH_TOKEN_KEY = "aaa_auth_token";
@@ -202,7 +202,9 @@ export default function App() {
     navigate("/login", { replace: true });
   }, [navigate]);
 
-  let content: JSX.Element;
+  // let content: JSX.Element;
+  let content: React.ReactNode;
+
 
   if (isOnGoogleCallback) {
     content = (

@@ -1,4 +1,12 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  useRef,
+} from "react";
 import { Client, Manager, AIRecommendation } from "./mock-data";
 import {
   fetchCampaigns,
@@ -47,37 +55,39 @@ type DataContextValue = {
   clients: Client[];
   clientsLoading: boolean;
   clientsError: string | null;
+
   managers: Manager[];
   managersLoading: boolean;
   managersError: string | null;
+
   campaigns: CampaignSummary[];
+
   refreshClients: () => Promise<void>;
   refreshManagers: () => Promise<void>;
+
   recommendations: AIRecommendation[];
   recommendationsLoading: boolean;
   recommendationsError: string | null;
   refreshRecommendations: () => Promise<void>;
+
   approveRecommendation: (recId: string) => Promise<void>;
   dismissRecommendation: (recId: string) => Promise<void>;
+
   updateClient: (clientId: string, payload: Partial<BackendClient>) => Promise<void>;
   deleteClient: (clientId: string) => Promise<void>;
   deleteManager: (managerId: string) => Promise<void>;
+
   authToken?: string;
   refreshToken?: string | null;
   viewerRole: string;
   currentUser?: BackendUser;
   authDetails: AuthDetails | null;
-  syncGoogleAdsRange: (
-    clientId: string,
-    customerId: string,
-    startDate: string,
-    endDate: string,
-  ) => Promise<GoogleAdsSyncResponse>;
-  syncGoogleAdsDaily: (clientId: string, customerId: string) => Promise<GoogleAdsSyncResponse>;
 
   // Global date range and sync state
   dateRange: DateRange;
   setDateRange: (range: DateRange) => void;
+  syncGoogleAdsDaily: () => Promise<void>;
+  syncGoogleAdsRange: (startDate: string, endDate: string) => Promise<void>;
   isSyncingGoogleAds: boolean;
 };
 
@@ -85,16 +95,26 @@ const DataContext = createContext<DataContextValue | undefined>(undefined);
 
 function buildCampaignSummaries(campaigns: BackendCampaign[]): {
   summaries: CampaignSummary[];
-  metricsByClient: Map<number, { impressions: number; clicks: number; conversions: number; cost: number; conversionValue: number }>;
+  metricsByClient: Map<
+    number,
+    { impressions: number; clicks: number; conversions: number; cost: number; conversionValue: number }
+  >;
 } {
-  const metricsByClient = new Map<number, { impressions: number; clicks: number; conversions: number; cost: number; conversionValue: number }>();
+  const metricsByClient = new Map<
+    number,
+    { impressions: number; clicks: number; conversions: number; cost: number; conversionValue: number }
+  >();
+
   const summaries: CampaignSummary[] = campaigns.map((campaign) => {
     const impressions = Number(campaign.impressions ?? 0);
     const clicks = Number(campaign.clicks ?? 0);
     const conversions = Number(campaign.conversions ?? 0);
     const cost = Number(campaign.cost ?? 0);
     const conversionValue = Number(campaign.conversion_value ?? 0);
-    const costPerConversion = Number(campaign.cost_per_conversion ?? 0) || (conversions > 0 ? cost / conversions : 0);
+
+    const costPerConversion =
+      Number(campaign.cost_per_conversion ?? 0) || (conversions > 0 ? cost / conversions : 0);
+
     const averageCpc = Number(campaign.average_cpc ?? 0) || (clicks > 0 ? cost / clicks : 0);
 
     const ctr = impressions > 0 ? (clicks / impressions) * 100 : Number(campaign.ctr ?? 0);
@@ -137,29 +157,25 @@ function buildCampaignSummaries(campaigns: BackendCampaign[]): {
   return { summaries, metricsByClient };
 }
 
-function deriveStatus(conversionRate: number, ctr: number, conversions: number, fallback: ClientStatus): ClientStatus {
+function deriveStatus(
+  conversionRate: number,
+  ctr: number,
+  conversions: number,
+  fallback: ClientStatus,
+): ClientStatus {
   if (conversions === 0 && conversionRate === 0 && ctr === 0) {
     return fallback;
   }
-
-  if (conversionRate >= 4 && ctr >= 3) {
-    return "healthy";
-  }
-
-  if (conversionRate >= 2 || ctr >= 2) {
-    return "warning";
-  }
-
+  if (conversionRate >= 4 && ctr >= 3) return "healthy";
+  if (conversionRate >= 2 || ctr >= 2) return "warning";
   return "critical";
 }
 
 function mapClients(
   backendClients: BackendClient[],
-  metricsByClient: Map<number, { impressions: number; clicks: number; conversions: number; cost: number; conversionValue: number }>
+  metricsByClient: Map<number, { impressions: number; clicks: number; conversions: number; cost: number; conversionValue: number }>,
 ): Client[] {
-  if (!backendClients.length) {
-    return [];
-  }
+  if (!backendClients.length) return [];
 
   return backendClients.map((client, index) => {
     const metrics = metricsByClient.get(client.id) ?? {
@@ -174,7 +190,10 @@ function mapClients(
       client.customer_ids && client.customer_ids.length > 0
         ? client.customer_ids
         : client.customer_id
-          ? client.customer_id.split(",").map((value) => value.trim()).filter(Boolean)
+          ? client.customer_id
+              .split(",")
+              .map((value) => value.trim())
+              .filter(Boolean)
           : [];
 
     const impressions = Number(metrics.impressions ?? 0);
@@ -191,7 +210,9 @@ function mapClients(
     const conversionRate = clicks > 0 ? (conversions / clicks) * 100 : 0;
     const cpa = conversions > 0 ? cost / conversions : 0;
 
-    const revenue = metrics.conversionValue > 0 ? metrics.conversionValue : conversions > 0 ? conversions * 120 : 0;
+    const revenue =
+      metrics.conversionValue > 0 ? metrics.conversionValue : conversions > 0 ? conversions * 120 : 0;
+
     const roas = cost > 0 && revenue > 0 ? revenue / cost : 0;
 
     const hasGoogleOAuth =
@@ -216,12 +237,8 @@ function mapClients(
       industry: client.industry || undefined,
       monthlyBudget,
       customerIds,
-      assignedManagerId:
-        client.assigned_manager_id != null
-          ? String(client.assigned_manager_id)
-          : undefined,
-      createdById:
-        client.created_by_id != null ? String(client.created_by_id) : undefined,
+      assignedManagerId: client.assigned_manager_id != null ? String(client.assigned_manager_id) : undefined,
+      createdById: client.created_by_id != null ? String(client.created_by_id) : undefined,
       hasGoogleOAuth,
       customerId: client.customer_id ?? undefined,
       loginCustomerId: client.login_customer_id ?? undefined,
@@ -229,16 +246,20 @@ function mapClients(
   });
 }
 
-function normalizePriority(priority: BackendRecommendation["priority"], fallback: AIRecommendation["priority"]): AIRecommendation["priority"] {
+function normalizePriority(
+  priority: BackendRecommendation["priority"],
+  fallback: AIRecommendation["priority"],
+): AIRecommendation["priority"] {
   if (!priority) return fallback;
   const lowered = priority.toLowerCase();
-  if (lowered === "high" || lowered === "medium" || lowered === "low") {
-    return lowered;
-  }
+  if (lowered === "high" || lowered === "medium" || lowered === "low") return lowered;
   return fallback;
 }
 
-function normalizeStatus(status: BackendRecommendation["status"], fallback: AIRecommendation["status"]): AIRecommendation["status"] {
+function normalizeStatus(
+  status: BackendRecommendation["status"],
+  fallback: AIRecommendation["status"],
+): AIRecommendation["status"] {
   if (!status) return fallback;
   const lowered = status.toLowerCase();
   if (
@@ -260,21 +281,17 @@ function formatRelativeTime(value: string | null | undefined, fallback: string):
   if (Number.isNaN(date.getTime())) return fallback;
 
   const diffSeconds = Math.max(0, Math.floor((Date.now() - date.getTime()) / 1000));
-  if (diffSeconds < 60) {
-    return `${diffSeconds}s ago`;
-  }
+  if (diffSeconds < 60) return `${diffSeconds}s ago`;
+
   const diffMinutes = Math.floor(diffSeconds / 60);
-  if (diffMinutes < 60) {
-    return `${diffMinutes} minute${diffMinutes === 1 ? "" : "s"} ago`;
-  }
+  if (diffMinutes < 60) return `${diffMinutes} minute${diffMinutes === 1 ? "" : "s"} ago`;
+
   const diffHours = Math.floor(diffMinutes / 60);
-  if (diffHours < 24) {
-    return `${diffHours} hour${diffHours === 1 ? "" : "s"} ago`;
-  }
+  if (diffHours < 24) return `${diffHours} hour${diffHours === 1 ? "" : "s"} ago`;
+
   const diffDays = Math.floor(diffHours / 24);
-  if (diffDays < 7) {
-    return `${diffDays} day${diffDays === 1 ? "" : "s"} ago`;
-  }
+  if (diffDays < 7) return `${diffDays} day${diffDays === 1 ? "" : "s"} ago`;
+
   return date.toLocaleDateString();
 }
 
@@ -282,14 +299,12 @@ function mapRecommendations(
   backendRecommendations: BackendRecommendation[],
   clients: Client[],
 ): AIRecommendation[] {
-  if (!backendRecommendations.length) {
-    return [];
-  }
+  if (!backendRecommendations.length) return [];
 
   return backendRecommendations.map((rec, index) => {
     const client = clients.find((c) => Number(c.id) === Number(rec.client_id));
-
     const predictedImpact = rec.predicted_impact ?? null;
+
     const impactText =
       predictedImpact !== null
         ? `${predictedImpact >= 0 ? "+" : ""}${predictedImpact.toFixed(1)}% predicted impact`
@@ -330,18 +345,12 @@ function formatRole(role: string | undefined, fallbackRole: string): string {
   }
 }
 
-function mapManagers(
-  backendUsers: BackendUser[],
-  clients: Client[],
-): Manager[] {
-  if (!backendUsers.length) {
-    return [];
-  }
+function mapManagers(backendUsers: BackendUser[], clients: Client[]): Manager[] {
+  if (!backendUsers.length) return [];
 
-  const effectiveClients = clients;
   const assignments = new Map<string, string[]>();
 
-  for (const client of effectiveClients) {
+  for (const client of clients) {
     if (client.assignedManagerId) {
       const managerId = client.assignedManagerId;
       const assigned = assignments.get(managerId) ?? [];
@@ -403,35 +412,46 @@ export function DataProvider({
   const viewerRole = normalizedRole || "manager";
   const isAdmin = viewerRole === "admin";
 
+  // Global date range and sync flag
+  const [dateRange, setDateRangeState] = useState<DateRange>(() => getDefaultDateRange());
+  const [isSyncingGoogleAds, setIsSyncingGoogleAds] = useState(false);
+
+  // request guards to prevent stale overwrites (blank screens)
+  const clientsReqId = useRef(0);
+  const recReqId = useRef(0);
+
+  // prevents auto-reload effect from double-calling during sync
+  const suppressAutoReloadRef = useRef(false);
+
   const [clients, setClients] = useState<Client[]>([]);
-  const [clientsLoading, setClientsLoading] = useState(true);
+  const [clientsLoading, setClientsLoading] = useState(false);
   const [clientsError, setClientsError] = useState<string | null>(null);
   const [campaigns, setCampaigns] = useState<CampaignSummary[]>([]);
 
   const [managers, setManagers] = useState<Manager[]>([]);
   const [managersLoading, setManagersLoading] = useState(true);
   const [managersError, setManagersError] = useState<string | null>(null);
+
   const [recommendations, setRecommendations] = useState<AIRecommendation[]>([]);
   const [recommendationsLoading, setRecommendationsLoading] = useState(true);
   const [recommendationsError, setRecommendationsError] = useState<string | null>(null);
 
-  // Global date range and sync flag
-  const [dateRange, setDateRangeState] = useState<DateRange>(() => getDefaultDateRange());
-  const [isSyncingGoogleAds, setIsSyncingGoogleAds] = useState(false);
+  // ✅ keep latest dateRange without making callbacks depend on it
+  const dateRangeRef = useRef<DateRange>(dateRange);
+  useEffect(() => {
+    dateRangeRef.current = dateRange;
+  }, [dateRange]);
 
   const setDateRange = useCallback((range: DateRange) => {
     setDateRangeState((prev) => {
-      if (
-        prev.startDate === range.startDate &&
-        prev.endDate === range.endDate
-      ) {
-        return prev;
-      }
+      if (prev.startDate === range.startDate && prev.endDate === range.endDate) return prev;
       return range;
     });
   }, []);
 
   const loadClients = useCallback(async () => {
+    const reqId = ++clientsReqId.current;
+
     if (!authToken) {
       setClients([]);
       setCampaigns([]);
@@ -442,10 +462,15 @@ export function DataProvider({
 
     setClientsLoading(true);
     try {
+      const range = dateRangeRef.current;
+
       const [clientResponse, campaignResponse] = await Promise.all([
         fetchClients(authToken),
-        fetchCampaigns(authToken).catch(() => []),
+        fetchCampaigns(authToken, range.startDate, range.endDate).catch(() => []),
       ]);
+
+      // ignore stale response
+      if (reqId !== clientsReqId.current) return;
 
       const { summaries, metricsByClient } = buildCampaignSummaries(campaignResponse);
       const mappedClients = mapClients(clientResponse, metricsByClient);
@@ -454,14 +479,49 @@ export function DataProvider({
       setCampaigns(summaries);
       setClientsError(null);
     } catch (error) {
+      if (reqId !== clientsReqId.current) return;
       console.error("Failed to load clients", error);
       setClients([]);
       setCampaigns([]);
       setClientsError(error instanceof Error ? error.message : "Failed to load clients");
     } finally {
-      setClientsLoading(false);
+      if (reqId === clientsReqId.current) setClientsLoading(false);
     }
-  }, [authToken]);
+  }, [authToken]); // ✅ removed dateRange deps (use dateRangeRef inside)
+
+  const loadRecommendations = useCallback(async () => {
+    const reqId = ++recReqId.current;
+
+    if (!authToken) {
+      setRecommendations([]);
+      setRecommendationsError(null);
+      setRecommendationsLoading(false);
+      return;
+    }
+
+    setRecommendationsLoading(true);
+    try {
+      const range = dateRangeRef.current;
+
+      const backendRecs = await fetchRecommendations(authToken, range.startDate, range.endDate);
+
+      // ignore stale response
+      if (reqId !== recReqId.current) return;
+
+      const mapped = mapRecommendations(backendRecs, clients);
+      setRecommendations(mapped);
+      setRecommendationsError(null);
+    } catch (error) {
+      if (reqId !== recReqId.current) return;
+      console.error("Failed to load recommendations", error);
+      setRecommendations([]);
+      setRecommendationsError(
+        error instanceof Error ? error.message : "Failed to load recommendations",
+      );
+    } finally {
+      if (reqId === recReqId.current) setRecommendationsLoading(false);
+    }
+  }, [authToken, clients]); // ✅ removed dateRange deps (use dateRangeRef inside)
 
   const loadManagers = useCallback(async () => {
     if (!authToken) {
@@ -493,56 +553,37 @@ export function DataProvider({
     }
   }, [authToken, clients, isAdmin]);
 
-  const loadRecommendations = useCallback(async () => {
-    if (!authToken) {
-      setRecommendations([]);
-      setRecommendationsError(null);
-      setRecommendationsLoading(false);
-      return;
-    }
+  const handleApproveRecommendation = useCallback(
+    async (recId: string) => {
+      if (!authToken) return;
+      try {
+        await approveRecommendation(recId, authToken);
+        await loadRecommendations();
+      } catch (error) {
+        console.error("Failed to approve recommendation", error);
+        throw error;
+      }
+    },
+    [authToken, loadRecommendations],
+  );
 
-    setRecommendationsLoading(true);
-    try {
-      const backendRecs = await fetchRecommendations(authToken);
-      const mapped = mapRecommendations(backendRecs, clients);
-      setRecommendations(mapped);
-      setRecommendationsError(null);
-    } catch (error) {
-      console.error("Failed to load recommendations", error);
-      setRecommendations([]);
-      setRecommendationsError(error instanceof Error ? error.message : "Failed to load recommendations");
-    } finally {
-      setRecommendationsLoading(false);
-    }
-  }, [authToken, clients]);
-
-  const handleApproveRecommendation = useCallback(async (recId: string) => {
-    if (!authToken) return;
-    try {
-      await approveRecommendation(recId, authToken);
-      await loadRecommendations();
-    } catch (error) {
-      console.error("Failed to approve recommendation", error);
-      throw error;
-    }
-  }, [authToken, loadRecommendations]);
-
-  const handleDismissRecommendation = useCallback(async (recId: string) => {
-    if (!authToken) return;
-    try {
-      await dismissRecommendation(recId, authToken);
-      await loadRecommendations();
-    } catch (error) {
-      console.error("Failed to dismiss recommendation", error);
-      throw error;
-    }
-  }, [authToken, loadRecommendations]);
+  const handleDismissRecommendation = useCallback(
+    async (recId: string) => {
+      if (!authToken) return;
+      try {
+        await dismissRecommendation(recId, authToken);
+        await loadRecommendations();
+      } catch (error) {
+        console.error("Failed to dismiss recommendation", error);
+        throw error;
+      }
+    },
+    [authToken, loadRecommendations],
+  );
 
   const handleUpdateClient = useCallback(
     async (clientId: string, payload: Partial<BackendClient>) => {
-      if (!authToken) {
-        throw new Error("Authentication required to update clients");
-      }
+      if (!authToken) throw new Error("Authentication required to update clients");
 
       try {
         await updateClientApi(clientId, payload, {
@@ -560,9 +601,7 @@ export function DataProvider({
 
   const handleDeleteClient = useCallback(
     async (clientId: string) => {
-      if (!authToken) {
-        throw new Error("Authentication required to delete clients");
-      }
+      if (!authToken) throw new Error("Authentication required to delete clients");
 
       try {
         await deleteClientApi(clientId, {
@@ -581,9 +620,7 @@ export function DataProvider({
 
   const handleDeleteManager = useCallback(
     async (managerId: string) => {
-      if (!authToken) {
-        throw new Error("Authentication required to delete managers");
-      }
+      if (!authToken) throw new Error("Authentication required to delete managers");
 
       try {
         await deleteUser(managerId, authToken);
@@ -598,9 +635,10 @@ export function DataProvider({
 
   const handleSyncGoogleAdsRange = useCallback(
     async (clientId: string, customerId: string, startDate: string, endDate: string) => {
-      if (!authToken) {
-        throw new Error("Sign in to sync Google Ads data");
-      }
+      if (!authToken) throw new Error("Sign in to sync Google Ads data");
+
+      // prevent provider auto-reload from double-calling while we are syncing
+      suppressAutoReloadRef.current = true;
 
       // Update global date range and mark syncing
       setDateRange({ startDate, endDate });
@@ -615,6 +653,7 @@ export function DataProvider({
           customerId,
         );
 
+        // after sync, explicitly reload the latest range data
         await Promise.all([loadClients(), loadRecommendations()]);
         return response;
       } catch (error) {
@@ -623,6 +662,7 @@ export function DataProvider({
         throw error;
       } finally {
         setIsSyncingGoogleAds(false);
+        suppressAutoReloadRef.current = false;
       }
     },
     [authToken, loadClients, loadRecommendations, setDateRange],
@@ -630,10 +670,9 @@ export function DataProvider({
 
   const handleSyncGoogleAdsDaily = useCallback(
     async (clientId: string, customerId: string) => {
-      if (!authToken) {
-        throw new Error("Sign in to sync Google Ads data");
-      }
+      if (!authToken) throw new Error("Sign in to sync Google Ads data");
 
+      // Daily sync DOES NOT change date range, so no need to suppress auto reload
       setIsSyncingGoogleAds(true);
 
       try {
@@ -651,78 +690,101 @@ export function DataProvider({
     [authToken, loadClients, loadRecommendations],
   );
 
-  useEffect(() => {
-    loadClients();
-  }, [loadClients]);
+  // ✅ Provider-level auto-refresh: whenever dateRange changes, refresh range-dependent data
+  // useEffect(() => {
+  //   // if sync is actively running, skip auto-trigger to prevent double fetch
+  //   if (isSyncingGoogleAds || suppressAutoReloadRef.current) return;
+
+  //   loadClients();
+  //   loadRecommendations();
+  // }, [loadClients, loadRecommendations, isSyncingGoogleAds]);
+
+  // managers are independent from dateRange; still refresh when auth/clients/admin changes
+
+  // ✅ load once after login / token available
+useEffect(() => {
+  if (!authToken) {
+    setClientsLoading(false); // prevents permanent spinner when logged out
+    return;
+  }
+  loadClients();
+}, [authToken, loadClients]);
 
   useEffect(() => {
     loadManagers();
   }, [loadManagers]);
 
-  useEffect(() => {
-    loadRecommendations();
-  }, [loadRecommendations]);
+  const value = useMemo<DataContextValue>(
+    () => ({
+      clients,
+      clientsLoading,
+      clientsError,
 
-  const value = useMemo<DataContextValue>(() => ({
-    clients,
-    clientsLoading,
-    clientsError,
-    managers,
-    managersLoading,
-    managersError,
-    campaigns,
-    refreshClients: loadClients,
-    refreshManagers: loadManagers,
-    recommendations,
-    recommendationsLoading,
-    recommendationsError,
-    refreshRecommendations: loadRecommendations,
-    approveRecommendation: handleApproveRecommendation,
-    dismissRecommendation: handleDismissRecommendation,
-    updateClient: handleUpdateClient,
-    deleteClient: handleDeleteClient,
-    deleteManager: handleDeleteManager,
-    authToken,
-    refreshToken: refreshToken ?? null,
-    viewerRole,
-    currentUser: currentUser ?? undefined,
-    authDetails: authDetails ?? null,
-    syncGoogleAdsRange: handleSyncGoogleAdsRange,
-    syncGoogleAdsDaily: handleSyncGoogleAdsDaily,
+      managers,
+      managersLoading,
+      managersError,
 
-    dateRange,
-    setDateRange,
-    isSyncingGoogleAds,
-  }), [
-    clients,
-    clientsLoading,
-    clientsError,
-    managers,
-    managersLoading,
-    managersError,
-    campaigns,
-    loadClients,
-    loadManagers,
-    recommendations,
-    recommendationsLoading,
-    recommendationsError,
-    loadRecommendations,
-    handleApproveRecommendation,
-    handleDismissRecommendation,
-    handleUpdateClient,
-    handleDeleteClient,
-    handleDeleteManager,
-    authToken,
-    refreshToken,
-    viewerRole,
-    currentUser,
-    authDetails,
-    handleSyncGoogleAdsRange,
-    handleSyncGoogleAdsDaily,
-    dateRange,
-    setDateRange,
-    isSyncingGoogleAds,
-  ]);
+      campaigns,
+
+      refreshClients: loadClients,
+      refreshManagers: loadManagers,
+
+      recommendations,
+      recommendationsLoading,
+      recommendationsError,
+      refreshRecommendations: loadRecommendations,
+
+      approveRecommendation: handleApproveRecommendation,
+      dismissRecommendation: handleDismissRecommendation,
+
+      updateClient: handleUpdateClient,
+      deleteClient: handleDeleteClient,
+      deleteManager: handleDeleteManager,
+
+      authToken,
+      refreshToken: refreshToken ?? null,
+      viewerRole,
+      currentUser: currentUser ?? undefined,
+      authDetails: authDetails ?? null,
+
+      syncGoogleAdsRange: handleSyncGoogleAdsRange as unknown as (startDate: string, endDate: string) => Promise<void>,
+      syncGoogleAdsDaily: handleSyncGoogleAdsDaily as unknown as () => Promise<void>,
+
+      dateRange,
+      setDateRange,
+      isSyncingGoogleAds,
+    }),
+    [
+      clients,
+      clientsLoading,
+      clientsError,
+      managers,
+      managersLoading,
+      managersError,
+      campaigns,
+      loadClients,
+      loadManagers,
+      recommendations,
+      recommendationsLoading,
+      recommendationsError,
+      loadRecommendations,
+      handleApproveRecommendation,
+      handleDismissRecommendation,
+      handleUpdateClient,
+      handleDeleteClient,
+      handleDeleteManager,
+      authToken,
+      refreshToken,
+      viewerRole,
+      currentUser,
+      authDetails,
+      handleSyncGoogleAdsRange,
+      handleSyncGoogleAdsDaily,
+      dateRange,
+      setDateRange,
+      isSyncingGoogleAds,
+    ],
+  );
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
 }

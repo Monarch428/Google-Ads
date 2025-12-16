@@ -1,5 +1,6 @@
 // lib/api.ts
-export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "https://google-ads-w6ag.onrender.com";
+export const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL ?? "https://google-ads-w6ag.onrender.com";
 
 function normalizeHeaders(headers?: HeadersInit): Record<string, string> {
   if (!headers) {
@@ -15,6 +16,19 @@ function normalizeHeaders(headers?: HeadersInit): Record<string, string> {
   }
 
   return { ...headers };
+}
+
+/**
+ * ✅ ADDED: helper to build querystring from optional params
+ * (Needed because you call toQuery() in fetchCampaigns/fetchRecommendations/syncGoogleAdsRange.)
+ */
+function toQuery(params: Record<string, string | undefined>) {
+  const qp = new URLSearchParams();
+  Object.entries(params).forEach(([k, v]) => {
+    if (v != null && v !== "") qp.set(k, v);
+  });
+  const s = qp.toString();
+  return s ? `?${s}` : "";
 }
 
 // --- Core fetch with cookie support + 401 -> refresh retry once ---
@@ -238,10 +252,13 @@ export function startGoogleOAuth() {
 
 // Who am I (reads cookie on server)
 export function me() {
-  return apiFetch<{ id: number | string; name?: string; email: string; role?: string; google?: any }>(
-    "/auth/me",
-    { method: "GET" }
-  );
+  return apiFetch<{
+    id: number | string;
+    name?: string;
+    email: string;
+    role?: string;
+    google?: any;
+  }>("/auth/me", { method: "GET" });
 }
 
 // Manually trigger refresh (usually not needed; apiFetch auto-refreshes once on 401)
@@ -253,14 +270,15 @@ export function refreshSession() {
 
 // ---------- Data API (optional token header still supported) ----------
 export function fetchClients(token?: string) {
-  return apiFetch<BackendClient[]>("/clients/all", token
-    ? { headers: { Authorization: `Bearer ${token}` } }
-    : undefined);
+  return apiFetch<BackendClient[]>(
+    "/clients/all",
+    token ? { headers: { Authorization: `Bearer ${token}` } } : undefined
+  );
 }
 
 export function createClient(
   payload: CreateClientPayload,
-  tokens?: { accessToken?: string; refreshToken?: string | null },
+  tokens?: { accessToken?: string; refreshToken?: string | null }
 ) {
   const headers: Record<string, string> = {};
   if (tokens?.accessToken) {
@@ -280,7 +298,7 @@ export function createClient(
 export function updateClient(
   clientId: number | string,
   payload: UpdateClientPayload,
-  tokens?: { accessToken?: string; refreshToken?: string | null },
+  tokens?: { accessToken?: string; refreshToken?: string | null }
 ) {
   const headers: Record<string, string> = {};
   if (tokens?.accessToken) {
@@ -299,7 +317,7 @@ export function updateClient(
 
 export function deleteClient(
   clientId: number | string,
-  tokens?: { accessToken?: string; refreshToken?: string | null },
+  tokens?: { accessToken?: string; refreshToken?: string | null }
 ) {
   const headers: Record<string, string> = {};
   if (tokens?.accessToken) {
@@ -318,7 +336,7 @@ export function deleteClient(
 export function updateClientAssignments(
   managerId: number | string,
   clientIds: Array<number | string>,
-  token?: string,
+  token?: string
 ) {
   const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
   const payload = {
@@ -338,7 +356,7 @@ export function fetchGoogleAdsRange(
   startDate: string,
   endDate: string,
   token?: string,
-  customerId?: string,
+  customerId?: string
 ) {
   const params = new URLSearchParams({
     client_id: String(clientId),
@@ -352,29 +370,41 @@ export function fetchGoogleAdsRange(
 
   const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
 
-  return apiFetch<GoogleAdsSyncResponse>(`/google-ads/fetch-customized?${params.toString()}`, {
-    method: "GET",
-    ...(headers ? { headers } : undefined),
-  });
+  return apiFetch<GoogleAdsSyncResponse>(
+    `/google-ads/fetch-customized?${params.toString()}`,
+    {
+      method: "GET",
+      ...(headers ? { headers } : undefined),
+    }
+  );
 }
 
-export function fetchGoogleAdsDaily(clientId: number | string, token?: string, customerId?: string) {
+export function fetchGoogleAdsDaily(
+  clientId: number | string,
+  token?: string,
+  customerId?: string
+) {
   const params = new URLSearchParams({ client_id: String(clientId) });
   if (customerId) {
     params.append("customer_id", customerId);
   }
   const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
 
-  return apiFetch<GoogleAdsSyncResponse>(`/google-ads/fetch-daily?${params.toString()}`, {
-    method: "GET",
-    ...(headers ? { headers } : undefined),
-  });
+  return apiFetch<GoogleAdsSyncResponse>(
+    `/google-ads/fetch-daily?${params.toString()}`,
+    {
+      method: "GET",
+      ...(headers ? { headers } : undefined),
+    }
+  );
 }
 
-export function fetchCampaigns(token?: string) {
-  return apiFetch<BackendCampaign[]>("/campaigns", token
-    ? { headers: { Authorization: `Bearer ${token}` } }
-    : undefined);
+// ✅ UPDATED version (your own) — now supports date range
+export function fetchCampaigns(token: string, startDate: string, endDate: string) {
+  const qs = toQuery({ start_date: startDate, end_date: endDate });
+  return apiFetch<BackendCampaign[]>(`/campaigns${qs}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
 }
 
 export function fetchUsers(token?: string) {
@@ -387,116 +417,132 @@ export function createUser(payload: CreateUserPayload, token?: string) {
   return apiFetch<BackendUser>("/users", {
     method: "POST",
     body: JSON.stringify(payload),
-    ...(token
-      ? { headers: { Authorization: `Bearer ${token}` } }
-      : undefined),
+    ...(token ? { headers: { Authorization: `Bearer ${token}` } } : undefined),
   });
 }
 
 export function updateUser(
   userId: number | string,
   payload: UpdateUserPayload,
-  token?: string,
+  token?: string
 ) {
   return apiFetch<BackendUser>(`/users/${userId}`, {
     method: "PUT",
     body: JSON.stringify(payload),
-    ...(token
-      ? { headers: { Authorization: `Bearer ${token}` } }
-      : undefined),
+    ...(token ? { headers: { Authorization: `Bearer ${token}` } } : undefined),
   });
 }
 
 export function deleteUser(userId: number | string, token?: string) {
   return apiFetch<{ message?: string }>(`/users/${userId}`, {
     method: "DELETE",
-    ...(token
-      ? { headers: { Authorization: `Bearer ${token}` } }
-      : undefined),
+    ...(token ? { headers: { Authorization: `Bearer ${token}` } } : undefined),
   });
 }
 
 // ---------- Recommendations ----------
-export function fetchRecommendations(token?: string) {
-  return apiFetch<BackendRecommendation[]>("/recommendations", token
-    ? { headers: { Authorization: `Bearer ${token}` } }
-    : undefined);
-}
-
-export function approveRecommendation(recId: number | string, token?: string) {
-  return apiFetch<{ message: string }>(`/recommendations/${recId}/approve`, {
-    method: "POST",
-    ...(token
-      ? { headers: { Authorization: `Bearer ${token}` } }
-      : undefined),
+// ✅ UPDATED version (your own) — now supports date range
+export function fetchRecommendations(token: string, startDate: string, endDate: string) {
+  const qs = toQuery({ start_date: startDate, end_date: endDate });
+  return apiFetch<BackendRecommendation[]>(`/recommendations${qs}`, {
+    headers: { Authorization: `Bearer ${token}` },
   });
 }
 
-export function dismissRecommendation(recId: number | string, token?: string) {
-  return apiFetch<{ message: string }>(`/recommendations/${recId}/dismiss`, {
+export function approveRecommendation(recId: string, token: string) {
+  return apiFetch(`/recommendations/${encodeURIComponent(recId)}/approve`, {
     method: "POST",
-    ...(token
-      ? { headers: { Authorization: `Bearer ${token}` } }
-      : undefined),
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+export function dismissRecommendation(recId: string, token: string) {
+  return apiFetch(`/recommendations/${encodeURIComponent(recId)}/dismiss`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
   });
 }
 
 export function modifyRecommendation(
   recId: number | string,
   newAction: string,
-  token?: string,
+  token?: string
 ) {
-  return apiFetch<{ message: string; new_action: string }>(`/recommendations/${recId}/modify`, {
-    method: "POST",
-    body: JSON.stringify({ new_action: newAction }),
-    ...(token
-      ? { headers: { Authorization: `Bearer ${token}` } }
-      : undefined),
-  });
+  return apiFetch<{ message: string; new_action: string }>(
+    `/recommendations/${recId}/modify`,
+    {
+      method: "POST",
+      body: JSON.stringify({ new_action: newAction }),
+      ...(token ? { headers: { Authorization: `Bearer ${token}` } } : undefined),
+    }
+  );
 }
 
 export function fetchRecommendationBundle(recId: number | string, token?: string) {
-  return apiFetch<{ bundle: Record<string, unknown> }>(`/recommendations/${recId}/bundle`, token
-    ? { headers: { Authorization: `Bearer ${token}` } }
-    : undefined);
+  return apiFetch<{ bundle: Record<string, unknown> }>(
+    `/recommendations/${recId}/bundle`,
+    token ? { headers: { Authorization: `Bearer ${token}` } } : undefined
+  );
 }
 
 export function markRecommendationExecuted(
   recId: number | string,
   payload: { before_metric: number; after_metric: number },
-  token?: string,
+  token?: string
 ) {
-  return apiFetch<{ message: string; improvement_percent: number }>(`/recommendations/${recId}/executed`, {
-    method: "POST",
-    body: JSON.stringify(payload),
-    ...(token
-      ? { headers: { Authorization: `Bearer ${token}` } }
-      : undefined),
-  });
+  return apiFetch<{ message: string; improvement_percent: number }>(
+    `/recommendations/${recId}/executed`,
+    {
+      method: "POST",
+      body: JSON.stringify(payload),
+      ...(token ? { headers: { Authorization: `Bearer ${token}` } } : undefined),
+    }
+  );
 }
 
 export function addRecommendationComment(
   recId: number | string,
   text: string,
-  token?: string,
+  token?: string
 ) {
-  return apiFetch<{ message: string; comment_id: number }>(`/recommendations/${recId}/comment`, {
+  return apiFetch<{ message: string; comment_id: number }>(
+    `/recommendations/${recId}/comment`,
+    {
+      method: "POST",
+      body: JSON.stringify({ text }),
+      ...(token ? { headers: { Authorization: `Bearer ${token}` } } : undefined),
+    }
+  );
+}
+
+// ---------- Sync ----------
+export function syncGoogleAdsRange(token: string, startDate: string, endDate: string) {
+  const qs = toQuery({ start_date: startDate, end_date: endDate });
+  return apiFetch<GoogleAdsSyncResponse>(`/google_ads/fetch_range${qs}`, {
     method: "POST",
-    body: JSON.stringify({ text }),
-    ...(token
-      ? { headers: { Authorization: `Bearer ${token}` } }
-      : undefined),
+    headers: { Authorization: `Bearer ${token}` },
   });
 }
+
+export function syncGoogleAdsDaily(token: string) {
+  return apiFetch<GoogleAdsSyncResponse>(`/google_ads/fetch_today`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+// export function fetchUsers(token: string) {
+//   return apiFetch<BackendUser[]>("/users/all", {
+//     headers: { Authorization: `Bearer ${token}` },
+//   });
+// }
 
 // ---------- Chatbot ----------
 export function sendChatbotMessage(message: string, token?: string) {
   return apiFetch<ChatbotReply>("/chatbot/message", {
     method: "POST",
     body: JSON.stringify({ message }),
-    ...(token
-      ? { headers: { Authorization: `Bearer ${token}` } }
-      : undefined),
+    ...(token ? { headers: { Authorization: `Bearer ${token}` } } : undefined),
   });
 }
 
@@ -505,9 +551,7 @@ export function optimizeCampaign(payload: OptimizationRequest, token?: string) {
   return apiFetch<OptimizationResponse>("/analytics/optimize", {
     method: "POST",
     body: JSON.stringify(payload),
-    ...(token
-      ? { headers: { Authorization: `Bearer ${token}` } }
-      : undefined),
+    ...(token ? { headers: { Authorization: `Bearer ${token}` } } : undefined),
   });
 }
 
@@ -515,15 +559,14 @@ export function generateInsights(payload: Record<string, unknown>, token?: strin
   return apiFetch<InsightResponse>("/insights/generate", {
     method: "POST",
     body: JSON.stringify(payload),
-    ...(token
-      ? { headers: { Authorization: `Bearer ${token}` } }
-      : undefined),
+    ...(token ? { headers: { Authorization: `Bearer ${token}` } } : undefined),
   });
 }
 
 // ---------- System Monitoring ----------
 export function fetchSystemStatus(token?: string) {
-  return apiFetch<SystemStatusResponse>("/system/status", token
-    ? { headers: { Authorization: `Bearer ${token}` } }
-    : undefined);
+  return apiFetch<SystemStatusResponse>(
+    "/system/status",
+    token ? { headers: { Authorization: `Bearer ${token}` } } : undefined
+  );
 }
