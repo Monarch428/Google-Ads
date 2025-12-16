@@ -81,7 +81,7 @@ class UserUpdate(BaseModel):
 class UserResponse(BaseModel):
     id: int
     name: str
-    email: EmailStr
+    email: str
     role: Optional[str] = None
     is_active: Optional[bool] = True
     company_name: Optional[str] = None
@@ -94,6 +94,18 @@ class UserResponse(BaseModel):
     assigned_client_ids: Optional[List[int]] = None
 
     model_config = ConfigDict(from_attributes=True)
+
+    @field_validator("email", mode="before")
+    @classmethod
+    def _coerce_email(cls, value: Optional[str]):
+        """Return a safe string for legacy records with malformed emails."""
+        if value is None:
+            return ""
+
+        if isinstance(value, str):
+            return value.strip()
+
+        return str(value)
 
     @field_validator("company_email", mode="before")
     @classmethod
