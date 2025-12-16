@@ -303,6 +303,7 @@ def run_google_ads_query(
     headers = {
         "Authorization": f"Bearer {access_token}",
         "developer-token": developer_token or os.getenv("DEVELOPER_TOKEN"),
+        "login-customer-id": "4395201423",  # MCC account ID
         "Content-Type": "application/json",
     }
     if login_customer_id_clean:
