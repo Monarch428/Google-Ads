@@ -81,7 +81,7 @@ export interface BackendClient {
   developer_token: string;
   client_id: string;
   client_secret: string;
-  refresh_token?: string | null;
+  refresh_token: string;
   customer_id?: string | null;
   customer_ids?: string[] | null;
   login_customer_id: string | null;

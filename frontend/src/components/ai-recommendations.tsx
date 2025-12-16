@@ -7,7 +7,7 @@ import { Input } from "./ui/input";
 import { Lightbulb, Search, CheckCircle, XCircle, Edit, AlertTriangle } from "lucide-react";
 import { AIRecommendationsChatbot } from "./ai-recommendations-chatbot";
 import { useData } from "../lib/data-context";
-import { toast } from "sonner";
+import { toast } from "sonner@2.0.3";
 import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
 import { useRouter } from "../lib/router";
 import { formatDateRangeLabel, useGoogleAdsSync } from "../lib/google-ads-sync-context";
@@ -33,8 +33,8 @@ export function AIRecommendations({ onBundleClick }: AIRecommendationsProps) {
   const { navigate } = useRouter();
   const { dateRange } = useGoogleAdsSync();
   const rangeLabel = formatDateRangeLabel(dateRange);
-  const hasWorkspaceOAuth = clients.some((client) => client.hasGoogleOAuth);
-  const showGoogleOAuthAlert = authToken && !hasWorkspaceOAuth;
+  const oauthPendingClients = authToken ? clients.filter((client) => !client.hasGoogleOAuth) : [];
+  const showGoogleOAuthAlert = oauthPendingClients.length > 0;
 
   const displayRecommendations = useMemo(() => {
     return recommendations;
@@ -156,10 +156,9 @@ export function AIRecommendations({ onBundleClick }: AIRecommendationsProps) {
               <div>
                 <AlertTitle>Google OAuth required for live recommendations</AlertTitle>
                 <AlertDescription>
-                  {/* {oauthPendingClients.length === 1
+                  {oauthPendingClients.length === 1
                     ? `${oauthPendingClients[0].name} must finish Google OAuth before AI recommendations can use live spend data.`
-                    : `${oauthPendingClients.length} client accounts still need Google OAuth before AI recommendations can use live spend data.`} */}
-                    Connect your MCC account once so AI recommendations can use live Google Ads performance data.
+                    : `${oauthPendingClients.length} client accounts still need Google OAuth before AI recommendations can use live spend data.`}
                 </AlertDescription>
               </div>
             </div>

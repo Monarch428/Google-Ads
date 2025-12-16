@@ -37,7 +37,7 @@ class ClientBase(BaseModel):
     developer_token: str
     client_id: str
     client_secret: str
-    refresh_token: Optional[str] = None
+    refresh_token: str
     customer_id: Optional[str] = None
     customer_ids: Optional[List[str]] = None
     login_customer_id: Optional[str] = None

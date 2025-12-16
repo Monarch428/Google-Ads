@@ -1,4 +1,3 @@
-import os
 from typing import Sequence
 
 from fastapi import HTTPException, status
@@ -16,7 +15,6 @@ from schemas.client_schema import (
     ClientUpdate,
 )
 
-from services.google_oauth_service import get_workspace_refresh_token, save_google_account
 
 def _get_client_or_404(db: Session, client_id: int) -> Client:
     client = db.query(Client).filter(Client.id == client_id).first()
@@ -146,31 +144,7 @@ def create_client(db: Session, client_data: ClientCreate, created_by: UserModel)
     db.add(new_client)
     db.commit()
     db.refresh(new_client)
-    # setattr(new_client, "has_google_ads_auth", False)
-    workspace_refresh_token = get_workspace_refresh_token(db)
-    has_oauth = False
-
-    if workspace_refresh_token:
-        try:
-            save_google_account(
-                db=db,
-                client_db_id=new_client.id,
-                tokens={"refresh_token": workspace_refresh_token},
-                login_customer_id=new_client.login_customer_id,
-                developer_token=os.getenv("DEVELOPER_TOKEN"),
-            )
-            new_client.refresh_token = workspace_refresh_token
-            has_oauth = True
-        except Exception as exc:
-            # Do not block client creation if OAuth propagation fails
-            print(
-                f"⚠️ Workspace refresh token could not be applied to client {new_client.id}: {exc}"
-            )
-            db.rollback()
-            db.refresh(new_client)
-
-    setattr(new_client, "has_google_ads_auth", has_oauth)
-    
+    setattr(new_client, "has_google_ads_auth", False)
     _attach_customer_ids([new_client])
     return new_client
 
