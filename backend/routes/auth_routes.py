@@ -179,6 +179,7 @@ async def google_callback(
 
     decoded = _decode_state(state)
     client_db_id = decoded.get("client_db_id") if decoded else None
+    is_client_connect_flow = bool(client_db_id)
     if client_db_id:
         print(f"Decoded client_db_id from state: {client_db_id}")
     else:
@@ -238,6 +239,17 @@ async def google_callback(
             print(
                 f"❌ Failed to persist refresh token to DB for client_id={client_db_id}: {exc.detail}"
             )
+
+# If this OAuth run was initiated from the "connect client" flow, finish early without requiring an app user
+    if is_client_connect_flow:
+        redirect_target = f"{FRONTEND_BASE}/dashboard?google_auth=success&client_id={client_db_id}"
+        resp = RedirectResponse(url=redirect_target, status_code=302)
+        resp.delete_cookie("oauth_state", path="/")
+        logger.info(
+            "Google OAuth callback completed for client connection (client_db_id=%s)",
+            client_db_id,
+        )
+        return resp
 
     # Get userinfo to read verified email and proceed with app login flow
     ui_res = requests.get(USERINFO_URL, headers={"Authorization": f"Bearer {access_token_google}"}, timeout=10)

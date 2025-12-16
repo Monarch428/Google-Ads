@@ -498,16 +498,16 @@ def _resolve_google_ads_credentials(
             "currency_code": getattr(client_record, "currency_code", "USD"),
         }
 
-    if client_record and client_record.refresh_token:
-        return {
-            "refresh_token": client_record.refresh_token,
-            "login_customer_id": client_record.login_customer_id,
-            "customer_id": selected_customer_id,
-            "developer_token": client_record.developer_token,
-            "google_client_id": client_record.client_id,
-            "google_client_secret": client_record.client_secret,
-            "currency_code": getattr(client_record, "currency_code", "USD"),
-        }
+    # if client_record and client_record.refresh_token:
+    #     return {
+    #         "refresh_token": client_record.refresh_token,
+    #         "login_customer_id": client_record.login_customer_id,
+    #         "customer_id": selected_customer_id,
+    #         "developer_token": client_record.developer_token,
+    #         "google_client_id": client_record.client_id,
+    #         "google_client_secret": client_record.client_secret,
+    #         "currency_code": getattr(client_record, "currency_code", "USD"),
+    #     }
 
     return None
 
