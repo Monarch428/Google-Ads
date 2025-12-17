@@ -34,10 +34,10 @@ def _normalize_customer_ids(value: Optional[List[str] | str]) -> Optional[List[s
 class ClientBase(BaseModel):
     name: str
     email: EmailStr
-    developer_token: str
-    client_id: str
-    client_secret: str
-    refresh_token: str
+    developer_token: Optional[str] = None
+    client_id: Optional[str] = None
+    client_secret: Optional[str] = None
+    refresh_token: Optional[str] = None
     customer_id: Optional[str] = None
     customer_ids: Optional[List[str]] = None
     login_customer_id: Optional[str] = None

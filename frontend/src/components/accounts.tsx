@@ -24,7 +24,7 @@ import {
   AlertDialogTitle,
 } from "./ui/alert-dialog";
 import { Toaster, toast } from "sonner";
-import { API_BASE_URL } from "../lib/api";
+// import { API_BASE_URL } from "../lib/api";
 import { currencyOptions, formatCurrency } from "../lib/currencies";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "./ui/dialog";
 import { Label } from "./ui/label";
@@ -160,28 +160,28 @@ export function Accounts({ onClientClick }: AccountsProps) {
    * Launch the Google OAuth flow for a particular client record.
    * Backend is expected to expose /auth/google-connect?client_db_id=<id>
    */
-  const handleGoogleOAuthConnect = (clientId: string | number, clientName: string) => {
-    // ensure clientId is string and safely encoded
-    const idStr = String(clientId);
-    const oauthUrl = `${API_BASE_URL}/auth/google-connect?client_db_id=${encodeURIComponent(idStr)}`;
+  // const handleGoogleOAuthConnect = (clientId: string | number, clientName: string) => {
+  //   // ensure clientId is string and safely encoded
+  //   const idStr = String(clientId);
+  //   const oauthUrl = `${API_BASE_URL}/auth/google-connect?client_db_id=${encodeURIComponent(idStr)}`;
 
-    if (typeof window === "undefined") {
-      toast.error("Unable to launch Google OAuth", {
-        description: "A browser window is required to complete the Google consent flow.",
-      });
-      return;
-    }
+  //   if (typeof window === "undefined") {
+  //     toast.error("Unable to launch Google OAuth", {
+  //       description: "A browser window is required to complete the Google consent flow.",
+  //     });
+  //     return;
+  //   }
 
-    try {
-      window.location.assign(oauthUrl);
-      toast.info("Redirecting to Google OAuth", {
-        description: `Complete the Google consent screen for ${clientName} to sync live Google Ads data.`,
-      });
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Unable to start OAuth";
-      toast.error("Google OAuth failed", { description: message });
-    }
-  };
+  //   try {
+  //     window.location.assign(oauthUrl);
+  //     toast.info("Redirecting to Google OAuth", {
+  //       description: `Complete the Google consent screen for ${clientName} to sync live Google Ads data.`,
+  //     });
+  //   } catch (err) {
+  //     const message = err instanceof Error ? err.message : "Unable to start OAuth";
+  //     toast.error("Google OAuth failed", { description: message });
+  //   }
+  // };
 
   return (
     <div className="space-y-6">
@@ -223,7 +223,7 @@ export function Accounts({ onClientClick }: AccountsProps) {
                   <TableHead className="text-right">Ad Spend</TableHead>
                   <TableHead className="text-right">Conversions</TableHead>
                   <TableHead className="text-right">ROAS</TableHead>
-                  <TableHead className="text-center">Google OAuth</TableHead>
+                  <TableHead className="text-center">MCC Access</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -269,16 +269,19 @@ export function Accounts({ onClientClick }: AccountsProps) {
                     <TableCell className="text-center">
                       {client.hasGoogleOAuth ? (
                         <span className="inline-flex items-center justify-center rounded-full bg-green-50 px-3 py-1 text-xs font-medium text-green-700">
-                          Connected
+                          Managed via MCC
                         </span>
                       ) : (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleGoogleOAuthConnect(client.id, client.name)}
-                        >
-                          Connect
-                        </Button>
+                        // <Button
+                        //   size="sm"
+                        //   variant="outline"
+                        //   onClick={() => handleGoogleOAuthConnect(client.id, client.name)}
+                        // >
+                        //   Connect
+                        // </Button>
+                        <span className="inline-flex items-center justify-center rounded-full bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700">
+                          Pending MCC
+                        </span>
                       )}
                     </TableCell>
                     <TableCell className="text-right">

@@ -3,6 +3,8 @@ from typing import Sequence
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
+import os
+
 from models.client_model import Client
 from models.user_model import UserModel
 from models.campaign_model import Campaign
@@ -14,7 +16,10 @@ from schemas.client_schema import (
     ClientCreate,
     ClientUpdate,
 )
-
+from services.google_oauth_service import (
+    get_global_mcc_credentials,
+    save_google_account,
+)
 
 def _get_client_or_404(db: Session, client_id: int) -> Client:
     client = db.query(Client).filter(Client.id == client_id).first()
@@ -126,6 +131,11 @@ def create_client(db: Session, client_data: ClientCreate, created_by: UserModel)
     payload = client_data.model_dump(exclude_unset=True).copy()
     assigned_manager_id = payload.pop("assigned_manager_id", None)
 
+    payload["developer_token"] = payload.get("developer_token") or os.getenv("DEVELOPER_TOKEN")
+    payload["client_id"] = payload.get("client_id") or os.getenv("GOOGLE_CLIENT_ID")
+    payload["client_secret"] = payload.get("client_secret") or os.getenv("GOOGLE_CLIENT_SECRET")
+    payload["login_customer_id"] = payload.get("login_customer_id") or os.getenv("LOGIN_CUSTOMER_ID")
+
     normalized_customer_ids = _normalize_customer_id_list(
         payload.get("customer_id"), payload.pop("customer_ids", None)
     )
@@ -146,6 +156,23 @@ def create_client(db: Session, client_data: ClientCreate, created_by: UserModel)
     db.refresh(new_client)
     setattr(new_client, "has_google_ads_auth", False)
     _attach_customer_ids([new_client])
+    
+    # If an MCC refresh token already exists, link it immediately to the new client
+    mcc_credentials = get_global_mcc_credentials(db)
+    if mcc_credentials:
+        try:
+            save_google_account(
+                db=db,
+                client_db_id=new_client.id,
+                tokens={"refresh_token": mcc_credentials.get("refresh_token")},
+                login_customer_id=mcc_credentials.get("login_customer_id"),
+                developer_token=mcc_credentials.get("developer_token"),
+            )
+            setattr(new_client, "has_google_ads_auth", True)
+        except HTTPException:
+            db.rollback()
+        finally:
+            _attach_google_ads_status(db, [new_client])
     return new_client
 
 

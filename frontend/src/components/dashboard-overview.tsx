@@ -34,7 +34,7 @@ import { RecentActivityPanel } from "./recent-activity-panel";
 import { CreateReport } from "./create-report";
 import { ReportPreview } from "./report-preview";
 import { ManagerDetails } from "./manager-details";
-import { API_BASE_URL, createClient } from "../lib/api";
+import { createClient, fetchMccStatus, startMccGoogleOAuth, type MccStatusResponse } from "../lib/api";
 import { Toaster, toast } from "sonner";
 import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
 import { currencyOptions } from "../lib/currencies";
@@ -43,7 +43,7 @@ import { GoogleAdsSyncControls } from "./google-ads-sync-controls";
 type ClientFormState = {
   name: string;
   email: string;
-  refresh_token: string;
+  // refresh_token: string;
   customer_ids: string[];
   assigned_manager_id: string;
   currency_code: string;
@@ -133,13 +133,13 @@ export function DashboardOverview({
     (): ClientFormState => ({
       name: "",
       email: "",
-      refresh_token: refreshToken ?? "",
+      // refresh_token: refreshToken ?? "",
       customer_ids: [],
       assigned_manager_id: "",
       currency_code: "USD",
       monthly_budget: "",
     }),
-    [refreshToken],
+    [],
   );
 
   const [clientForm, setClientForm] = useState<ClientFormState>(() =>
@@ -148,14 +148,38 @@ export function DashboardOverview({
   const [customerIdInput, setCustomerIdInput] = useState("");
   const [isSubmittingClient, setIsSubmittingClient] = useState(false);
   const [customerIdError, setCustomerIdError] = useState<string | null>(null);
+  const [mccStatus, setMccStatus] = useState<MccStatusResponse | null>(null);
+  const [loadingMccStatus, setLoadingMccStatus] = useState(false);
 
-  const oauthPendingClients = authToken
-    ? clients.filter((client) => !client.hasGoogleOAuth)
-    : [];
-  const showGoogleOAuthReminder = oauthPendingClients.length > 0;
+  const loginCustomerId = mccStatus?.login_customer_id || STATIC_LOGIN_CUSTOMER_ID;
+  // const oauthPendingClients = authToken
+  //   ? clients.filter((client) => !client.hasGoogleOAuth)
+  //   : [];
+  // const showGoogleOAuthReminder = oauthPendingClients.length > 0;
+
+  const mccConnected =
+    (mccStatus?.connected ?? false) || clients.some((client) => client.hasGoogleOAuth);
+  const showGoogleOAuthReminder = isAdmin && !mccConnected;
 
   // NEW: quick range selector state (kept in sync with global dateRange)
   const [quickRange, setQuickRange] = useState<QuickRange>("30days");
+
+  const refreshMccStatus = useCallback(async () => {
+    if (!isAdmin || !authToken) return;
+    setLoadingMccStatus(true);
+    try {
+      const status = await fetchMccStatus(authToken);
+      setMccStatus(status);
+    } catch (error) {
+      console.error("Failed to fetch MCC status", error);
+    } finally {
+      setLoadingMccStatus(false);
+    }
+  }, [authToken, isAdmin]);
+
+  useEffect(() => {
+    refreshMccStatus();
+  }, [refreshMccStatus]);
 
   // Keep quick range in sync whenever global dateRange changes (e.g. via GoogleAdsSyncControls)
   useEffect(() => {
@@ -216,36 +240,37 @@ export function DashboardOverview({
     setDateRange(range);
   };
 
-  const launchClientOAuth = useCallback((clientId: string | number, clientName: string) => {
-    const idStr = String(clientId);
-    const oauthUrl = `${API_BASE_URL}/auth/google-connect?client_db_id=${encodeURIComponent(
-      idStr,
-    )}`;
+  // const launchClientOAuth = useCallback((clientId: string | number, clientName: string) => {
+  //   const idStr = String(clientId);
+  //   const oauthUrl = `${API_BASE_URL}/auth/google-connect?client_db_id=${encodeURIComponent(
+  //     idStr,
+  //   )}`;
 
-    if (typeof window === "undefined") {
-      toast.error("Unable to launch Google OAuth", {
-        description: "A browser window is required to complete the Google consent flow.",
-      });
-      return;
-    }
+  //   if (typeof window === "undefined") {
+  //     toast.error("Unable to launch Google OAuth", {
+  //       description: "A browser window is required to complete the Google consent flow.",
+  //     });
+  //     return;
+  //   }
 
-    try {
-      window.location.assign(oauthUrl);
+  //   try {
+  //     window.location.assign(oauthUrl);
 
-      toast.info("Redirecting to Google OAuth", {
-        description: `Complete the consent screen for ${clientName} to finish connecting this account.`,
-      });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Unable to start OAuth";
-      toast.error("Google OAuth failed", { description: message });
-    }
-  }, []);
+  //     toast.info("Redirecting to Google OAuth", {
+  //       description: `Complete the consent screen for ${clientName} to finish connecting this account.`,
+  //     });
+  //   } catch (error) {
+  //     const message = error instanceof Error ? error.message : "Unable to start OAuth";
+  //     toast.error("Google OAuth failed", { description: message });
+  //   }
+  // }, []);
 
   const handleClientDialogChange = (open: boolean) => {
     setIsAddClientDialogOpen(open);
-    if (open) {
-      setClientForm((prev) => ({ ...prev, refresh_token: refreshToken ?? "" }));
-    } else {
+    // if (open) {
+    //   setClientForm((prev) => ({ ...prev, refresh_token: refreshToken ?? "" }));
+    // } else {
+      if (!open) {
       setClientForm(createInitialClientForm());
       setCustomerIdError(null);
       setCustomerIdInput("");
@@ -334,7 +359,7 @@ export function DashboardOverview({
     const requiredFields: Array<keyof ClientFormState> = [
       "name",
       "email",
-      "refresh_token",
+      // "refresh_token",
       "currency_code",
     ];
 
@@ -376,12 +401,15 @@ export function DashboardOverview({
       const payload = {
         name: clientForm.name.trim(),
         email: clientForm.email.trim(),
-        developer_token: developerToken,
-        client_id: STATIC_CLIENT_ID,
-        client_secret: STATIC_CLIENT_SECRET,
-        refresh_token: clientForm.refresh_token.trim(),
+        // developer_token: developerToken,
+        // client_id: STATIC_CLIENT_ID,
+        // client_secret: STATIC_CLIENT_SECRET,
+        // refresh_token: clientForm.refresh_token.trim(),
+        developer_token: developerToken || undefined,
+        client_id: STATIC_CLIENT_ID || undefined,
+        client_secret: STATIC_CLIENT_SECRET || undefined,
         customer_ids: sanitizedCustomerIds,
-        login_customer_id: loginCustomerId,
+        login_customer_id: loginCustomerId || undefined,
         currency_code: clientForm.currency_code,
         monthly_budget: Number.isFinite(parsedMonthlyBudget)
           ? parsedMonthlyBudget
@@ -394,14 +422,14 @@ export function DashboardOverview({
       const newClient = await createClient(payload, { accessToken: authToken, refreshToken });
       await refreshClients();
       toast.success("Client connected", {
-        description: `${clientForm.name} is now available in your workspace. Launching Google OAuth...`,
+        description: `${clientForm.name} is now available and will use the shared MCC connection.`,
       });
       setIsAddClientDialogOpen(false);
       setClientForm(createInitialClientForm());
-
       if (newClient?.id != null) {
-        const clientName = newClient.name ?? (clientForm.name || "new client");
-        launchClientOAuth(newClient.id, clientName);
+        // const clientName = newClient.name ?? (clientForm.name || "new client");
+        // launchClientOAuth(newClient.id, clientName);
+        refreshMccStatus();
       }
     } catch (error) {
       const message =
@@ -413,10 +441,36 @@ export function DashboardOverview({
   };
 
   useEffect(() => {
-    if (isAddClientDialogOpen) {
-      setClientForm((prev) => ({ ...prev, refresh_token: refreshToken ?? "" }));
+    // if (isAddClientDialogOpen) {
+    //   setClientForm((prev) => ({ ...prev, refresh_token: refreshToken ?? "" }));
+    if (typeof window === "undefined") return;
+
+    const params = new URLSearchParams(window.location.search);
+    const mccResult = params.get("mcc_oauth");
+
+    if (!mccResult) return;
+
+    if (mccResult === "success") {
+      const updatedCount = params.get("updated");
+      toast.success("Manager account connected", {
+        description:
+          updatedCount && Number(updatedCount) > 0
+            ? `Shared MCC token applied to ${updatedCount} clients.`
+            : "Shared MCC token saved.",
+      });
+      refreshMccStatus();
+      refreshClients();
+    } else {
+      const reason = params.get("reason") ?? "Unable to save refresh token.";
+      toast.error("MCC connection failed", { description: reason });
     }
-  }, [isAddClientDialogOpen, refreshToken]);
+  // }, [isAddClientDialogOpen, refreshToken]);
+  
+    ["mcc_oauth", "updated", "reason"].forEach((key) => params.delete(key));
+    const nextSearch = params.toString();
+    const nextUrl = nextSearch ? `${window.location.pathname}?${nextSearch}` : window.location.pathname;
+    window.history.replaceState(null, "", nextUrl);
+  }, [refreshClients, refreshMccStatus]);
 
   const maskToken = useCallback((token: string) => {
     if (!token) return "";
@@ -621,7 +675,7 @@ export function DashboardOverview({
                               or spaces. Duplicates are ignored.
                             </p>
                           </div>
-                          <div className="space-y-2">
+                          {/* <div className="space-y-2">
                             <Label htmlFor="refresh-token">Refresh Token</Label>
                             <Input
                               id="refresh-token"
@@ -630,7 +684,7 @@ export function DashboardOverview({
                               value={clientForm.refresh_token}
                               onChange={handleClientInputChange("refresh_token")}
                             />
-                          </div>
+                          </div> */}
                         </div>
                       </div>
 
@@ -759,6 +813,40 @@ export function DashboardOverview({
           </div>
         </div>
 
+{isAdmin && (
+          <Card className="border border-dashed border-slate-200 bg-slate-50">
+            <CardHeader className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between md:space-y-0">
+              <div>
+                <CardTitle className="text-sm text-slate-800">Manager Account (MCC)</CardTitle>
+                <p className="text-xs text-slate-500">One OAuth token shared across every client connection.</p>
+              </div>
+              <Badge variant={mccConnected ? "secondary" : "outline"} className={mccConnected ? "bg-green-100 text-green-800" : "text-slate-700"}>
+                {mccConnected ? "Connected" : "Not connected"}
+              </Badge>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div className="space-y-1 text-sm text-slate-700">
+                <p>
+                  Login customer ID: <span className="font-mono text-slate-900">{loginCustomerId || "Not configured"}</span>
+                </p>
+                <p className="text-xs text-slate-500">
+                  {mccConnected
+                    ? `Applied to ${mccStatus?.connected_clients ?? clients.length} of ${mccStatus?.total_clients ?? clients.length} clients.`
+                    : "Connect your MCC to reuse one refresh token across all client accounts."}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" onClick={refreshMccStatus} disabled={loadingMccStatus}>
+                  {loadingMccStatus ? "Checking..." : "Refresh status"}
+                </Button>
+                <Button onClick={() => startMccGoogleOAuth()}>
+                  {mccConnected ? "Reconnect MCC OAuth" : "Connect MCC OAuth"}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Global sync status indicator */}
         {isSyncingGoogleAds && (
           <div className="mt-2 flex items-center gap-2 text-xs text-blue-600">
@@ -774,20 +862,22 @@ export function DashboardOverview({
             <div className="flex items-start gap-3">
               <AlertTriangle className="mt-1 h-5 w-5 text-amber-600" />
               <div>
-                <AlertTitle>Connect Google OAuth for client data</AlertTitle>
+                <AlertTitle>Connect your MCC Google Ads account</AlertTitle>
                 <AlertDescription>
-                  {oauthPendingClients.length === 1
+                  {/* {oauthPendingClients.length === 1
                     ? `${oauthPendingClients[0].name} still needs Google OAuth before live metrics and AI recommendations can sync.`
-                    : `${oauthPendingClients.length} client accounts still need Google OAuth before live metrics and recommendations can sync.`}
+                    : `${oauthPendingClients.length} client accounts still need Google OAuth before live metrics and recommendations can sync.`} */}
+                  Link your manager account once to share Google Ads access with every client and unlock live metrics and AI
+                  recommendations.
                 </AlertDescription>
               </div>
             </div>
             <Button
               variant="outline"
               size="sm"
-              onClick={() => onNavigate?.("accounts")}
+              onClick={() =>startMccGoogleOAuth()}
             >
-              Review client connections
+              Connect MCC OAuth
             </Button>
           </div>
         </Alert>

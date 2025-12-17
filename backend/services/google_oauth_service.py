@@ -59,6 +59,7 @@ def save_google_account(
     tokens: dict,
     login_customer_id: Optional[str] = None,
     developer_token: Optional[str] = None,
+    commit: bool = True,
 ):
     """
     Upsert GoogleAdsAccount record storing refresh_token and related info.
@@ -110,5 +111,63 @@ def save_google_account(
             customer_id=customer_id,
         )
         db.add(account)
-    db.commit()
+    # db.commit()
+    if commit:
+        db.commit()
     return {"status": "ok"}
+
+
+def propagate_refresh_token_to_all_clients(
+    db: Session, refresh_token: str, login_customer_id: Optional[str] = None
+):
+    """
+    Store a shared MCC refresh token across every client row in google_ads_accounts.
+    """
+
+    if not refresh_token:
+        raise HTTPException(status_code=400, detail="Missing refresh_token for propagation")
+
+    effective_login_customer = login_customer_id or os.getenv("LOGIN_CUSTOMER_ID")
+    if not effective_login_customer:
+        raise HTTPException(status_code=400, detail="Missing LOGIN_CUSTOMER_ID for MCC linkage")
+
+    clients = db.query(Client).all()
+    if not clients:
+        return {"updated": 0, "login_customer_id": effective_login_customer}
+
+    developer_token = os.getenv("DEVELOPER_TOKEN")
+
+    for client in clients:
+        save_google_account(
+            db=db,
+            client_db_id=client.id,
+            tokens={"refresh_token": refresh_token},
+            login_customer_id=effective_login_customer,
+            developer_token=developer_token,
+            commit=False,
+        )
+
+    db.commit()
+    return {"updated": len(clients), "login_customer_id": effective_login_customer}
+
+
+def get_global_mcc_credentials(db: Session) -> Optional[dict]:
+    """Return the first stored MCC refresh token + login customer id, if present."""
+
+    account = (
+        db.query(GoogleAdsAccount)
+        .filter(GoogleAdsAccount.refresh_token.isnot(None))
+        .first()
+    )
+    if not account or not account.refresh_token:
+        return None
+
+    login_customer_id = account.login_customer_id or os.getenv("LOGIN_CUSTOMER_ID")
+    if not login_customer_id:
+        return None
+
+    return {
+        "refresh_token": account.refresh_token,
+        "login_customer_id": login_customer_id,
+        "developer_token": account.developer_token or os.getenv("DEVELOPER_TOKEN"),
+    }

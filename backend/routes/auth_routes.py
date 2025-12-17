@@ -20,7 +20,15 @@ from services.auth_service import (
     create_refresh_token,
     decode_token,
 )
-from services.google_oauth_service import save_google_account
+# from services.google_oauth_service import save_google_account
+from services.google_oauth_service import (
+    get_global_mcc_credentials,
+    propagate_refresh_token_to_all_clients,
+    save_google_account,
+)
+# other model imports are used dynamically in callbacks (user_model)
+
+from utils.auth_dependencies import require_admin_user
 # other model imports are used dynamically in callbacks (user_model)
 
 from services.auth_service import register_user, login_user, create_access_token, create_refresh_token, decode_token
@@ -72,8 +80,8 @@ def _set_session_cookies(resp: Response, access_token: str, refresh_token: str):
 
 
 # ---------- Helpers for state (encode client_db_id into state) -------------
-def _encode_state(nonce: str, client_db_id: str | None) -> str:
-    payload = {"nonce": nonce, "client_db_id": client_db_id}
+def _encode_state(nonce: str, client_db_id: str | None, mode: str | None = None) -> str:
+    payload = {"nonce": nonce, "client_db_id": client_db_id, "mode": mode}
     raw = json.dumps(payload).encode("utf-8")
     return base64.urlsafe_b64encode(raw).decode("utf-8")
 
@@ -105,7 +113,7 @@ def login(user_data: UserLogin, db: Session = Depends(get_db)):
 
 # ---------------------- Google OAuth: connect ------------------------------
 @router.get("/google-connect")
-async def google_connect(client_db_id: str | None = None):
+async def google_connect(client_db_id: str | None = None, mode: str | None = None):
     """
     Redirects user to Google OAuth consent screen.
     Optional query param client_db_id will be encoded into state so the callback can persist refresh_token.
@@ -126,7 +134,7 @@ async def google_connect(client_db_id: str | None = None):
         )
 
     nonce = secrets.token_urlsafe(24)
-    state_token = _encode_state(nonce, client_db_id)
+    state_token = _encode_state(nonce, client_db_id, mode=mode)
 
     params = {
         "client_id": CLIENT_ID,
@@ -179,7 +187,9 @@ async def google_callback(
 
     decoded = _decode_state(state)
     client_db_id = decoded.get("client_db_id") if decoded else None
+    flow_mode = decoded.get("mode") if decoded else None
     is_client_connect_flow = bool(client_db_id)
+    is_mcc_connect_flow = flow_mode == "mcc"
     if client_db_id:
         print(f"Decoded client_db_id from state: {client_db_id}")
     else:
@@ -239,6 +249,30 @@ async def google_callback(
             print(
                 f"❌ Failed to persist refresh token to DB for client_id={client_db_id}: {exc.detail}"
             )
+
+# When initiated as an MCC linkage, propagate the refresh token to all clients
+    if is_mcc_connect_flow:
+        if not refresh_token_google:
+            return RedirectResponse(f"{FRONTEND_BASE}/dashboard?mcc_oauth=error&reason=missing_refresh")
+
+        try:
+            result = propagate_refresh_token_to_all_clients(
+                db=db,
+                refresh_token=refresh_token_google,
+                login_customer_id=os.getenv("LOGIN_CUSTOMER_ID"),
+            )
+            print(
+                "✅ Propagated MCC refresh token across clients", result,
+            )
+        except HTTPException as exc:
+            return RedirectResponse(
+                f"{FRONTEND_BASE}/dashboard?mcc_oauth=error&reason={exc.detail}"
+            )
+
+        redirect_target = f"{FRONTEND_BASE}/dashboard?mcc_oauth=success&updated={result.get('updated')}"
+        resp = RedirectResponse(url=redirect_target, status_code=302)
+        resp.delete_cookie("oauth_state", path="/")
+        return resp
 
 # If this OAuth run was initiated from the "connect client" flow, finish early without requiring an app user
     if is_client_connect_flow:
@@ -424,4 +458,27 @@ async def test_google_config():
         "redirect_uri": REDIRECT_URI,
         "scope": SCOPE,
         "status": "✅ Configuration OK" if all([CLIENT_ID, CLIENT_SECRET, REDIRECT_URI]) else "❌ Missing credentials",
+    }
+
+
+@router.get("/google-mcc-status")
+async def google_mcc_status(
+    db: Session = Depends(get_db),
+    _: None = Depends(require_admin_user),
+):
+    """Report whether a shared MCC refresh token is stored."""
+
+    credentials = get_global_mcc_credentials(db)
+    total_clients = db.query(Client).count()
+    connected_accounts = (
+        db.query(GoogleAdsAccount)
+        .filter(GoogleAdsAccount.refresh_token.isnot(None))
+        .count()
+    )
+
+    return {
+        "connected": bool(credentials),
+        "login_customer_id": credentials.get("login_customer_id") if credentials else None,
+        "connected_clients": connected_accounts,
+        "total_clients": total_clients,
     }

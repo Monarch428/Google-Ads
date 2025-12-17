@@ -489,20 +489,23 @@ def _resolve_google_ads_credentials(
     )
 
     if account and account.refresh_token:
+        login_customer_id = account.login_customer_id or os.getenv("LOGIN_CUSTOMER_ID")
+        developer_token = account.developer_token or os.getenv("DEVELOPER_TOKEN")
         return {
             "refresh_token": account.refresh_token,
-            "login_customer_id": account.login_customer_id,
+            "login_customer_id": login_customer_id,
             "customer_id": selected_customer_id or account.customer_id,
-            "developer_token": account.developer_token,
+            "developer_token": developer_token,
             "google_client_id": account.google_client_id,
             "google_client_secret": account.google_client_secret,
             "currency_code": getattr(client_record, "currency_code", "USD"),
         }
 
     if client_record and client_record.refresh_token:
+        login_customer_id = client_record.login_customer_id or os.getenv("LOGIN_CUSTOMER_ID")
         return {
             "refresh_token": client_record.refresh_token,
-            "login_customer_id": client_record.login_customer_id,
+            "login_customer_id": login_customer_id,
             "customer_id": selected_customer_id,
             "developer_token": client_record.developer_token,
             "google_client_id": client_record.client_id,

@@ -78,13 +78,13 @@ export interface BackendClient {
   id: number;
   name: string;
   email: string;
-  developer_token: string;
-  client_id: string;
-  client_secret: string;
-  refresh_token: string;
+  developer_token?: string | null;
+  client_id?: string | null;
+  client_secret?: string | null;
+  refresh_token?: string | null;
   customer_id?: string | null;
   customer_ids?: string[] | null;
-  login_customer_id: string | null;
+  login_customer_id?: string | null;
   industry?: string | null;
   currency_code?: string | null;
   monthly_budget?: number | null;
@@ -194,10 +194,25 @@ export interface SystemStatusResponse {
   status: string;
 }
 
-export type CreateClientPayload = Omit<
-  BackendClient,
-  "id" | "created_at" | "updated_at" | "created_by_id"
->;
+// export type CreateClientPayload = Omit<
+//   BackendClient,
+//   "id" | "created_at" | "updated_at" | "created_by_id"
+// >;
+export interface CreateClientPayload {
+  name: string;
+  email: string;
+  developer_token?: string | null;
+  client_id?: string | null;
+  client_secret?: string | null;
+  refresh_token?: string | null;
+  customer_id?: string | null;
+  customer_ids?: string[] | null;
+  login_customer_id?: string | null;
+  currency_code?: string;
+  monthly_budget?: number | null;
+  has_google_ads_auth?: boolean;
+  assigned_manager_id?: number | null;
+}
 
 export type UpdateClientPayload = Partial<CreateClientPayload>;
 
@@ -250,6 +265,10 @@ export function startGoogleOAuth() {
   window.location.assign(`${API_BASE_URL}/auth/google-connect`);
 }
 
+export function startMccGoogleOAuth() {
+  window.location.assign(`${API_BASE_URL}/auth/google-connect?mode=mcc`);
+}
+
 // Who am I (reads cookie on server)
 export function me() {
   return apiFetch<{
@@ -266,6 +285,24 @@ export function refreshSession() {
   return apiFetch<{ access_token: string; token_type: string }>("/auth/refresh", {
     method: "POST",
   });
+}
+
+export interface MccStatusResponse {
+  connected: boolean;
+  login_customer_id?: string | null;
+  connected_clients: number;
+  total_clients: number;
+}
+
+export function fetchMccStatus(token?: string) {
+  return apiFetch<MccStatusResponse>(
+    "/auth/google-mcc-status",
+    token
+      ? {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      : undefined,
+  );
 }
 
 // ---------- Data API (optional token header still supported) ----------
