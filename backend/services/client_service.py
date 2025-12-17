@@ -1,6 +1,7 @@
 from typing import Sequence
 
 from fastapi import HTTPException, status
+from sqlalchemy import inspect, text
 from sqlalchemy.orm import Session
 
 import os
@@ -10,6 +11,9 @@ from models.user_model import UserModel
 from models.campaign_model import Campaign
 from models.recommendation_model import Recommendation
 from models.google_ads_account import GoogleAdsAccount
+from models.campaign_asset_performance import CampaignAssetPerformance
+from models.campaign_asset_set_link import CampaignAssetSetLink
+from models.campaign_conversion_stat import CampaignConversionStat
 from schemas.client_schema import (
     ClientAssignmentResponse,
     ClientAssignmentUpdate,
@@ -238,12 +242,29 @@ def delete_client(db: Session, client_id: int) -> dict:
     """Delete a client record (admin only)."""
 
     client = _get_client_or_404(db, client_id)
+    inspector = inspect(db.get_bind())
 
-    # Remove dependent records that use a hard foreign-key constraint. The
-    # GoogleAdsAccount and Recommendation tables do not have SQLAlchemy
-    # relationships with cascade rules, so deleting the client would otherwise
-    # raise an IntegrityError. Explicitly delete the related rows first to keep
-    # the operation atomic.
+    # Remove dependent records in a foreign-key-safe order. Newly added
+    # campaign/asset tables enforce FK constraints, so children must be cleared
+    # before parents.
+    db.query(CampaignAssetPerformance).filter(
+        CampaignAssetPerformance.client_id == client.id
+    ).delete(synchronize_session=False)
+
+    # The campaign_assets table may not be mapped in SQLAlchemy, so delete it
+    # directly if it exists to satisfy the required sequence.
+    if inspector.has_table("campaign_assets"):
+        db.execute(text("DELETE FROM campaign_assets WHERE client_id = :client_id"), {"client_id": client.id})
+
+    db.query(CampaignAssetSetLink).filter(
+        CampaignAssetSetLink.client_id == client.id
+    ).delete(synchronize_session=False)
+    db.query(CampaignConversionStat).filter(
+        CampaignConversionStat.client_id == client.id
+    ).delete(synchronize_session=False)
+
+    # Tables without cascade rules or without ORM relationships must be removed
+    # manually ahead of the client delete to avoid integrity errors.
     db.query(GoogleAdsAccount).filter(GoogleAdsAccount.client_id == client.id).delete(synchronize_session=False)
     db.query(Recommendation).filter(Recommendation.client_id == client.id).delete(synchronize_session=False)
     db.query(Campaign).filter(Campaign.client_id == client.id).delete(synchronize_session=False)
