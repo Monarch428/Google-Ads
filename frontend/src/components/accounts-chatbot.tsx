@@ -21,7 +21,7 @@ export function AccountsChatbot() {
     {
       id: "1",
       role: "assistant",
-      content: "Hi! I'm your AI Agency Analyst assistant. I can help you with insights about your client accounts, performance analysis, and recommendations. What would you like to know?",
+      content: "Hi! I'm your Atlas assistant. I can help you with insights about your client accounts, performance analysis, and recommendations. What would you like to know?",
       timestamp: new Date(),
     },
   ]);

@@ -528,7 +528,7 @@ export function DashboardOverview({
                   <DialogHeader>
                     <DialogTitle>Add New Client Account</DialogTitle>
                     <DialogDescription>
-                      Connect a new Google Ads account to the AI Agency Analyst
+                      Connect a new Google Ads account to the Atlas
                       platform
                     </DialogDescription>
                   </DialogHeader>

@@ -74,7 +74,8 @@ export function AppSidebar({
           <img src={beezLogo} alt="Beez Logo" className="h-12 w-12 object-contain" />
           <div className="space-y-1">
             <div className="flex items-center gap-2">
-              <h2 className="text-slate-900">AI Agency Analyst</h2>
+              {/* <h2 className="text-slate-900">AI Agency Analyst</h2> */}
+              <h2 className="text-slate-900">Atlas</h2>
               <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-blue-700">
                 {activeModule.shortLabel}
               </span>
@@ -96,7 +97,7 @@ export function AppSidebar({
                 className="flex w-full items-center justify-between px-3 py-3 text-left"
                 aria-expanded={!moduleSwitcherDocked}
               >
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 ">
                   <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-50 text-blue-700">
                     <activeModule.icon className="h-4 w-4" />
                   </div>
@@ -155,8 +156,8 @@ export function AppSidebar({
                     isActive={currentView === item.id}
                     onClick={() => onViewChange(item.id)}
                   >
-                    <item.icon className="mt-0.5 h-5 w-5 shrink-0" />
-                    <div className="flex flex-col gap-1 text-left">
+                    <item.icon className="mt-0.5 h-5 w-5 shrink-0 " />
+                    <div className="flex flex-col gap-1 text-left ">
                       <span className="text-sm font-semibold leading-tight">{item.label}</span>
                       <span className="text-xs leading-snug text-slate-500">{item.description}</span>
                     </div>
