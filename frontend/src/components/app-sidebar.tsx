@@ -167,17 +167,18 @@ export function AppSidebar({
               </div>
             </div>
 
-            <SidebarMenu>
+            <SidebarMenu className="gap-3 pt-1">
               {moduleFeatures.map((item) => (
                 <SidebarMenuItem key={item.id}>
                   <SidebarMenuButton
+                    className="h-auto items-start gap-3 rounded-lg px-3 py-3"
                     isActive={currentView === item.id}
                     onClick={() => onViewChange(item.id)}
                   >
-                    <item.icon className="h-4 w-4" />
-                    <div className="flex flex-col items-start">
-                      <span className="text-sm font-medium leading-none">{item.label}</span>
-                      <span className="text-[11px] text-slate-500">{item.description}</span>
+                    <item.icon className="mt-0.5 h-5 w-5 shrink-0" />
+                    <div className="flex flex-col gap-1 text-left">
+                      <span className="text-sm font-semibold leading-tight">{item.label}</span>
+                      <span className="text-xs leading-snug text-slate-500">{item.description}</span>
                     </div>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
