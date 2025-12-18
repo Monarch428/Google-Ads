@@ -161,6 +161,10 @@ export function DashboardApp({ user, token, onLogout, onUserUpdated }: Dashboard
     }
   };
 
+  const handleModuleSectionToggle = () => {
+    setModuleSwitcherDocked((prev) => !prev);
+  };
+
   const renderContent = () => {
     if (routeContext.viewId === "settings") {
       return <Settings user={user} authToken={token} onUserUpdated={onUserUpdated} />;
@@ -226,6 +230,7 @@ export function DashboardApp({ user, token, onLogout, onUserUpdated }: Dashboard
           currentView={routeContext.kind === "module" ? routeContext.viewId : null}
           currentModule={selectedModule}
           moduleSwitcherDocked={moduleSwitcherDocked}
+          onModuleSwitcherToggle={handleModuleSectionToggle}
           onModuleChange={handleModuleChange}
           onViewChange={handleViewChange}
           user={user}

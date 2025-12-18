@@ -1,4 +1,5 @@
 import {
+  ChevronDown,
   ChevronUp,
   LogOut,
   Settings,
@@ -35,6 +36,7 @@ interface AppSidebarProps {
   currentView: string | null;
   currentModule: ModuleId;
   moduleSwitcherDocked: boolean;
+  onModuleSwitcherToggle: () => void;
   onModuleChange: (module: ModuleId) => void;
   onViewChange: (view: string) => void;
   user: BackendUser;
@@ -54,6 +56,7 @@ export function AppSidebar({
   currentView,
   currentModule,
   moduleSwitcherDocked,
+  onModuleSwitcherToggle,
   onModuleChange,
   onViewChange,
   user,
@@ -85,86 +88,63 @@ export function AppSidebar({
           <SidebarGroupLabel>Main Menu</SidebarGroupLabel>
           <SidebarGroupContent className="space-y-3">
             <div
-              className={cn(
-                "rounded-xl border bg-white/70 transition-all duration-200",
-                moduleSwitcherDocked
-                  ? "group/module overflow-hidden px-2 py-2 hover:shadow-md"
-                  : "px-3 py-3 shadow-sm",
-              )}
+              className="rounded-xl border bg-white/70 shadow-sm transition-all"
             >
-              <div className="flex items-center justify-between">
-                <p
-                  className={cn(
-                    "text-[11px] font-semibold uppercase tracking-wide text-slate-600 transition-opacity",
-                    moduleSwitcherDocked && "opacity-0 group-hover/module:opacity-100",
-                  )}
-                >
-                  Modules
-                </p>
-                <span
-                  className={cn(
-                    "rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600 transition-opacity",
-                    moduleSwitcherDocked ? "opacity-0 group-hover/module:opacity-100" : "opacity-100",
-                  )}
-                >
-                  Switch
-                </span>
-              </div>
-              <div
-                className={cn(
-                  "mt-2 flex flex-col gap-2 transition-[max-height] duration-200",
-                  moduleSwitcherDocked ? "max-h-[140px] group-hover/module:max-h-[320px]" : "max-h-none",
-                )}
+              <button
+                type="button"
+                onClick={onModuleSwitcherToggle}
+                className="flex w-full items-center justify-between px-3 py-3 text-left"
+                aria-expanded={!moduleSwitcherDocked}
               >
-                {MODULE_LIST.map((module) => {
-                  const isActive = module.id === activeModule.id;
-                  return (
-                    <button
-                      key={module.id}
-                      className={cn(
-                        "flex w-full items-center gap-2 rounded-lg border text-left text-sm transition-all duration-150",
-                        moduleSwitcherDocked
-                          ? "h-10 justify-center px-2 group-hover/module:justify-between group-hover/module:px-3"
-                          : "px-3 py-2 justify-between",
-                        isActive
-                          ? "border-blue-200 bg-blue-50 text-blue-800 shadow-sm"
-                          : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50",
-                      )}
-                      onClick={() => onModuleChange(module.id)}
-                    >
-                      <div
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-50 text-blue-700">
+                    <activeModule.icon className="h-4 w-4" />
+                  </div>
+                  <div className="flex flex-col items-start gap-0.5">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-600">Modules</p>
+                    <span className="text-sm font-semibold text-slate-900">{activeModule.label}</span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 text-slate-600">
+                  <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium">Switch</span>
+                  <ChevronDown
+                    className={cn(
+                      "h-4 w-4 transition-transform",
+                      !moduleSwitcherDocked && "rotate-180",
+                    )}
+                  />
+                </div>
+              </button>
+              {!moduleSwitcherDocked && (
+                <div className="flex flex-col gap-2 px-3 pb-3">
+                  {MODULE_LIST.map((module) => {
+                    const isActive = module.id === activeModule.id;
+                    return (
+                      <button
+                        key={module.id}
                         className={cn(
-                          "flex items-center gap-2",
-                          moduleSwitcherDocked && "w-full justify-center group-hover/module:justify-start",
+                          "flex w-full items-center justify-between gap-2 rounded-lg border px-3 py-2 text-left text-sm transition-all duration-150",
+                          isActive
+                            ? "border-blue-200 bg-blue-50 text-blue-800 shadow-sm"
+                            : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50",
                         )}
+                        onClick={() => onModuleChange(module.id)}
                       >
-                        <module.icon
-                          className={cn(
-                            "h-4 w-4",
-                            isActive ? "text-blue-700" : "text-slate-600",
-                          )}
-                        />
-                        <span
-                          className={cn(
-                            "truncate text-sm font-medium",
-                            moduleSwitcherDocked && "opacity-0 group-hover/module:opacity-100 transition-opacity",
-                          )}
-                        >
-                          {module.shortLabel}
-                        </span>
-                      </div>
-                      <span
-                        className={cn(
-                          "text-[11px] text-slate-500",
-                          moduleSwitcherDocked && "hidden group-hover/module:inline",
-                        )}
-                      >
-                        {module.label}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
+                        <div className="flex items-center gap-2">
+                          <module.icon
+                            className={cn(
+                              "h-4 w-4",
+                              isActive ? "text-blue-700" : "text-slate-600",
+                            )}
+                          />
+                          <span className="truncate text-sm font-medium">{module.shortLabel}</span>
+                        </div>
+                        <span className="text-[11px] text-slate-500">{module.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
             <SidebarMenu className="gap-3 pt-1">
