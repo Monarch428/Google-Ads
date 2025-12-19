@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 import os
 
 from models.client_model import Client
-from models.user_model import UserModel
+from models.user_model import UserModel, UserRole, coerce_role
 from models.campaign_model import Campaign
 from models.recommendation_model import Recommendation
 from models.google_ads_account import GoogleAdsAccount
@@ -37,7 +37,7 @@ def _validate_manager(db: Session, manager_id: int) -> UserModel:
     if not manager:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Manager not found")
 
-    if (manager.role or "").lower() == "admin":
+    if coerce_role(manager.role) == UserRole.ADMIN:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cannot assign client to admin user")
 
     if not getattr(manager, "is_active", True):
@@ -184,7 +184,7 @@ def get_clients_for_user(db: Session, requester: UserModel) -> Sequence[Client]:
     """Fetch clients scoped to the requesting user's permissions."""
 
     query = db.query(Client)
-    if (requester.role or "").lower() != "admin":
+    if coerce_role(requester.role) != UserRole.ADMIN:
         query = query.filter(Client.assigned_manager_id == requester.id)
 
     clients = query.order_by(Client.name.asc()).all()
@@ -198,7 +198,7 @@ def get_client_by_id(db: Session, client_id: int, requester: UserModel) -> Clien
 
     client = _get_client_or_404(db, client_id)
 
-    if (requester.role or "").lower() != "admin":
+    if coerce_role(requester.role) != UserRole.ADMIN:
         if client.assigned_manager_id != requester.id:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access to client denied")
 

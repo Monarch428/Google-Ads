@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
@@ -21,6 +21,7 @@ export function AIRecommendations({ onBundleClick }: AIRecommendationsProps) {
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [processingId, setProcessingId] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState<number>(1);
   const {
     clients,
     recommendations,
@@ -54,6 +55,67 @@ export function AIRecommendations({ onBundleClick }: AIRecommendationsProps) {
     });
   }, [displayRecommendations, statusFilter, priorityFilter, searchQuery]);
 
+  const itemsPerPage = 10;
+  const maxVisiblePages = 7;
+  const totalPages = Math.max(1, Math.ceil(filteredRecommendations.length / itemsPerPage));
+
+  const paginatedRecommendations = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return filteredRecommendations.slice(start, start + itemsPerPage);
+  }, [filteredRecommendations, currentPage]);
+
+  const resetToFirstPage = () => setCurrentPage(1);
+
+  const getVisiblePages = (page: number, total: number) => {
+    if (total <= maxVisiblePages) {
+      return Array.from({ length: total }, (_, index) => index + 1);
+    }
+
+    const pages: (number | "ellipsis")[] = [1];
+    const windowSize = maxVisiblePages - 2;
+    let start = Math.max(2, page - Math.floor(windowSize / 2));
+    let end = Math.min(total - 1, page + Math.floor(windowSize / 2));
+
+    if (end - start < windowSize - 1) {
+      if (start === 2) {
+        end = start + windowSize - 1;
+      } else if (end === total - 1) {
+        start = end - windowSize + 1;
+      }
+    }
+
+    if (start > 2) {
+      pages.push("ellipsis");
+    }
+
+    for (let i = start; i <= end; i++) {
+      pages.push(i);
+    }
+
+    if (end < total - 1) {
+      pages.push("ellipsis");
+    }
+
+    pages.push(total);
+    return pages;
+  };
+
+  const visiblePages = useMemo(() => getVisiblePages(currentPage, totalPages), [currentPage, totalPages]);
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(Math.min(Math.max(page, 1), totalPages));
+  };
+
+  useEffect(() => {
+    resetToFirstPage();
+  }, [statusFilter, priorityFilter, searchQuery, recommendations]);
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
+
   const pendingCount = useMemo(
     () => displayRecommendations.filter((r) => r.status === "pending").length,
     [displayRecommendations],
@@ -66,6 +128,9 @@ export function AIRecommendations({ onBundleClick }: AIRecommendationsProps) {
     () => displayRecommendations.filter((r) => r.priority === "high").length,
     [displayRecommendations],
   );
+
+  const isFirstPage = currentPage === 1;
+  const isLastPage = currentPage === totalPages;
 
   const handleApprove = async (id: string) => {
     if (!authToken) {
@@ -262,7 +327,8 @@ export function AIRecommendations({ onBundleClick }: AIRecommendationsProps) {
           <Card>
             <CardContent className="pt-6 text-sm text-slate-500">No recommendations found for the selected filters.</CardContent>
           </Card>
-        ) : filteredRecommendations.map((rec) => {
+        ) : (
+          paginatedRecommendations.map((rec) => {
           const statusBadge = getStatusBadge(rec.status);
           return (
             <Card key={rec.id}>
@@ -331,8 +397,46 @@ export function AIRecommendations({ onBundleClick }: AIRecommendationsProps) {
               </CardContent>
             </Card>
           );
-        })}
+        })
+        )}
       </div>
+
+      {!recommendationsLoading && filteredRecommendations.length > 0 && (
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-slate-500">
+            Showing {(currentPage - 1) * itemsPerPage + 1}–
+            {Math.min(currentPage * itemsPerPage, filteredRecommendations.length)} of {filteredRecommendations.length}
+            {" "}
+            recommendations
+          </p>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => handlePageChange(currentPage - 1)} disabled={isFirstPage}>
+              Previous
+            </Button>
+            <div className="flex items-center gap-1">
+              {visiblePages.map((page, index) =>
+                page === "ellipsis" ? (
+                  <span key={`ellipsis-${index}`} className="px-2 text-slate-400">
+                    ...
+                  </span>
+                ) : (
+                  <Button
+                    key={page}
+                    size="sm"
+                    variant={page === currentPage ? "default" : "outline"}
+                    onClick={() => handlePageChange(page)}
+                  >
+                    {page}
+                  </Button>
+                ),
+              )}
+            </div>
+            <Button variant="outline" size="sm" onClick={() => handlePageChange(currentPage + 1)} disabled={isLastPage}>
+              Next
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

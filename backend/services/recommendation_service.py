@@ -5,6 +5,7 @@ API routes remain thin and focused on request/response handling.
 """
 from __future__ import annotations
 
+import json
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
@@ -13,10 +14,36 @@ from sqlalchemy.orm import Session
 
 from models.client_model import Client
 from models.recommendation_model import Comment, ExecutionLog, Recommendation
-
+from models.user_model import UserRole, coerce_role
 
 def _serialize_datetime(value: Optional[datetime]) -> Optional[str]:
     return value.isoformat() if value else None
+
+
+def _deserialize_snapshot(raw_snapshot: Any) -> Any:
+    """Return a JSON-friendly snapshot for API consumers.
+
+    Recommendations are stored with ``data_snapshot`` as plain text. When
+    the data comes from Google Ads metrics we want to surface the underlying
+    numbers (CTR, impression share, budgets, etc.) without forcing the
+    caller to JSON-decode the payload manually. If the snapshot cannot be
+    parsed we fall back to the raw value so the client still sees something
+    meaningful.
+    """
+
+    if raw_snapshot is None:
+        return {}
+
+    if isinstance(raw_snapshot, (dict, list)):
+        return raw_snapshot
+
+    if isinstance(raw_snapshot, str):
+        try:
+            return json.loads(raw_snapshot)
+        except json.JSONDecodeError:
+            return raw_snapshot
+
+    return raw_snapshot
 
 
 def _serialize_comment(comment: Comment) -> Dict[str, Any]:
@@ -41,12 +68,21 @@ def _serialize_execution_log(log: ExecutionLog) -> Dict[str, Any]:
 
 
 def _serialize_recommendation(rec: Recommendation) -> Dict[str, Any]:
+    comments = sorted(
+        rec.comments, key=lambda c: c.created_at or datetime.min, reverse=True
+    )
+    execution_logs = sorted(
+        rec.execution_logs,
+        key=lambda log: log.recorded_at or datetime.min,
+        reverse=True,
+    )
+
     return {
         "id": rec.id,
         "client_id": rec.client_id,
         "campaign_name": rec.campaign_name,
         "suggestion": rec.suggestion,
-        "data_snapshot": rec.data_snapshot,
+        "data_snapshot": _deserialize_snapshot(rec.data_snapshot),
         "customer_id": rec.customer_id,
         "predicted_impact": rec.predicted_impact,
         "action_proposal": rec.action_proposal,
@@ -54,9 +90,9 @@ def _serialize_recommendation(rec: Recommendation) -> Dict[str, Any]:
         "status": rec.status,
         "created_at": _serialize_datetime(rec.created_at),
         "updated_at": _serialize_datetime(rec.updated_at),
-        "comments": [_serialize_comment(comment) for comment in rec.comments],
+        "comments": [_serialize_comment(comment) for comment in comments],
         "execution_logs": [
-            _serialize_execution_log(log) for log in rec.execution_logs
+            _serialize_execution_log(log) for log in execution_logs
         ],
     }
 
@@ -69,8 +105,8 @@ def _get_recommendation(db: Session, rec_id: int) -> Recommendation:
 
 
 def _ensure_recommendation_access(rec: Recommendation, user: Any, db: Session) -> None:
-    role = getattr(user, "role", None)
-    if (role or "").lower() == "admin":
+    role = coerce_role(getattr(user, "role", None))
+    if role == UserRole.ADMIN:
         return
 
     if rec.client_id is None:
@@ -84,8 +120,8 @@ def _ensure_recommendation_access(rec: Recommendation, user: Any, db: Session) -
 def fetch_recommendations_for_user(db: Session, user: Any) -> List[Dict[str, Any]]:
     query = db.query(Recommendation).order_by(Recommendation.created_at.desc())
 
-    role = getattr(user, "role", None)
-    if (role or "").lower() != "admin":
+    role = coerce_role(getattr(user, "role", None))
+    if role != UserRole.ADMIN:
         query = query.join(Client, Client.id == Recommendation.client_id).filter(
             Client.assigned_manager_id == getattr(user, "id", None)
         )

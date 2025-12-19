@@ -117,11 +117,13 @@ export interface GoogleAdsSyncResponse {
   error?: string;
 }
 
+export type UserRole = "admin" | "senior_manager" | "manager" | "junior_manager";
+
 export interface BackendUser {
   id: number;
   name: string;
   email: string;
-  role: string;
+  role: UserRole;
   is_active: boolean;
   company_name?: string | null;
   company_email?: string | null;
@@ -224,7 +226,7 @@ export interface ClientAssignmentResponse {
 export type UpdateUserPayload = {
   name?: string;
   email?: string;
-  role?: string;
+  role?: UserRole;
   is_active?: boolean;
   password?: string;
   company_name?: string;
@@ -239,7 +241,7 @@ export type CreateUserPayload = {
   name: string;
   email: string;
   password: string;
-  role?: string;
+  role?: UserRole;
   is_active?: boolean;
   assigned_client_ids?: number[];
 };

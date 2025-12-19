@@ -140,7 +140,7 @@ export function GoogleAdsSyncControls({
         className,
       )}
     >
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="grid grid-cols-2 items-center gap-3">
         <Select
           value={selectedClientId}
           onValueChange={setSelectedClientId}
@@ -182,18 +182,6 @@ export function GoogleAdsSyncControls({
       </div>
       <div className="flex flex-wrap items-center gap-3">
         <Button
-          onClick={handleRangeSync}
-          disabled={disabled || isRangeLoading}
-          size={buttonSize}
-        >
-          {isRangeLoading ? (
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          ) : (
-            <CalendarIcon className="mr-2 h-4 w-4" />
-          )}
-          Fetch Custom Range
-        </Button>
-        <Button
           variant="secondary"
           onClick={handleDailySync}
           disabled={disabled || isDailyLoading}
@@ -205,6 +193,18 @@ export function GoogleAdsSyncControls({
             <RefreshCw className="mr-2 h-4 w-4" />
           )}
           Fetch Today
+        </Button>
+                <Button
+          onClick={handleRangeSync}
+          disabled={disabled || isRangeLoading}
+          size={buttonSize}
+        >
+          {isRangeLoading ? (
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          ) : (
+            <CalendarIcon className="mr-2 h-4 w-4" />
+          )}
+          Fetch Custom Range
         </Button>
         {statusMessage && (
           <p

@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from database import get_db
 from schemas.user_schema import UserCreate, UserResponse, UserUpdate
+from models.user_model import UserRole, coerce_role
 from services import user_service
 from utils.auth_dependencies import get_current_user, require_admin_user
 
@@ -26,7 +27,7 @@ def get_user(
     current_user=Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    if (current_user.role or "").lower() != "admin" and current_user.id != user_id:
+    if coerce_role(current_user.role) != UserRole.ADMIN and current_user.id != user_id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to view this user")
     return user_service.get_user_by_id(db, user_id)
 
@@ -47,9 +48,9 @@ def update_user(
     current_user=Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    if (current_user.role or "").lower() != "admin" and current_user.id != user_id:
+    if coerce_role(current_user.role) != UserRole.ADMIN and current_user.id != user_id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to update this user")
-    can_manage_assignments = (current_user.role or "").lower() == "admin"
+    can_manage_assignments = coerce_role(current_user.role) == UserRole.ADMIN
     return user_service.update_user(
         db,
         user_id,

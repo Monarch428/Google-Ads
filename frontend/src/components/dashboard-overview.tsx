@@ -34,11 +34,12 @@ import { RecentActivityPanel } from "./recent-activity-panel";
 import { CreateReport } from "./create-report";
 import { ReportPreview } from "./report-preview";
 import { ManagerDetails } from "./manager-details";
-import { createClient, fetchMccStatus, startMccGoogleOAuth, type MccStatusResponse } from "../lib/api";
+import { createClient, startMccGoogleOAuth } from "../lib/api";
 import { Toaster, toast } from "sonner";
 import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
 import { currencyOptions } from "../lib/currencies";
 import { GoogleAdsSyncControls } from "./google-ads-sync-controls";
+import { DEFAULT_LOGIN_CUSTOMER_ID, useMccStatus } from "../lib/use-mcc-status";
 
 type ClientFormState = {
   name: string;
@@ -53,7 +54,7 @@ type ClientFormState = {
 type QuickRange = "today" | "7days" | "30days" | "90days" | "custom";
 
 const STATIC_DEVELOPER_TOKEN = import.meta.env.VITE_DEVELOPER_TOKEN ?? "";
-const STATIC_LOGIN_CUSTOMER_ID = import.meta.env.VITE_LOGIN_CUSTOMER_ID ?? "";
+const STATIC_LOGIN_CUSTOMER_ID = DEFAULT_LOGIN_CUSTOMER_ID;
 const STATIC_CLIENT_ID = import.meta.env.VITE_CLIENT_ID ?? "";
 const STATIC_CLIENT_SECRET = import.meta.env.VITE_CLIENT_SECRET ?? "";
 
@@ -148,38 +149,45 @@ export function DashboardOverview({
   const [customerIdInput, setCustomerIdInput] = useState("");
   const [isSubmittingClient, setIsSubmittingClient] = useState(false);
   const [customerIdError, setCustomerIdError] = useState<string | null>(null);
-  const [mccStatus, setMccStatus] = useState<MccStatusResponse | null>(null);
-  const [loadingMccStatus, setLoadingMccStatus] = useState(false);
+  // const [mccStatus, setMccStatus] = useState<MccStatusResponse | null>(null);
+  // const [loadingMccStatus, setLoadingMccStatus] = useState(false);
 
-  const loginCustomerId = mccStatus?.login_customer_id || STATIC_LOGIN_CUSTOMER_ID;
+  // const loginCustomerId = mccStatus?.login_customer_id || STATIC_LOGIN_CUSTOMER_ID;
   // const oauthPendingClients = authToken
   //   ? clients.filter((client) => !client.hasGoogleOAuth)
   //   : [];
   // const showGoogleOAuthReminder = oauthPendingClients.length > 0;
 
-  const mccConnected =
-    (mccStatus?.connected ?? false) || clients.some((client) => client.hasGoogleOAuth);
+  // const mccConnected =
+  //   (mccStatus?.connected ?? false) || clients.some((client) => client.hasGoogleOAuth);
+  const { mccConnected, mccStatus, loginCustomerId, loadingMccStatus, refreshMccStatus } =
+    useMccStatus({
+      authToken,
+      clients,
+      fallbackLoginCustomerId: STATIC_LOGIN_CUSTOMER_ID,
+      isAdmin,
+    });
   const showGoogleOAuthReminder = isAdmin && !mccConnected;
 
   // NEW: quick range selector state (kept in sync with global dateRange)
   const [quickRange, setQuickRange] = useState<QuickRange>("30days");
 
-  const refreshMccStatus = useCallback(async () => {
-    if (!isAdmin || !authToken) return;
-    setLoadingMccStatus(true);
-    try {
-      const status = await fetchMccStatus(authToken);
-      setMccStatus(status);
-    } catch (error) {
-      console.error("Failed to fetch MCC status", error);
-    } finally {
-      setLoadingMccStatus(false);
-    }
-  }, [authToken, isAdmin]);
+  // const refreshMccStatus = useCallback(async () => {
+  //   if (!isAdmin || !authToken) return;
+  //   setLoadingMccStatus(true);
+  //   try {
+  //     const status = await fetchMccStatus(authToken);
+  //     setMccStatus(status);
+  //   } catch (error) {
+  //     console.error("Failed to fetch MCC status", error);
+  //   } finally {
+  //     setLoadingMccStatus(false);
+  //   }
+  // }, [authToken, isAdmin]);
 
-  useEffect(() => {
-    refreshMccStatus();
-  }, [refreshMccStatus]);
+  // useEffect(() => {
+  //   refreshMccStatus();
+  // }, [refreshMccStatus]);
 
   // Keep quick range in sync whenever global dateRange changes (e.g. via GoogleAdsSyncControls)
   useEffect(() => {
@@ -532,7 +540,7 @@ export function DashboardOverview({
                       platform
                     </DialogDescription>
                   </DialogHeader>
-                  {authDetails && (
+                  {/* {authDetails && (
                     <div className="mb-6 rounded-lg border border-slate-200 bg-slate-50 p-4 text-xs text-slate-600">
                       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                         <div>
@@ -582,7 +590,7 @@ export function DashboardOverview({
                         </div>
                       </details>
                     </div>
-                  )}
+                  )} */}
                   <div className="py-4">
                     <div className="grid grid-cols-2 gap-x-6 gap-y-4">
                       {/* Left Column */}
@@ -608,16 +616,16 @@ export function DashboardOverview({
 
                       {/* API Credentials Section */}
                       <div className="col-span-2 pt-2">
-                        <h3 className="mb-3 text-sm text-slate-700">
+                        {/* <h3 className="mb-3 text-sm text-slate-700">
                           Google Ads API Credentials
-                        </h3>
+                        </h3> */}
                         <div className="grid grid-cols-2 gap-x-6 gap-y-4">
-                          <div className="col-span-2 rounded-md border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">
+                          {/* <div className="col-span-2 rounded-md border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">
                             OAuth credentials are managed by your workspace and
                             applied automatically when creating clients. The
                             configured client ID and secret will be used for all
                             new accounts.
-                          </div>
+                          </div> */}
                           <div className="col-span-2 space-y-2">
                             <Label htmlFor="google-ads-id">
                               Google Ads Customer IDs
@@ -695,31 +703,31 @@ export function DashboardOverview({
                         </h3>
                         <div className="grid grid-cols-2 gap-x-6 gap-y-4">
                           <div className="space-y-2">
-                            <Label htmlFor="assign-manager">
-                              Assign Ad Manager
-                            </Label>
-                            <Select
-                              value={clientForm.assigned_manager_id}
-                              onValueChange={(value: string) =>
-                                setClientForm((prev) => ({
-                                  ...prev,
-                                  assigned_manager_id: value,
-                                }))
-                              }
+  <Label htmlFor="assign-manager">
+    Assign Ad Manager
+  </Label>
+  <Select
+    value={clientForm.assigned_manager_id}
+    onValueChange={(value: string) =>
+      setClientForm((prev) => ({
+        ...prev,
+        assigned_manager_id: value,
+      }))
+    }
                               disabled={!displayManagers.length}
-                            >
-                              <SelectTrigger id="assign-manager">
-                                <SelectValue placeholder="Select a manager..." />
-                              </SelectTrigger>
-                              <SelectContent>
+  >
+    <SelectTrigger id="assign-manager">
+      <SelectValue placeholder="Select a manager..." />
+    </SelectTrigger>
+    <SelectContent>
                                 {displayManagers.map((manager) => (
-                                  <SelectItem key={manager.id} value={manager.id}>
-                                    {manager.name}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
+          <SelectItem key={manager.id} value={manager.id}>
+            {manager.name}
+          </SelectItem>
+        ))}
+    </SelectContent>
+  </Select>
+</div>
                           <div className="space-y-2">
                             <Label htmlFor="account-currency">
                               Account Currency
@@ -813,7 +821,7 @@ export function DashboardOverview({
           </div>
         </div>
 
-{isAdmin && (
+{isAdmin && !mccConnected && (
           <Card className="border border-dashed border-slate-200 bg-slate-50">
             <CardHeader className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between md:space-y-0">
               <div>

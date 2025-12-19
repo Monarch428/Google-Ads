@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { Pencil, Search } from "lucide-react";
+import { Badge } from "./ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Input } from "./ui/input";
 import {
@@ -30,6 +31,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Label } from "./ui/label";
 import { formatDateRangeLabel, useGoogleAdsSync } from "../lib/google-ads-sync-context";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
+import { startMccGoogleOAuth } from "../lib/api";
+import { useMccStatus } from "../lib/use-mcc-status";
 
 interface AccountsProps {
   onClientClick?: (clientId: string) => void;
@@ -51,12 +54,18 @@ export function Accounts({ onClientClick }: AccountsProps) {
   const [editMonthlyBudget, setEditMonthlyBudget] = useState<string>("");
   const [editMonthlyBudgetError, setEditMonthlyBudgetError] = useState<string | null>(null);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
-  const { clients, clientsLoading, deleteClient, updateClient, viewerRole } = useData();
+  const { authToken, clients, clientsLoading, deleteClient, updateClient, viewerRole } = useData();
   const { dateRange } = useGoogleAdsSync();
   const rangeLabel = formatDateRangeLabel(dateRange);
 
   const isAdmin = viewerRole === "admin";
   const hasClients = clients.length > 0;
+
+  const { mccConnected, mccStatus, loginCustomerId, loadingMccStatus, refreshMccStatus } = useMccStatus({
+    authToken,
+    clients,
+    isAdmin,
+  });
 
   const filteredClients = useMemo(() => {
     return clients.filter((client) =>
@@ -199,6 +208,42 @@ export function Accounts({ onClientClick }: AccountsProps) {
           <CardTitle className="text-base">Client Accounts ({filteredClients.length})</CardTitle>
         </CardHeader>
         <CardContent>
+          {isAdmin && (
+            <div className="mb-6">
+              <Card className="border border-dashed border-slate-200 bg-slate-50">
+                <CardHeader className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between md:space-y-0">
+                  <div>
+                    <CardTitle className="text-sm text-slate-800">Manager Account (MCC)</CardTitle>
+                    <p className="text-xs text-slate-500">One OAuth token shared across every client connection.</p>
+                  </div>
+                  <Badge variant={mccConnected ? "secondary" : "outline"} className={mccConnected ? "bg-green-100 text-green-800" : "text-slate-700"}>
+                    {mccConnected ? "Connected" : "Not connected"}
+                  </Badge>
+                </CardHeader>
+                <CardContent className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                  <div className="space-y-1 text-sm text-slate-700">
+                    <p>
+                      Login customer ID: <span className="font-mono text-slate-900">{loginCustomerId || "Not configured"}</span>
+                    </p>
+                    <p className="text-xs text-slate-500">
+                      {mccConnected
+                        ? `Applied to ${mccStatus?.connected_clients ?? clients.length} of ${mccStatus?.total_clients ?? clients.length} clients.`
+                        : "Connect your MCC to reuse one refresh token across all client accounts."}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button variant="outline" onClick={refreshMccStatus} disabled={loadingMccStatus}>
+                      {loadingMccStatus ? "Checking..." : "Refresh status"}
+                    </Button>
+                    <Button onClick={() => startMccGoogleOAuth()}>
+                      {mccConnected ? "Reconnect MCC OAuth" : "Connect MCC OAuth"}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
           {/* Search */}
           <div className="mb-6">
             <div className="relative">

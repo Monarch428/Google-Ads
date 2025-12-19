@@ -5,7 +5,7 @@ from jose import JWTError
 from sqlalchemy.orm import Session
 
 from database import get_db
-from models.user_model import UserModel
+from models.user_model import UserModel, UserRole, coerce_role
 from services.auth_service import decode_token
 
 _bearer_scheme = HTTPBearer(auto_error=False)
@@ -66,7 +66,7 @@ def get_current_user(
 
 def require_admin_user(current_user: UserModel = Depends(get_current_user)) -> UserModel:
     """Ensure the current user has admin privileges."""
-    if (current_user.role or "").lower() != "admin":
+    if coerce_role(current_user.role) != UserRole.ADMIN:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin privileges required")
     return current_user
 
@@ -82,6 +82,6 @@ def require_admin_refresh_user(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing refresh token")
 
     user = _load_user_from_token(db, token, expected_type="refresh")
-    if (user.role or "").lower() != "admin":
+    if coerce_role(user.role) != UserRole.ADMIN:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin refresh token required")
     return user

@@ -334,12 +334,11 @@ function formatRole(role: string | undefined, fallbackRole: string): string {
     case "admin":
       return "Administrator";
     case "manager":
-      return "Ad Manager";
+      return "Manager";
     case "senior_manager":
-    case "senior":
-      return "Senior Ad Manager";
-    case "junior":
-      return "Junior Ad Manager";
+      return "Senior Manager";
+    case "junior_manager":
+      return "Junior Manager";
     default:
       return role;
   }
@@ -371,7 +370,7 @@ function mapManagers(backendUsers: BackendUser[], clients: Client[]): Manager[] 
       id: managerId,
       name: user.name || `Manager ${managerId}`,
       email: user.email,
-      role: formatRole(user.role, "Ad Manager"),
+      role: formatRole(user.role, "Manager"),
       status: user.is_active ? "active" : "inactive",
       clientsAssigned: assignedClientIds.length,
       assignedClientIds,

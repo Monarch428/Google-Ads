@@ -60,10 +60,10 @@ import {
 import { toast } from "sonner@2.0.3";
 
 const ROLE_OPTIONS = [
-  { value: "senior", label: "Senior Ad Manager" },
-  { value: "manager", label: "Ad Manager" },
-  { value: "junior", label: "Junior Ad Manager" },
   { value: "admin", label: "Administrator" },
+  { value: "senior_manager", label: "Senior Manager" },
+  { value: "manager", label: "Manager" },
+  { value: "junior_manager", label: "Junior Manager" },
 ];
 
 function getRoleValueFromLabel(label: string): string {
@@ -73,8 +73,8 @@ function getRoleValueFromLabel(label: string): string {
     return match.value;
   }
 
-  if (normalized.includes("senior")) return "senior";
-  if (normalized.includes("junior")) return "junior";
+  if (normalized.includes("senior")) return "senior_manager";
+  if (normalized.includes("junior")) return "junior_manager";
   if (normalized.includes("admin")) return "admin";
   return "manager";
 }

@@ -5,6 +5,7 @@ from passlib.context import CryptContext
 from fastapi import HTTPException, status
 from jose import jwt
 from models import user_model
+from models.user_model import coerce_role
 from schemas.user_schema import UserCreate, UserLogin, UserResponse
 from config import settings
 
@@ -99,7 +100,7 @@ def register_user(db: Session, user: UserCreate) -> UserResponse:
         name=user.name,
         email=user.email,
         password_hash=hashed_password,
-        role=user.role,
+        role=coerce_role(user.role),
         is_active=is_active,
     )
 

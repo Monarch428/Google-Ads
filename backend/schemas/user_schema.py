@@ -3,6 +3,8 @@ from typing import Iterable, List, Optional
 
 from pydantic import BaseModel, ConfigDict, EmailStr, field_validator
 
+from models.user_model import UserRole, coerce_role
+
 
 def _coerce_client_ids(value: Optional[Iterable[object]]) -> Optional[List[int]]:
     if value is None:
@@ -36,16 +38,28 @@ def _coerce_client_ids(value: Optional[Iterable[object]]) -> Optional[List[int]]
 
 
 class UserCreate(BaseModel):
+    model_config = ConfigDict(use_enum_values=True)
+
     name: str
     email: EmailStr
     password: str
-    role: Optional[str] = "user"
+    role: Optional[UserRole] = UserRole.MANAGER
     is_active: Optional[bool] = True
     assigned_client_ids: Optional[List[int]] = None
 
     _normalize_assigned_ids = field_validator("assigned_client_ids", mode="before")(
         _coerce_client_ids
     )
+
+    @field_validator("role", mode="before")
+    @classmethod
+    def _validate_role(cls, value: Optional[str]):
+        if value is None:
+            return value
+        try:
+            return coerce_role(value)
+        except ValueError as exc:  # pragma: no cover - defensive
+            raise ValueError(f"Invalid role: {value}") from exc
 
 
 class UserLogin(BaseModel):
@@ -54,9 +68,11 @@ class UserLogin(BaseModel):
 
 
 class UserUpdate(BaseModel):
+    model_config = ConfigDict(use_enum_values=True)
+
     name: Optional[str] = None
     email: Optional[EmailStr] = None
-    role: Optional[str] = None
+    role: Optional[UserRole] = None
     is_active: Optional[bool] = None
     password: Optional[str] = None
     company_name: Optional[str] = None
@@ -77,12 +93,24 @@ class UserUpdate(BaseModel):
         _coerce_client_ids
     )
 
+    @field_validator("role", mode="before")
+    @classmethod
+    def _validate_role(cls, value: Optional[str]):
+        if value is None:
+            return value
+        try:
+            return coerce_role(value)
+        except ValueError as exc:  # pragma: no cover - defensive
+            raise ValueError(f"Invalid role: {value}") from exc
+
 
 class UserResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True, use_enum_values=True)
+
     id: int
     name: str
     email: EmailStr
-    role: Optional[str] = None
+    role: Optional[UserRole] = None
     is_active: Optional[bool] = True
     company_name: Optional[str] = None
     company_email: Optional[EmailStr] = None
@@ -92,8 +120,6 @@ class UserResponse(BaseModel):
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     assigned_client_ids: Optional[List[int]] = None
-
-    model_config = ConfigDict(from_attributes=True)
 
     @field_validator("company_email", mode="before")
     @classmethod

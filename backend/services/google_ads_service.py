@@ -71,8 +71,17 @@ def _build_recommendations_from_metrics(
     *,
     currency_code: str = "USD",
     customer_id: str | None = None,
+    asset_rows: list | None = None,
+    campaign_asset_rows: list | None = None,
+    bidding_strategy_rows: list | None = None,
 ):
-    """Generate actionable campaign recommendations from Google Ads metrics."""
+    """Generate actionable campaign recommendations from Google Ads metrics.
+
+    The function now considers campaign, asset, and bidding strategy data to
+    surface richer improvement ideas (budget pacing, auction/rank share, asset
+    health, and bid strategy alignment) alongside the existing performance
+    heuristics.
+    """
 
     if customer_id:
         db.query(Recommendation).filter(
@@ -81,6 +90,47 @@ def _build_recommendations_from_metrics(
         ).delete(synchronize_session=False)
 
     recommendations: list[dict] = []
+
+    # Normalize optional datasets
+    asset_rows = asset_rows or []
+    campaign_asset_rows = campaign_asset_rows or []
+    bidding_strategy_rows = bidding_strategy_rows or []
+
+    # Map bidding strategies by resource for quick lookups when iterating campaigns
+    bidding_by_resource: dict[str, dict] = {}
+    for batch in bidding_strategy_rows:
+        for row in batch.get("results", []):
+            strategy = row.get("biddingStrategy", row.get("bidding_strategy", {}))
+            resource = strategy.get("resourceName") or strategy.get("resource_name")
+            if resource:
+                bidding_by_resource[resource] = strategy
+
+    # Capture asset performance for creative-level recommendations
+    asset_performance: list[dict] = []
+    for batch in campaign_asset_rows:
+        for row in batch.get("results", []):
+            asset_info = row.get("asset", {})
+            campaign_info = row.get("campaign", {})
+            metrics = row.get("metrics", {})
+
+            impressions = int(metrics.get("impressions", 0) or 0)
+            clicks = int(metrics.get("clicks", 0) or 0)
+            conversions = _float_or_zero(metrics.get("conversions", 0))
+            ctr_value = (clicks / impressions * 100) if impressions else 0
+            conv_rate = (conversions / clicks * 100) if clicks else 0
+
+            asset_performance.append(
+                {
+                    "campaign_name": campaign_info.get("name", "Unknown campaign"),
+                    "asset_name": asset_info.get("name", "Unnamed asset"),
+                    "asset_type": asset_info.get("type"),
+                    "impressions": impressions,
+                    "clicks": clicks,
+                    "conversions": conversions,
+                    "ctr": round(ctr_value, 2),
+                    "conv_rate": round(conv_rate, 2),
+                }
+            )
 
     # 🔁 IMPORTANT: response_data is searchStream → list[batch]
     for batch in response_data:
@@ -100,6 +150,39 @@ def _build_recommendations_from_metrics(
             conv_rate = (conversions / clicks) * 100 if clicks else 0
             cpa = (cost / conversions) if conversions else None
 
+            search_impression_share = _normalize_ctr(
+                _float_or_zero(
+                    metrics.get("searchImpressionShare")
+                    or metrics.get("search_impression_share")
+                )
+            )
+            rank_lost_share = _normalize_ctr(
+                _float_or_zero(
+                    metrics.get("searchRankLostImpressionShare")
+                    or metrics.get("search_rank_lost_impression_share")
+                )
+            )
+            budget_lost_share = _normalize_ctr(
+                _float_or_zero(
+                    metrics.get("searchBudgetLostImpressionShare")
+                    or metrics.get("search_budget_lost_impression_share")
+                )
+            )
+
+            budget_info = row.get("campaignBudget", row.get("campaign_budget", {}))
+            budget_micros = int(budget_info.get("amountMicros") or 0)
+            daily_budget = budget_micros / 1_000_000 if budget_micros else None
+
+            bidding_resource = campaign_info.get("biddingStrategy")
+            bidding_strategy = bidding_by_resource.get(bidding_resource, {})
+            target_cpa_micros = (
+                bidding_strategy.get("targetCpa", {}) or {}
+            ).get("targetCpaMicros")
+            target_cpa = target_cpa_micros / 1_000_000 if target_cpa_micros else None
+            target_roas = (
+                bidding_strategy.get("targetRoas", {}) or {}
+            ).get("targetRoas")
+
             snapshot = {
                 "impressions": impressions,
                 "clicks": clicks,
@@ -111,6 +194,24 @@ def _build_recommendations_from_metrics(
                 "cpa": round(cpa, 2) if cpa else None,
                 "currency_code": currency_code,
                 "customer_id": customer_id,
+                "search_impression_share": round(search_impression_share, 2)
+                if search_impression_share
+                else None,
+                "search_rank_lost_impression_share": round(rank_lost_share, 2)
+                if rank_lost_share
+                else None,
+                "search_budget_lost_impression_share": round(budget_lost_share, 2)
+                if budget_lost_share
+                else None,
+                "daily_budget": round(daily_budget, 2) if daily_budget else None,
+                "target_cpa": round(target_cpa, 2) if target_cpa else None,
+                "target_roas": round(target_roas, 2) if target_roas else None,
+                "optimization_score": _float_or_zero(
+                    campaign_info.get("optimizationScore")
+                ),
+                "bidding_strategy_type": campaign_info.get(
+                    "biddingStrategyType"
+                ),
             }
 
             if impressions > 300 and ctr_value < 1.5:
@@ -187,6 +288,166 @@ def _build_recommendations_from_metrics(
                         "snapshot": snapshot,
                     }
                 )
+
+            if search_impression_share and search_impression_share < 40:
+                recommendations.append(
+                    {
+                        "campaign_name": campaign_name,
+                        "suggestion": (
+                            "Low auction visibility (search impression share under 40%). "
+                            "Raise budgets or improve Quality Score to win more auctions."
+                        ),
+                        "action_proposal": (
+                            "Increase daily budget or boost ad relevance/landing page experience "
+                            "to recover lost impression share."
+                        ),
+                        "predicted_impact": 7.0,
+                        "priority": "MEDIUM",
+                        "snapshot": snapshot,
+                    }
+                )
+
+            if budget_lost_share and budget_lost_share > 15 and conversions >= 1:
+                recommendations.append(
+                    {
+                        "campaign_name": campaign_name,
+                        "suggestion": (
+                            f"{budget_lost_share:.1f}% impressions lost to budget despite {conversions:.0f} conversions. "
+                            "Loosen the budget cap to capture more volume."
+                        ),
+                        "action_proposal": "Increase budget or redistribute spend from low performers to this campaign.",
+                        "predicted_impact": 8.5,
+                        "priority": "HIGH",
+                        "snapshot": snapshot,
+                    }
+                )
+
+            if rank_lost_share and rank_lost_share > 25 and ctr_value < 3:
+                recommendations.append(
+                    {
+                        "campaign_name": campaign_name,
+                        "suggestion": (
+                            f"{rank_lost_share:.1f}% impression share lost to rank with CTR {snapshot['ctr']}%. "
+                            "Improve ad relevance and landing pages to raise Quality Score."
+                        ),
+                        "action_proposal": "Tighten keywords, refresh ad copy, and ensure landing page experience aligns with queries.",
+                        "predicted_impact": 7.5,
+                        "priority": "MEDIUM",
+                        "snapshot": snapshot,
+                    }
+                )
+
+            if target_cpa and cpa and cpa > target_cpa * 1.2:
+                recommendations.append(
+                    {
+                        "campaign_name": campaign_name,
+                        "suggestion": (
+                            f"CPA {snapshot['cpa']} exceeds Target CPA {target_cpa:.2f}. "
+                            "Tighten targeting and exclude expensive queries to realign with target."
+                        ),
+                        "action_proposal": "Add negatives, pause low-quality keywords, and lower bids on costly segments.",
+                        "predicted_impact": 9.0,
+                        "priority": "HIGH",
+                        "snapshot": snapshot,
+                    }
+                )
+
+            strategy_type = snapshot.get("bidding_strategy_type") or ""
+            if strategy_type in {"MANUAL_CPC", "ENHANCED_CPC"} and conversions >= 15:
+                recommendations.append(
+                    {
+                        "campaign_name": campaign_name,
+                        "suggestion": (
+                            "Sufficient conversion volume detected. Switch from manual bidding to Smart Bidding "
+                            "(Maximize Conversions/Target CPA) to automate bid optimization."
+                        ),
+                        "action_proposal": "Test Maximize Conversions with a learning period, then layer a Target CPA.",
+                        "predicted_impact": 8.0,
+                        "priority": "MEDIUM",
+                        "snapshot": snapshot,
+                    }
+                )
+
+            opt_score = snapshot.get("optimization_score")
+            if opt_score and opt_score < 60:
+                recommendations.append(
+                    {
+                        "campaign_name": campaign_name,
+                        "suggestion": (
+                            f"Optimization Score is {opt_score:.0f}%. Apply Google Ads recommendations (ad strength, sitelinks, conversions) to lift score."
+                        ),
+                        "action_proposal": "Review auto-applied recommendations and enable high-confidence items like sitelinks and callouts.",
+                        "predicted_impact": 6.0,
+                        "priority": "LOW",
+                        "snapshot": snapshot,
+                    }
+                )
+
+            if daily_budget and cost and cost >= daily_budget * 0.95 and conv_rate >= 3:
+                recommendations.append(
+                    {
+                        "campaign_name": campaign_name,
+                        "suggestion": (
+                            "Campaign is consistently hitting daily budget with healthy conversion rate. "
+                            "Consider scaling budget to avoid throttling."
+                        ),
+                        "action_proposal": "Raise budget 10-20% and monitor CPA stability over the next week.",
+                        "predicted_impact": 7.5,
+                        "priority": "MEDIUM",
+                        "snapshot": snapshot,
+                    }
+                )
+
+    # Asset-level recommendations (creative quality/coverage)
+    for perf in asset_performance:
+        if perf["impressions"] >= 80 and perf["ctr"] < 1:
+            recommendations.append(
+                {
+                    "campaign_name": perf["campaign_name"],
+                    "suggestion": (
+                        f"Asset '{perf['asset_name']}' has CTR {perf['ctr']}% over {perf['impressions']} impressions. "
+                        "Refresh creative or test new variations to improve engagement."
+                    ),
+                    "action_proposal": "Create alternate headlines/descriptions and rotate responsive ads to find stronger assets.",
+                    "predicted_impact": 5.5,
+                    "priority": "LOW",
+                    "snapshot": perf,
+                }
+            )
+
+        if perf["conversions"] >= 3 and perf["conv_rate"] >= 5:
+            recommendations.append(
+                {
+                    "campaign_name": perf["campaign_name"],
+                    "suggestion": (
+                        f"Asset '{perf['asset_name']}' converts well (CVR {perf['conv_rate']}%). "
+                        "Pin or reuse this asset in top ad groups to scale results."
+                    ),
+                    "action_proposal": "Duplicate high-performing assets into other campaigns/ad groups and prioritize placements.",
+                    "predicted_impact": 6.5,
+                    "priority": "MEDIUM",
+                    "snapshot": perf,
+                }
+            )
+
+    asset_types: list[str] = []
+    for batch in asset_rows:
+        for row in batch.get("results", []):
+            asset = row.get("asset", {})
+            asset_type = asset.get("type")
+            if asset_type:
+                asset_types.append(asset_type)
+    if asset_types and "YOUTUBE_VIDEO" not in asset_types:
+        recommendations.append(
+            {
+                "campaign_name": "Account-level",
+                "suggestion": "No video assets detected. Add YouTube or video creatives to improve ad strength and coverage.",
+                "action_proposal": "Create at least one vertical and one horizontal video to unlock additional placements.",
+                "predicted_impact": 4.5,
+                "priority": "LOW",
+                "snapshot": {"asset_types": asset_types},
+            }
+        )
 
     created: list[Recommendation] = []
     for rec in recommendations:
@@ -323,7 +584,7 @@ def run_google_ads_query(
             url,
             headers=headers,
             json={"query": query},
-            timeout=30,
+            timeout=5000,
         )
         response.raise_for_status()
         logger.info(
@@ -615,6 +876,7 @@ def fetch_and_save_campaigns(
           campaign.bidding_strategy_type,
           campaign.bidding_strategy,
           campaign.campaign_budget,
+          campaign_budget.amount_micros,
           campaign.start_date,
           campaign.end_date,
           campaign.serving_status,
@@ -631,6 +893,9 @@ def fetch_and_save_campaigns(
           metrics.view_through_conversions,
           metrics.cost_micros,
           metrics.cost_per_conversion,
+          metrics.search_impression_share,
+          metrics.search_budget_lost_impression_share,
+          metrics.search_rank_lost_impression_share,
 
           segments.date
         FROM campaign
@@ -877,6 +1142,9 @@ def fetch_and_save_campaigns(
         campaign_rows,
         currency_code=currency_code,
         customer_id=customer_id,
+        asset_rows=asset_rows,
+        campaign_asset_rows=campaign_asset_rows,
+        bidding_strategy_rows=bidding_strategy_rows,
     )
 
     return {

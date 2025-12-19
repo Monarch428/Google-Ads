@@ -4,7 +4,7 @@ from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from models.client_model import Client
-from models.user_model import UserModel
+from models.user_model import UserModel, UserRole, coerce_role
 from schemas.user_schema import UserCreate, UserUpdate
 from services.auth_service import pwd_context
 
@@ -46,7 +46,7 @@ def _ensure_assignable_user(user: UserModel, desired_ids: Set[int]) -> None:
     if not desired_ids:
         return
 
-    if (user.role or "").lower() == "admin":
+    if coerce_role(user.role) == UserRole.ADMIN:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Cannot assign clients to admin users",
@@ -100,7 +100,7 @@ def create_user(
             detail="Email already in use",
         )
 
-    role = (user_data.role or "user").strip() or "user"
+    role = coerce_role(user_data.role)
     is_active = True if user_data.is_active is None else bool(user_data.is_active)
 
     password_to_hash = user_data.password[:72]
@@ -172,6 +172,9 @@ def update_user(
 
     data = update_data.model_dump(exclude_unset=True)
 
+    if "role" in data:
+        data["role"] = coerce_role(data["role"])
+
     assigned_ids = None
     if "assigned_client_ids" in data:
         if not can_manage_assignments:
@@ -204,7 +207,7 @@ def delete_user(db: Session, user_id: int) -> dict:
 
     user = get_user_by_id(db, user_id)
 
-    if (user.role or "").lower() == "admin":
+    if coerce_role(user.role) == UserRole.ADMIN:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Cannot delete admin users",
