@@ -236,9 +236,6 @@ export function AIRecommendations({ onBundleClick }: AIRecommendationsProps) {
 
       <p className="text-xs text-slate-500">Using {rangeLabel} for Google Ads syncs</p>
 
-      {/* AI Chatbot Assistant */}
-      <AIRecommendationsChatbot />
-
       {/* Filters */}
       <Card>
         <CardContent className="pt-6">
@@ -437,6 +434,8 @@ export function AIRecommendations({ onBundleClick }: AIRecommendationsProps) {
           </div>
         </div>
       )}
+      {/* AI Chatbot Assistant */}
+      <AIRecommendationsChatbot />
     </div>
   );
 }

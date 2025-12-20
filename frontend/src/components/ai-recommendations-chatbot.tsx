@@ -59,7 +59,7 @@ export function AIRecommendationsChatbot() {
     setInputValue("");
     setIsTyping(true);
     try {
-      const response = await sendChatbotMessage(userMessage.content, authToken);
+      const response = await sendChatbotMessage({ message: userMessage.content }, authToken);
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: "assistant",

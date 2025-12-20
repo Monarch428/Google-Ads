@@ -161,6 +161,14 @@ export interface ChatbotReply {
   reply: string;
 }
 
+export type ChatbotMode = "general" | "account";
+
+export interface ChatbotMessagePayload {
+  message: string;
+  mode?: ChatbotMode;
+  clientId?: number | string | null;
+}
+
 export interface OptimizationRequest {
   campaign_name: string;
   clicks: number;
@@ -577,10 +585,16 @@ export function syncGoogleAdsDaily(token: string) {
 // }
 
 // ---------- Chatbot ----------
-export function sendChatbotMessage(message: string, token?: string) {
+export function sendChatbotMessage(payload: ChatbotMessagePayload, token?: string) {
+  const { message, mode = "general", clientId } = payload;
+
   return apiFetch<ChatbotReply>("/chatbot/message", {
     method: "POST",
-    body: JSON.stringify({ message }),
+    body: JSON.stringify({
+      message,
+      mode,
+      client_id: clientId ?? undefined,
+    }),
     ...(token ? { headers: { Authorization: `Bearer ${token}` } } : undefined),
   });
 }

@@ -1563,7 +1563,7 @@ export function ClientDetails({ clientId, onBack }: ClientDetailsProps) {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+            <div className="grid grid-cols-2 xl:grid-cols-4 gap-6">
               <div className="xl:col-span-2 space-y-4">
                 <div className="p-4 border rounded-lg bg-white">
                   <div className="flex items-start justify-between mb-4">

@@ -461,9 +461,9 @@ export function Settings({ user, authToken, onUserUpdated }: SettingsProps) {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="senior">Senior Ad Manager</SelectItem>
+                        <SelectItem value="senior_manager">Senior Ad Manager</SelectItem>
                         <SelectItem value="manager">Ad Manager</SelectItem>
-                        <SelectItem value="junior">Junior Ad Manager</SelectItem>
+                        <SelectItem value="junior_manager">Junior Ad Manager</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>

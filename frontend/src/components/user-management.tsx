@@ -50,7 +50,7 @@ import {
 } from "lucide-react";
 import { Manager } from "../lib/mock-data";
 import { useData } from "../lib/data-context";
-import { createUser, updateUser } from "../lib/api";
+import { createUser, updateUser, type UserRole } from "../lib/api";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -59,14 +59,14 @@ import {
 } from "./ui/dropdown-menu";
 import { toast } from "sonner@2.0.3";
 
-const ROLE_OPTIONS = [
+const ROLE_OPTIONS: { value: UserRole; label: string }[] = [
   { value: "admin", label: "Administrator" },
   { value: "senior_manager", label: "Senior Manager" },
   { value: "manager", label: "Manager" },
   { value: "junior_manager", label: "Junior Manager" },
 ];
 
-function getRoleValueFromLabel(label: string): string {
+function getRoleValueFromLabel(label: string): UserRole {
   const normalized = label.toLowerCase();
   const match = ROLE_OPTIONS.find((option) => option.label.toLowerCase() === normalized);
   if (match) {
@@ -95,7 +95,7 @@ export function UserManagement({ onManagerClick }: UserManagementProps) {
   const [addForm, setAddForm] = useState({
     name: "",
     email: "",
-    role: "manager",
+    role: "manager" as UserRole,
     status: "active",
     password: "",
     confirmPassword: "",
@@ -103,7 +103,7 @@ export function UserManagement({ onManagerClick }: UserManagementProps) {
   const [editForm, setEditForm] = useState({
     name: "",
     email: "",
-    role: "manager",
+    role: "manager" as UserRole,
     status: "active",
   });
   const [isSaving, setIsSaving] = useState(false);
@@ -118,7 +118,7 @@ export function UserManagement({ onManagerClick }: UserManagementProps) {
     setAddForm({
       name: "",
       email: "",
-      role: "manager",
+      role: "manager" as UserRole,
       status: "active",
       password: "",
       confirmPassword: "",
@@ -431,10 +431,11 @@ export function UserManagement({ onManagerClick }: UserManagementProps) {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="senior">Senior Ad Manager</SelectItem>
-                      <SelectItem value="manager">Ad Manager</SelectItem>
-                      <SelectItem value="junior">Junior Ad Manager</SelectItem>
-                      <SelectItem value="admin">Administrator</SelectItem>
+                      {ROLE_OPTIONS.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>

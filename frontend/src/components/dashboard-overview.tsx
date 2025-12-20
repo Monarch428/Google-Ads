@@ -935,7 +935,7 @@ export function DashboardOverview({
       </div>
 
       {/* Alerts and Notifications */}
-      <AlertsPanel alerts={[]} onAlertClick={onAlertClick} />
+      {/* <AlertsPanel alerts={[]} onAlertClick={onAlertClick} /> */}
 
       {/* AI Recommendations Overview */}
       <AIRecommendationOverview
