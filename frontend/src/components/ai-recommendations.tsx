@@ -170,6 +170,7 @@ export function AIRecommendations({ onBundleClick }: AIRecommendationsProps) {
     switch (status) {
       case "approved":
         return <CheckCircle className="w-4 h-4 text-green-600" />;
+      case "dismissed":
       case "rejected":
         return <XCircle className="w-4 h-4 text-red-600" />;
       case "modified":
@@ -183,6 +184,7 @@ export function AIRecommendations({ onBundleClick }: AIRecommendationsProps) {
     switch (status) {
       case "approved":
         return { variant: "default" as const, label: "Approved" };
+      case "dismissed":
       case "rejected":
         return { variant: "destructive" as const, label: "Rejected" };
       case "modified":

@@ -137,7 +137,11 @@ def approve_recommendation(rec_id: int, user: Any, db: Session) -> Dict[str, Any
     rec.status = "APPROVED"
     db.commit()
     db.refresh(rec)
-    return {"message": f"Recommendation {rec.id} approved."}
+    # return {"message": f"Recommendation {rec.id} approved."}
+    return {
+        "message": f"Recommendation {rec.id} approved.",
+        "recommendation": _serialize_recommendation(rec),
+    }
 
 
 def modify_recommendation_action(
@@ -160,7 +164,11 @@ def dismiss_recommendation(rec_id: int, user: Any, db: Session) -> Dict[str, Any
     rec.status = "DISMISSED"
     db.commit()
     db.refresh(rec)
-    return {"message": f"Recommendation {rec.id} dismissed."}
+    # return {"message": f"Recommendation {rec.id} dismissed."}
+    return {
+        "message": f"Recommendation {rec.id} dismissed.",
+        "recommendation": _serialize_recommendation(rec),
+    }
 
 
 def create_comment(

@@ -1325,7 +1325,7 @@ export function ClientDetails({ clientId, onBack }: ClientDetailsProps) {
               </p>
             </div>
 
-            <div className="grid gap-1">
+            {/* <div className="grid gap-1">
               <span className="text-xs font-medium text-slate-500">
                 Date range
               </span>
@@ -1349,7 +1349,7 @@ export function ClientDetails({ clientId, onBack }: ClientDetailsProps) {
                   {dateRange.startDate} – {dateRange.endDate}
                 </p>
               )}
-            </div>
+            </div> */}
 
             <Badge
               className={

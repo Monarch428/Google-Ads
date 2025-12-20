@@ -508,7 +508,7 @@ export function DashboardOverview({
             <p className="text-slate-500">Welcome back, Agency Owner</p>
           </div>
           <div className="flex items-center gap-3">
-            <Select value={quickRange} onValueChange={handleQuickRangeChange}>
+            {/* <Select value={quickRange} onValueChange={handleQuickRangeChange}>
               <SelectTrigger className="w-44">
                 <SelectValue placeholder="Select range" />
               </SelectTrigger>
@@ -519,7 +519,7 @@ export function DashboardOverview({
                 <SelectItem value="90days">Last 90 Days</SelectItem>
                 <SelectItem value="custom">Custom range</SelectItem>
               </SelectContent>
-            </Select>
+            </Select> */}
 
             {isAdmin && (
               <Dialog
