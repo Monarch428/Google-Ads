@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import type { AuthDetails, AuthMethod } from "./lib/auth-types";
 import { PrivacyPolicyPage } from "./components/legal/privacy-policy";
 import { TermsOfServicePage } from "./components/legal/terms-of-service";
+import { HomePage } from "./components/home/home-page";
 
 const AUTH_TOKEN_KEY = "aaa_auth_token";
 const AUTH_REFRESH_KEY = "aaa_refresh_token";
@@ -117,6 +118,7 @@ export default function App() {
   const isTermsPath = useMemo(() => path === "/terms-of-service", [path]);
   const isLegalPath = isPrivacyPolicyPath || isTermsPath;
   const isLoginPath = path === "/login";
+  const isHomePath = path === "/";
 
   const isOnGoogleCallback = path === "/auth/google/callback";
   const hasProcessedGoogleOAuthRef = useRef(false);
@@ -124,8 +126,8 @@ export default function App() {
 
   useEffect(() => {
     if (!authState) {
-      if (!isLoginPath && !isOnGoogleCallback && !isLegalPath) {
-        navigate("/login", { replace: true });
+      if (!isHomePath && !isLoginPath && !isOnGoogleCallback && !isLegalPath) {
+        navigate("/", { replace: true });
       }
       return;
     }
@@ -228,6 +230,8 @@ export default function App() {
     content = <PrivacyPolicyPage />;
   } else if (isTermsPath) {
     content = <TermsOfServicePage />;
+  } else if (!authState && isHomePath) {
+    content = <HomePage />;
   } else if (authState) {
     content = (
       <DataProvider
