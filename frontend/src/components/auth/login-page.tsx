@@ -1,6 +1,5 @@
 import { FormEvent, useState } from "react";
 import { Apple, Github, LockKeyhole, Mail } from "lucide-react";
-import { FaGoogle } from "react-icons/fa";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
@@ -16,6 +15,7 @@ import { Separator } from "../ui/separator";
 import { login, AuthResponse, startGoogleOAuth } from "../../lib/api";
 import { toast } from "sonner@2.0.3";
 import type { AuthMethod } from "../../lib/auth-types";
+import { useRouter } from "../../lib/router";
 
 type LoginPageProps = {
   onAuthenticated: (
@@ -42,6 +42,7 @@ export function LoginPage({ onAuthenticated }: LoginPageProps) {
   const [{ email, password }, setCredentials] = useState(getInitialCredentials);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { navigate } = useRouter();
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -77,20 +78,20 @@ export function LoginPage({ onAuthenticated }: LoginPageProps) {
     }
   };
 
-const handleSocialLogin = (provider: SocialProvider) => {
-  if (provider !== "Google") {
-    toast.info(`${provider} login is coming soon.`);
-    return;
-  }
-  startGoogleOAuth();
-  // try {
-  //   const base = "http://localhost:8000"; // e.g. "https://api.example.com"
-  //   window.location.assign(`${base}/auth/google-connect`);
-  // } catch (err) {
-  //   const message = err instanceof Error ? err.message : "Unable to start Google login";
-  //   toast.error("Google login failed", { description: message });
-  // }
-};
+  const handleSocialLogin = (provider: SocialProvider) => {
+    if (provider !== "Google") {
+      toast.info(`${provider} login is coming soon.`);
+      return;
+    }
+    startGoogleOAuth();
+    // try {
+    //   const base = "http://localhost:8000"; // e.g. "https://api.example.com"
+    //   window.location.assign(`${base}/auth/google-connect`);
+    // } catch (err) {
+    //   const message = err instanceof Error ? err.message : "Unable to start Google login";
+    //   toast.error("Google login failed", { description: message });
+    // }
+  };
 
 
   return (
@@ -190,7 +191,7 @@ const handleSocialLogin = (provider: SocialProvider) => {
                 onClick={() => handleSocialLogin("Google")}
                 disabled={isLoading}
               >
-                <FaGoogle className="h-5 w-5" />
+                <span className="text-lg font-semibold text-[#DB4437]">G</span>
               </Button>
               <Button
                 type="button"
@@ -224,6 +225,26 @@ const handleSocialLogin = (provider: SocialProvider) => {
                 Sign up
               </button>
             </p>
+            <div className="text-center text-xs text-muted-foreground">
+              <p className="mb-1">By signing in you agree to our policies.</p>
+              <div className="flex items-center justify-center gap-4">
+                <button
+                  type="button"
+                  className="text-primary underline-offset-4 hover:underline"
+                  onClick={() => navigate("/terms-of-service")}
+                >
+                  Terms of Service
+                </button>
+                <span className="text-slate-400">•</span>
+                <button
+                  type="button"
+                  className="text-primary underline-offset-4 hover:underline"
+                  onClick={() => navigate("/privacy-policy")}
+                >
+                  Privacy Policy
+                </button>
+              </div>
+            </div>
           </CardFooter>
         </form>
       </Card>

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DashboardApp } from "./dashboard-app";
 import { DataProvider } from "./lib/data-context";
 import { GoogleAdsSyncProvider } from "./lib/google-ads-sync-context";
@@ -8,6 +8,8 @@ import { Toaster } from "./components/ui/sonner";
 import { useRouter } from "./lib/router";
 import { toast } from "sonner";
 import type { AuthDetails, AuthMethod } from "./lib/auth-types";
+import { PrivacyPolicyPage } from "./components/legal/privacy-policy";
+import { TermsOfServicePage } from "./components/legal/terms-of-service";
 
 const AUTH_TOKEN_KEY = "aaa_auth_token";
 const AUTH_REFRESH_KEY = "aaa_refresh_token";
@@ -111,22 +113,27 @@ export default function App() {
     });
   }, []);
 
+  const isPrivacyPolicyPath = useMemo(() => path === "/privacy-policy", [path]);
+  const isTermsPath = useMemo(() => path === "/terms-of-service", [path]);
+  const isLegalPath = isPrivacyPolicyPath || isTermsPath;
+  const isLoginPath = path === "/login";
+
   const isOnGoogleCallback = path === "/auth/google/callback";
   const hasProcessedGoogleOAuthRef = useRef(false);
   const [isProcessingGoogleOAuth, setIsProcessingGoogleOAuth] = useState(false);
 
   useEffect(() => {
     if (!authState) {
-      if (path !== "/login" && !isOnGoogleCallback) {
+      if (!isLoginPath && !isOnGoogleCallback && !isLegalPath) {
         navigate("/login", { replace: true });
       }
       return;
     }
 
-    if (path === "/" || path === "/login") {
+    if (!isLegalPath && (path === "/" || path === "/login")) {
       navigate("/dashboard", { replace: true });
     }
-  }, [authState, path, navigate, isOnGoogleCallback]);
+  }, [authState, path, navigate, isOnGoogleCallback, isLegalPath, isLoginPath]);
 
   const processGoogleOAuth = useCallback(() => {
     if (!isOnGoogleCallback || hasProcessedGoogleOAuthRef.current) {
@@ -217,6 +224,10 @@ export default function App() {
         </p>
       </div>
     );
+  } else if (isPrivacyPolicyPath) {
+    content = <PrivacyPolicyPage />;
+  } else if (isTermsPath) {
+    content = <TermsOfServicePage />;
   } else if (authState) {
     content = (
       <DataProvider

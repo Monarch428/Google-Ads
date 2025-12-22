@@ -49,6 +49,7 @@ import {
   Users,
   Package,
   Play,
+  Eye,
   Lightbulb,
   XCircle,
   Download,
@@ -1511,7 +1512,7 @@ export function ClientDetails({ clientId, onBack }: ClientDetailsProps) {
               </DropdownMenu>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
               <div className="p-4 rounded-lg border bg-slate-50">
                 <p className="text-xs text-slate-500 mb-1">Total Spend</p>
                 <div className="flex items-center gap-2">
@@ -1533,6 +1534,18 @@ export function ClientDetails({ clientId, onBack }: ClientDetailsProps) {
                 </div>
                 <p className="text-xs text-slate-500 mt-1">
                   Value {currencyFormatterWithCents.format(safeConversionValue)}
+                </p>
+              </div>
+              <div className="p-4 rounded-lg border bg-slate-50">
+                <p className="text-xs text-slate-500 mb-1">Impressions</p>
+                <div className="flex items-center gap-2">
+                  <Eye className="w-4 h-4 text-indigo-600" />
+                  <p className="text-lg text-slate-900">
+                    {numberFormatter.format(totalImpressions)}
+                  </p>
+                </div>
+                <p className="text-xs text-slate-500 mt-1">
+                  Aggregated across selected campaigns
                 </p>
               </div>
               <div className="p-4 rounded-lg border bg-slate-50">
