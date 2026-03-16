@@ -1,15 +1,59 @@
-#database.py
+# database.py
 from sqlalchemy import create_engine, text, inspect
 from sqlalchemy.orm import sessionmaker, declarative_base
 from config import settings
+from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
 import json
- 
+
+
+def _build_database_url(raw_url: str) -> str:
+    """
+    Normalize DB URL and automatically enforce sslmode=require
+    for PostgreSQL connections when not already present.
+    """
+    if not raw_url:
+        raise ValueError("DATABASE_URL is not configured")
+
+    url = raw_url.strip()
+
+    # Normalize postgres scheme for SQLAlchemy + psycopg if needed
+    if url.startswith("postgres://"):
+        url = url.replace("postgres://", "postgresql+psycopg://", 1)
+    elif url.startswith("postgresql://") and "+psycopg" not in url:
+        url = url.replace("postgresql://", "postgresql+psycopg://", 1)
+
+    parsed = urlparse(url)
+
+    # Add sslmode=require for postgres if missing
+    if parsed.scheme.startswith("postgresql"):
+        query = parse_qs(parsed.query)
+        if "sslmode" not in query:
+            query["sslmode"] = ["require"]
+
+        url = urlunparse(
+            (
+                parsed.scheme,
+                parsed.netloc,
+                parsed.path,
+                parsed.params,
+                urlencode(query, doseq=True),
+                parsed.fragment,
+            )
+        )
+
+    return url
+
+
+DATABASE_URL = _build_database_url(settings.DATABASE_URL)
 
 # Create SQLAlchemy Engine
 engine = create_engine(
-    settings.DATABASE_URL,
-    pool_pre_ping=True,  
-    echo=False          
+    DATABASE_URL,
+    pool_pre_ping=True,
+    pool_recycle=300,
+    pool_timeout=30,
+    connect_args={"sslmode": "require"},
+    echo=False,
 )
 
 # Session factory
@@ -49,15 +93,7 @@ _CAMPAIGN_OPTIONAL_COLUMNS = {
 
 
 def ensure_user_optional_columns() -> None:
-    """Ensure optional company columns exist on the users table.
-
-    Older databases may have been created before these fields were added to
-    the ORM model. When the ORM attempts to select the columns SQLAlchemy will
-    ask MySQL for them which raises "Unknown column" errors. We defensively
-    inspect the schema and add any missing columns so authentication and other
-    flows keep working without requiring a manual migration.
-    """
-
+    """Ensure optional company columns exist on the users table."""
     inspector = inspect(engine)
     if not inspector.has_table("users"):
         return
@@ -74,13 +110,16 @@ def ensure_user_optional_columns() -> None:
 
     with engine.begin() as connection:
         for column_name in missing_columns:
-            ddl = f"ALTER TABLE users ADD COLUMN {column_name} {_USER_OPTIONAL_COLUMNS[column_name]} NULL"
+            ddl = (
+                f"ALTER TABLE users "
+                f"ADD COLUMN {column_name} {_USER_OPTIONAL_COLUMNS[column_name]} NULL"
+            )
             connection.execute(text(ddl))
+            print(f"Added missing users column: {column_name}")
 
 
 def ensure_client_assignment_columns() -> None:
     """Ensure client assignment metadata columns exist on the clients table."""
-
     inspector = inspect(engine)
     if not inspector.has_table("clients"):
         return
@@ -97,13 +136,16 @@ def ensure_client_assignment_columns() -> None:
 
     with engine.begin() as connection:
         for column_name in missing_columns:
-            ddl = f"ALTER TABLE clients ADD COLUMN {column_name} {_CLIENT_OPTIONAL_COLUMNS[column_name]} NULL"
+            ddl = (
+                f"ALTER TABLE clients "
+                f"ADD COLUMN {column_name} {_CLIENT_OPTIONAL_COLUMNS[column_name]} NULL"
+            )
             connection.execute(text(ddl))
+            print(f"Added missing clients column: {column_name}")
 
 
 def ensure_campaign_metric_columns() -> None:
     """Ensure newer Google Ads metric columns exist on the campaigns table."""
-
     inspector = inspect(engine)
     if not inspector.has_table("campaigns"):
         return
@@ -120,12 +162,31 @@ def ensure_campaign_metric_columns() -> None:
 
     with engine.begin() as connection:
         for column_name in missing_columns:
-            ddl = f"ALTER TABLE campaigns ADD COLUMN {column_name} {_CAMPAIGN_OPTIONAL_COLUMNS[column_name]} NULL"
+            ddl = (
+                f"ALTER TABLE campaigns "
+                f"ADD COLUMN {column_name} {_CAMPAIGN_OPTIONAL_COLUMNS[column_name]} NULL"
+            )
             connection.execute(text(ddl))
+            print(f"Added missing campaigns column: {column_name}")
+
+
+def ensure_campaign_date_column() -> None:
+    """Ensure campaigns.date exists."""
+    inspector = inspect(engine)
+    if not inspector.has_table("campaigns"):
+        return
+
+    existing_columns = {col["name"] for col in inspector.get_columns("campaigns")}
+    if "date" in existing_columns:
+        return
+
+    with engine.begin() as connection:
+        connection.execute(text("ALTER TABLE campaigns ADD COLUMN date DATE NULL"))
+        print("Added missing campaigns column: date")
+
 
 def backfill_customer_ids_column() -> None:
     """Populate the JSON customer_ids column from legacy comma strings."""
-
     inspector = inspect(engine)
     if not inspector.has_table("clients"):
         return
@@ -160,6 +221,29 @@ def backfill_customer_ids_column() -> None:
                 {"customer_ids": json.dumps(cleaned), "id": mapping.get("id")},
             )
 
+        print("Customer IDs backfill completed.")
+
+
+def initialize_database() -> None:
+    """
+    Initialize schema and legacy-safe columns only after DB connection succeeds.
+    """
+    print("Initializing database...")
+    with engine.connect() as conn:
+        conn.execute(text("SELECT 1"))
+    print("Database connection verified.")
+
+    Base.metadata.create_all(bind=engine)
+    print("Base tables ensured.")
+
+    ensure_user_optional_columns()
+    ensure_client_assignment_columns()
+    ensure_campaign_metric_columns()
+    ensure_campaign_date_column()
+    backfill_customer_ids_column()
+
+    print("Database initialization completed successfully.")
+
 
 # FastAPI Dependency for DB session
 def get_db():
@@ -169,11 +253,13 @@ def get_db():
     finally:
         db.close()
 
+
 # Optional: Direct DB connection test
 if __name__ == "__main__":
     try:
         with engine.connect() as conn:
             conn.execute(text("SELECT 1"))
             print("Database connection successful!")
+        print("Resolved DATABASE_URL:", DATABASE_URL)
     except Exception as e:
         print("Database connection failed:", e)
