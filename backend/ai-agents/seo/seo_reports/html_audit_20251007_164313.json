@@ -1,0 +1,11 @@
+{
+  "base_url": "https://www.atlantic-foundation.com",
+  "pages": [
+    {
+      "url": "https://www.atlantic-foundation.com",
+      "errors": [
+        "HTTPSConnectionPool(host='www.atlantic-foundation.com', port=443): Max retries exceeded with url: / (Caused by ConnectTimeoutError(<urllib3.connection.HTTPSConnection object at 0x749f6cfee210>, 'Connection to www.atlantic-foundation.com timed out. (connect timeout=10)'))"
+      ]
+    }
+  ]
+}

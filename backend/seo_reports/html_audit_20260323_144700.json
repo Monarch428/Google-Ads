@@ -1,0 +1,15 @@
+{
+  "base_url": "https://www.royalenfield.com/in/en/home",
+  "pages": [
+    {
+      "url": "https://www.royalenfield.com/in/en/home",
+      "errors": [
+        "Unclosed <p> tag detected.",
+        "<title> length is 13 chars (recommended 50-60).",
+        "Missing meta description.",
+        "Missing canonical tag.",
+        "Missing viewport meta tag."
+      ]
+    }
+  ]
+}

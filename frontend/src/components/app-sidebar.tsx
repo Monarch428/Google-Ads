@@ -110,8 +110,8 @@ export function AppSidebar({
                   <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium">Switch</span>
                   <ChevronDown
                     className={cn(
-                      "h-4 w-4 transition-transform",
-                      !moduleSwitcherDocked && "rotate-180",
+                      "h-4 w-4 transition-transform duration-200",
+                      !moduleSwitcherDocked && "rotate-180"
                     )}
                   />
                 </div>
@@ -126,8 +126,8 @@ export function AppSidebar({
                         className={cn(
                           "flex w-full items-center justify-between gap-2 rounded-lg border px-3 py-2 text-left text-sm transition-all duration-150",
                           isActive
-                            ? "border-blue-200 bg-blue-50 text-blue-800 shadow-sm"
-                            : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50",
+                            ? "border-[#EF4F6E]/30 bg-[#FEE2E8] text-[#EF4F6E] shadow-sm"
+                            : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50 text-slate-700",
                         )}
                         onClick={() => onModuleChange(module.id)}
                       >
@@ -135,12 +135,22 @@ export function AppSidebar({
                           <module.icon
                             className={cn(
                               "h-4 w-4",
-                              isActive ? "text-blue-700" : "text-slate-600",
+                              isActive ? "text-[#EF4F6E]" : "text-slate-400",
                             )}
                           />
-                          <span className="truncate text-sm font-medium">{module.shortLabel}</span>
+                          <span className={cn(
+                            "truncate text-sm font-medium",
+                            isActive ? "text-[#EF4F6E]" : "text-slate-700"
+                          )}>
+                            {module.shortLabel}
+                          </span>
                         </div>
-                        <span className="text-[11px] text-slate-500">{module.label}</span>
+                        <span className={cn(
+                          "text-[11px]",
+                          isActive ? "text-[#EF4F6E]/70" : "text-slate-400"
+                        )}>
+                          {module.label}
+                        </span>
                       </button>
                     );
                   })}
@@ -148,22 +158,38 @@ export function AppSidebar({
               )}
             </div>
 
-            <SidebarMenu className="gap-3 pt-1">
-              {moduleFeatures.map((item) => (
-                <SidebarMenuItem key={item.id}>
-                  <SidebarMenuButton
-                    className="h-auto items-start gap-3 rounded-lg px-3 py-3"
-                    isActive={currentView === item.id}
-                    onClick={() => onViewChange(item.id)}
-                  >
-                    <item.icon className="mt-0.5 h-5 w-5 shrink-0 " />
-                    <div className="flex flex-col gap-1 text-left ">
-                      <span className="text-sm font-semibold leading-tight">{item.label}</span>
-                      <span className="text-xs leading-snug text-slate-500">{item.description}</span>
-                    </div>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+            <SidebarMenu className="gap-1 pt-1">
+              {moduleFeatures.map((item) => {
+                const active = currentView === item.id;
+                return (
+                  <SidebarMenuItem key={item.id}>
+                    <SidebarMenuButton
+                      className={cn(
+                        "h-auto items-center gap-3 rounded-lg px-3 py-2.5 transition-colors",
+                        active
+                          ? "!bg-[#EF4F6E] !text-white hover:!bg-[#e0415f]"
+                          : "text-slate-700 hover:bg-slate-100"
+                      )}
+                      onClick={() => onViewChange(item.id)}
+                    >
+                      <item.icon
+                        className={cn(
+                          "h-4 w-4 shrink-0",
+                          active ? "text-white" : "text-slate-400"
+                        )}
+                      />
+                      <span
+                        className={cn(
+                          "text-sm font-medium leading-tight",
+                          active ? "text-white" : "text-slate-800"
+                        )}
+                      >
+                        {item.label}
+                      </span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

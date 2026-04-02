@@ -1,0 +1,80 @@
+{
+  "url": "https://www.atlantic-foundation.com/",
+  "web_errors": {
+    "url": "https://www.atlantic-foundation.com/",
+    "timestamp": "2025-10-07T16:44:38.602606",
+    "analysis_time": 100.28,
+    "total_errors": 3,
+    "errors": [
+      {
+        "type": "TIMEOUT",
+        "message": "Request timeout after 10s",
+        "url": "https://www.atlantic-foundation.com/"
+      },
+      {
+        "type": "ROBOTS_ERROR",
+        "message": "Failed to access robots.txt",
+        "url": "https://www.atlantic-foundation.com/"
+      },
+      {
+        "type": "SITEMAP_ERROR",
+        "message": "Failed to access sitemap.xml",
+        "url": "https://www.atlantic-foundation.com/"
+      }
+    ],
+    "error_summary": {
+      "TIMEOUT": 1,
+      "ROBOTS_ERROR": 1,
+      "SITEMAP_ERROR": 1
+    }
+  },
+  "technical_seo": {
+    "base_url": "https://www.atlantic-foundation.com",
+    "pages": [
+      {
+        "url": "https://www.atlantic-foundation.com",
+        "errors": [
+          "HTTPSConnectionPool(host='www.atlantic-foundation.com', port=443): Max retries exceeded with url: / (Caused by ConnectTimeoutError(<urllib3.connection.HTTPSConnection object at 0x749f6cfee210>, 'Connection to www.atlantic-foundation.com timed out. (connect timeout=10)'))"
+        ]
+      }
+    ]
+  },
+  "content_seo": {
+    "keyword_research": {
+      "status": "fail",
+      "message": "Error extracting keywords: HTTPSConnectionPool(host='www.atlantic-foundation.com', port=443): Max retries exceeded with url: / (Caused by ConnectTimeoutError(<urllib3.connection.HTTPSConnection object at 0x749f6cfee990>, 'Connection to www.atlantic-foundation.com timed out. (connect timeout=10)'))"
+    },
+    "content_quality": {
+      "status": "fail",
+      "message": "Error checking content: HTTPSConnectionPool(host='www.atlantic-foundation.com', port=443): Max retries exceeded with url: / (Caused by ConnectTimeoutError(<urllib3.connection.HTTPSConnection object at 0x749f6cfecb90>, 'Connection to www.atlantic-foundation.com timed out. (connect timeout=10)'))"
+    }
+  },
+  "links_seo": null,
+  "speed_test": {
+    "url": "https://www.atlantic-foundation.com/",
+    "desktop": {
+      "performance_score": 97.0,
+      "FCP": "0.7\u00a0s",
+      "LCP": "1.1\u00a0s",
+      "CLS": "0.075",
+      "TBT": "0\u00a0ms",
+      "SpeedIndex": "0.7\u00a0s"
+    },
+    "mobile": {
+      "performance_score": 70.0,
+      "FCP": "3.1\u00a0s",
+      "LCP": "5.6\u00a0s",
+      "CLS": "0",
+      "TBT": "0\u00a0ms",
+      "SpeedIndex": "5.1\u00a0s"
+    }
+  },
+  "seo_score": {
+    "content": 15,
+    "technical": 20,
+    "links": 15,
+    "performance": 5,
+    "total": 55,
+    "grade": "Orange"
+  }
+}

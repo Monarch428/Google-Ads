@@ -1,0 +1,142 @@
+# =============================
+# 🐍 PYTHON / FASTAPI BACKEND
+# =============================
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+*.manifest
+*.spec
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv/
+.idea/
+.pytest_cache/
+.coverage
+.cache/
+pip-wheel-metadata/
+*.log
+logs/
+
+# Configuration / local secrets
+.env
+.env.local
+config.py
+settings.py
+config.json
+*.db
+instance/
+db.sqlite3
+*.sqlite3
+
+# Jupyter / Notebooks
+.ipynb_checkpoints
+
+# =============================
+# ⚙️ FRONTEND (HTML / JS / CSS)
+# =============================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+dist/
+build/
+.DS_Store
+*.map
+
+# Compiled CSS/JS bundles
+*.min.js
+*.min.css
+*.bundle.js
+
+# Temporary uploads / screenshots
+uploads/
+static/screenshots/
+static/temp/
+static/cache/
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.webp
+
+# =============================
+# 🧩 AI / ML MODELS & DATA
+# =============================
+*.bin
+*.ckpt
+*.pt
+*.pth
+*.h5
+*.pkl
+*.joblib
+*.jsonl
+*.csv
+*.tsv
+*.xlsx
+datasets/
+data/
+models/
+output/
+checkpoints/
+notebooks/
+
+# HuggingFace cache
+~/.cache/huggingface/
+.huggingface/
+transformers_cache/
+
+# =============================
+# 🧰 IDE / EDITOR FILES
+# =============================
+.vscode/
+.idea/
+*.swp
+*.swo
+*.tmp
+*.bak
+*.orig
+Thumbs.db
+.DS_Store
+
+# =============================
+# 🚀 DEPLOYMENT / TEST
+# =============================
+test/
+tests/
+__tests__/
+pytest.ini
+*.test.js
+*.spec.js
+coverage/
+htmlcov/
+celerybeat-schedule
+celerybeat.pid
+
+# =============================
+# 🧾 REPORTS / EXPORTS
+# =============================
+reports/
+*.pdf
+*.json
+*.html
+*.zip
+*.csv
+
+# =============================
+# 🌐 ENV / CREDENTIALS
+# =============================
+OPENAI_API_KEY
+GOOGLE_API_KEY
+SECRET_KEY
+API_KEYS.json

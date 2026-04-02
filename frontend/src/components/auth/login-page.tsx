@@ -14,7 +14,7 @@ import {
 } from "../ui/card";
 import { Separator } from "../ui/separator";
 import { login, AuthResponse, startGoogleOAuth } from "../../lib/api";
-import { toast } from "sonner@2.0.3";
+import { toast } from "sonner";
 import type { AuthMethod } from "../../lib/auth-types";
 
 type LoginPageProps = {

@@ -1,0 +1,18 @@
+{
+  "base_url": "https://www.chennaisuperkings.com",
+  "pages": [
+    {
+      "url": "https://www.chennaisuperkings.com",
+      "errors": [
+        "Unclosed <meta> tag detected.",
+        "Unclosed <hr> tag detected.",
+        "Unclosed <br> tag detected.",
+        "Unclosed <br> tag detected.",
+        "Unclosed <hr> tag detected.",
+        "Missing meta description.",
+        "Missing canonical tag.",
+        "Missing viewport meta tag."
+      ]
+    }
+  ]
+}

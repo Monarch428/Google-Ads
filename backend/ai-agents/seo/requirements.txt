@@ -1,0 +1,33 @@
+# FastAPI server
+fastapi
+uvicorn
+pydantic
+python-dotenv
+
+# HTTP requests
+requests
+aiohttp
+urllib3
+
+# HTML parsing
+beautifulsoup4
+lxml
+html5lib
+
+# Selenium for browser automation
+selenium
+webdriver-manager
+
+# File upload / multipart
+python-multipart
+
+# OpenAI LLM
+openai
+openai==0.28.0
+# Utilities
+certifi
+idna
+charset-normalizer
+
+# Optional / concurrency
+aiofiles

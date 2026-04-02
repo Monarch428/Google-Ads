@@ -91,7 +91,7 @@ def register_user(db: Session, user: UserCreate) -> UserResponse:
         )
 
     password_to_hash = _ensure_password_length(user.password)
-    hashed_password = pwd_context.hash(password_to_hash)
+    hashed_password = pwd_context.hash(password.encode("utf-8")[:72].decode("utf-8", errors="ignore"))
 
     is_active = True if user.is_active is None else bool(user.is_active)
 
@@ -130,7 +130,7 @@ def login_user(db: Session, credentials: UserLogin) -> dict:
         # Avoid leaking whether the email exists for overlong passwords
         raise HTTPException(status_code=400, detail="Invalid email or password")
 
-    if not pwd_context.verify(password, user.password_hash):
+    if not pwd_context.verify(password.encode("utf-8")[:72].decode("utf-8", errors="ignore"), user.password_hash):
         raise HTTPException(status_code=400, detail="Invalid email or password")
 
     # ✅ Token expires in 24 hours

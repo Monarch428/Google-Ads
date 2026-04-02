@@ -1,0 +1,11 @@
+{
+  "base_url": "https://www.sunrisershyderabad.in",
+  "pages": [
+    {
+      "url": "https://www.sunrisershyderabad.in",
+      "errors": [
+        "HTTPSConnectionPool(host='www.sunrisershyderabad.in', port=443): Max retries exceeded with url: / (Caused by SSLError(SSLCertVerificationError(1, '[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (_ssl.c:1000)')))"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,73 @@
+{
+  "project_doc": "/mnt/data/BeeSure- website check agent.pdf",
+  "base_url": "https://complyx.io",
+  "ssl_info": {
+    "ssl_active": true,
+    "certificate_details": {
+      "valid": true,
+      "status_code": 200
+    }
+  },
+  "redirect_results": [],
+  "script_check": {
+    "total_scripts_found": 13,
+    "has_google_analytics": false,
+    "has_facebook_pixel": false,
+    "has_chatbot": false,
+    "has_google_tag_manager": false,
+    "all_scripts": [
+      "",
+      "",
+      "",
+      "https://complyx.io/wp-content/themes/astra/assets/js/minified/frontend.min.js?ver=4.12.6",
+      "https://complyx.io/wp-content/plugins/ultimate-addons-for-gutenberg/assets/js/spectra-block-positioning.min.js?ver=2.19.22",
+      "https://complyx.io/wp-content/plugins/ultimate-addons-for-gutenberg/assets/js/aos.min.js?ver=2.19.22",
+      "https://complyx.io/wp-content/plugins/ultimate-addons-for-gutenberg/assets/js/spectra-animations.min.js?ver=2.19.22",
+      "",
+      "https://complyx.io/wp-content/plugins/ultimate-addons-for-gutenberg/assets/js/forms.min.js?ver=2.19.22",
+      "https://complyx.io/wp-content/plugins/ultimate-addons-for-gutenberg/assets/js/uagb-button-child.min.js?ver=2.19.22",
+      "https://complyx.io/wp-content/uploads/uag-plugin/assets/2000/uag-js-2111.js?ver=1775028329",
+      "",
+      ""
+    ]
+  },
+  "performance": {
+    "load_time_sec": 2.235,
+    "page_status": 200,
+    "exceeds_max_load_time": false,
+    "oversized_images": []
+  },
+  "integrations": {
+    "google_analytics_required": false,
+    "payment_gateway_required": false,
+    "crm_required": false
+  },
+  "error_pages": {
+    "404": {
+      "url_tested": "https://complyx.io/this-page-should-not-exist-404-test",
+      "status_code": 404,
+      "custom_404_found": true
+    },
+    "500": {
+      "tested": false,
+      "note": "500 error page test requires a dedicated URL endpoint from developer."
+    }
+  },
+  "critical_page_results": {
+    "checkout": {
+      "url": "https://complyx.io",
+      "status": 200,
+      "load_success": true
+    },
+    "login": {
+      "url": "https://complyx.io",
+      "status": 200,
+      "load_success": true
+    },
+    "cart": {
+      "url": "https://complyx.io",
+      "status": 200,
+      "load_success": true
+    }
+  }
+}

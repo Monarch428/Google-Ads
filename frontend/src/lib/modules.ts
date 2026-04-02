@@ -1,30 +1,28 @@
 import {
+  AlertCircle,
   BarChart3,
   Building2,
   ClipboardCheck,
-  Gauge,
+  FileText,
   Globe2,
   LayoutDashboard,
+  LayoutGrid,
   Lightbulb,
-  LineChart,
-  Megaphone,
-  MonitorSmartphone,
-  NotebookPen,
-  Palette,
-  Rocket,
-  Search,
-  ShieldCheck,
-  Sparkles,
-  Target,
+  Link2, Settings,
+  Megaphone, ClipboardList,
+  Search, LogIn,
+  Settings2,
+  Sparkles, FolderOpen,
+  Zap
 } from "lucide-react";
-import type { LucideIcon } from "lucide-react";
+
 
 export type ModuleId = "g-ads" | "seo" | "website";
 
 export type ModuleFeature = {
   id: string;
   label: string;
-  description: string;
+  description?: string;
   icon: LucideIcon;
 };
 
@@ -81,87 +79,53 @@ export const MODULE_DEFINITIONS: Record<ModuleId, ModuleDefinition> = {
   },
   seo: {
     id: "seo",
-    label: "Search Engine Optimization",
+    label: "SEO",
     shortLabel: "SEO",
     description: "Visibility, authority, and content workflows for search performance.",
     icon: Search,
     defaultView: "seo-overview",
     features: [
-      {
-        id: "seo-overview",
-        label: "Overview",
-        description: "Snapshot of crawl health, visibility, and top opportunities.",
-        icon: LineChart,
-      },
-      {
-        id: "web-errors",
-        label: "Web Errors",
-        description: "Cluster ideas, intent mapping, and content gap discovery.",
-        icon: Target,
-      },
-      {
-        id: "technical-seo",
-        label: "Technical SEO",
-        description: "AI-assisted briefs with SERP analysis and outline suggestions.",
-        icon: NotebookPen,
-      },
-      {
-        id: "content-seo",
-        label: "Content SEO",
-        description: "Track positions, competitors, and volatility across keywords.",
-        icon: ShieldCheck,
-      },
-      {
-        id: "links-seo",
-        label: "Links SEO",
-        description: "Track positions, competitors, and volatility across keywords.",
-        icon: ShieldCheck,
-      },
-      {
-        id: "speed-test",
-        label: "Speed Test",
-        description: "Track positions, competitors, and volatility across keywords.",
-        icon: ShieldCheck,
-      },
-      {
-        id: "ai-insights",
-        label: "AI Insights",
-        description: "Track positions, competitors, and volatility across keywords.",
-        icon: ShieldCheck,
-      },
+      { id: "seo-overview", label: "Overview", icon: LayoutGrid },
+      { id: "web-errors", label: "Web Errors", icon: AlertCircle },
+      { id: "technical-seo", label: "Technical SEO", icon: Settings2 },
+      { id: "content-seo", label: "Content SEO", icon: FileText },
+      { id: "links-seo", label: "Links SEO", icon: Link2 },
+      { id: "speed-test", label: "Speed Test", icon: Zap },
+      { id: "ai-insights", label: "AI Insights", icon: Sparkles },
     ],
   },
   website: {
     id: "website",
-    label: "Website Experience",
+    label: "Website",
     shortLabel: "Website",
     description: "Conversion, performance, and experimentation for web experiences.",
     icon: Globe2,
-    defaultView: "website-overview",
+    defaultView: "website-dashboard",
     features: [
       {
         id: "website-dashboard",
         label: "Dashboard",
-        description: "Account health, pacing, and alerts summarized in one place.",
-        icon: MonitorSmartphone,
-      },
-      {
-        id: "projects",
-        label: "Projects",
-        description: "Latency, LCP, and stability checks with remediation tips.",
-        icon: Gauge,
+        icon: LayoutGrid,
       },
       {
         id: "inputs",
         label: "Inputs",
-        description: "Landing page tuning, forms, and micro-conversion tracking.",
-        icon: Rocket,
+        icon: LogIn,
+      },
+      {
+        id: "projects",
+        label: "Projects",
+        icon: FolderOpen,
       },
       {
         id: "reports",
         label: "Reports",
-        description: "A/B ideas, rollout plans, and impact tracking.",
-        icon: Sparkles,
+        icon: ClipboardList,
+      },
+      {
+        id: "website-settings",
+        label: "Project Settings",
+        icon: Settings,
       },
       // {
       //   id: "brand-consistency",
@@ -193,11 +157,11 @@ export const MODULE_VIEW_ROUTES: Record<ModuleId, Record<string, string>> = {
     "ai-insights": "/modules/seo/ai-insights",
   },
   website: {
-    "website-overview": "/modules/website/overview",
-    "site-performance": "/modules/website/performance",
-    "conversion-lab": "/modules/website/conversion-lab",
-    experiments: "/modules/website/experiments",
-    "brand-consistency": "/modules/website/brand-consistency",
+    "website-dashboard": "/modules/website/dashboard",
+    "projects": "/modules/website/projects",
+    "inputs": "/modules/website/inputs",
+    "reports": "/modules/website/reports",
+    "website-settings": "/modules/website/settings",
   },
 };
 

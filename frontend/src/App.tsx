@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { DashboardApp } from "./dashboard-app";
+import { DashboardApp } from "./pages/dashboard-app";
 import { DataProvider } from "./lib/data-context";
 import { GoogleAdsSyncProvider } from "./lib/google-ads-sync-context";
 import { LoginPage } from "./components/auth/login-page";

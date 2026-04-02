@@ -65,7 +65,7 @@ import { ClientChatbotInline } from "./client-chatbot-inline";
 import { CreateBundle } from "./create-bundle";
 import { toast } from "sonner";
 import { getCurrencyFormatter } from "../lib/currencies";
-import { GoogleAdsSyncControls } from "./google-ads-sync-controls";
+import { GoogleAdsSyncControls } from "./google-ads";
 
 interface ClientDetailsProps {
   clientId: string;

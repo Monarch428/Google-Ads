@@ -1,0 +1,36 @@
+    <!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SEO Analysis Agent</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="container">
+    <h1>🚀 SEO Analysis Agent</h1>
+    <p>Analyze your website’s SEO health in seconds!</p>
+
+    <div class="input-section">
+      <input id="urlInput" type="text" placeholder="Enter website URL (e.g. https://example.com)" />
+      <button onclick="runFullAnalysis()">Run Full Analysis</button>
+    </div>
+
+    <div id="loading" class="hidden">🔍 Analyzing... please wait</div>
+
+    <div id="results" class="results hidden">
+      <h2>🧾 Analysis Results</h2>
+      <pre id="resultsOutput"></pre>
+
+      <button onclick="generateLLMReport()">Generate AI Insights</button>
+
+      <div id="llmSection" class="hidden">
+        <h3>💡 AI SEO Insights</h3>
+        <pre id="llmOutput"></pre>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

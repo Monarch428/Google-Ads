@@ -1,0 +1,2284 @@
+[
+  {
+    "url": "https://complyx.io",
+    "browser": "chromium",
+    "breakpoint": "desktop",
+    "width": 1920,
+    "height": 1080,
+    "status": 200,
+    "title": "",
+    "screenshot": "reports\\https_complyx.io_chromium_desktop_20260401T092356Z.png",
+    "axe": {
+      "testEngine": {
+        "name": "axe-core",
+        "version": "4.6.3"
+      },
+      "testRunner": {
+        "name": "axe"
+      },
+      "testEnvironment": {
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/145.0.7632.6 Safari/537.36",
+        "windowWidth": 1920,
+        "windowHeight": 1080,
+        "orientationAngle": 0,
+        "orientationType": "landscape-primary"
+      },
+      "timestamp": "2026-04-01T09:23:56.900Z",
+      "url": "https://complyx.io/",
+      "toolOptions": {
+        "runOnly": {
+          "type": "tag",
+          "values": [
+            "wcag2aa"
+          ]
+        },
+        "reporter": "v1"
+      },
+      "inapplicable": [
+        {
+          "id": "valid-lang",
+          "impact": null,
+          "tags": [
+            "cat.language",
+            "wcag2aa",
+            "wcag312",
+            "ACT"
+          ],
+          "description": "Ensures lang attributes have valid values",
+          "help": "lang attribute must have a valid value",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.6/valid-lang?application=axeAPI",
+          "nodes": []
+        }
+      ],
+      "passes": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "tags": [
+            "cat.color",
+            "wcag2aa",
+            "wcag143",
+            "ACT"
+          ],
+          "description": "Ensures the contrast between foreground and background colors meets WCAG 2 AA contrast ratio thresholds",
+          "help": "Elements must have sufficient color contrast",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.6/color-contrast?application=axeAPI",
+          "nodes": [
+            {
+              "any": [
+                {
+                  "id": "color-contrast",
+                  "data": {
+                    "fgColor": "#ffffff",
+                    "bgColor": "#2a11af",
+                    "contrastRatio": 11.68,
+                    "fontSize": "11.3pt (15px)",
+                    "fontWeight": "normal",
+                    "messageKey": null,
+                    "expectedContrastRatio": "4.5:1",
+                    "shadowColor": null
+                  },
+                  "relatedNodes": [],
+                  "impact": "serious",
+                  "message": "Element has sufficient color contrast of 11.68"
+                }
+              ],
+              "all": [],
+              "none": [],
+              "impact": null,
+              "html": "<div class=\"ast-custom-button\">Get In Touch</div>",
+              "target": [
+                ".site-header-primary-section-right.ast-grid-right-section.site-header-section > .ast-header-button-1.ast-builder-layout-element[data-section=\"section-hb-button-1\"] > .ast-builder-button-wrap.ast-builder-button-size- > .ast-custom-button-link[href$=\"contact\"][target=\"_self\"] > .ast-custom-button"
+              ]
+            },
+            {
+              "any": [
+                {
+                  "id": "color-contrast",
+                  "data": {
+                    "fgColor": "#ffffff",
+                    "bgColor": "#000000",
+                    "contrastRatio": 21,
+                    "fontSize": "11.0pt (14.6667px)",
+                    "fontWeight": "normal",
+                    "messageKey": null,
+                    "expectedContrastRatio": "4.5:1",
+                    "shadowColor": null
+                  },
+                  "relatedNodes": [],
+                  "impact": "serious",
+                  "message": "Element has sufficient color contrast of 21"
+                }
+              ],
+              "all": [],
+              "none": [],
+              "impact": null,
+              "html": "<span style=\"font-size: 11pt\">Copyright © 2026  – All Rights Reserved</span>",
+              "target": [
+                "p > span"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "meta-viewport",
+          "impact": null,
+          "tags": [
+            "cat.sensory-and-visual-cues",
+            "wcag2aa",
+            "wcag144",
+            "ACT"
+          ],
+          "description": "Ensures <meta name=\"viewport\"> does not disable text scaling and zooming",
+          "help": "Zooming and scaling must not be disabled",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.6/meta-viewport?application=axeAPI",
+          "nodes": [
+            {
+              "any": [
+                {
+                  "id": "meta-viewport",
+                  "data": null,
+                  "relatedNodes": [],
+                  "impact": "critical",
+                  "message": "<meta> tag does not disable zooming on mobile devices"
+                }
+              ],
+              "all": [],
+              "none": [],
+              "impact": null,
+              "html": "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">",
+              "target": [
+                "meta[name=\"viewport\"]"
+              ]
+            }
+          ]
+        }
+      ],
+      "incomplete": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "tags": [
+            "cat.color",
+            "wcag2aa",
+            "wcag143",
+            "ACT"
+          ],
+          "description": "Ensures the contrast between foreground and background colors meets WCAG 2 AA contrast ratio thresholds",
+          "help": "Elements must have sufficient color contrast",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.6/color-contrast?application=axeAPI",
+          "nodes": [
+            {
+              "any": [
+                {
+                  "id": "color-contrast",
+                  "data": {
+                    "fgColor": "#f5f7f9",
+                    "bgColor": null,
+                    "contrastRatio": 0,
+                    "fontSize": "10.5pt (14px)",
+                    "fontWeight": "normal",
+                    "messageKey": "bgImage",
+                    "expectedContrastRatio": "4.5:1",
+                    "shadowColor": null
+                  },
+                  "relatedNodes": [
+                    {
+                      "html": "<div class=\"ast-primary-header-bar ast-primary-header main-header-bar site-header-focus-item\" data-section=\"section-primary-header-builder\">",
+                      "target": [
+                        "#ast-desktop-header > .ast-main-header-wrap.main-header-bar-wrap > .ast-primary-header-bar.ast-primary-header.main-header-bar"
+                      ]
+                    },
+                    {
+                      "html": "<div class=\"wp-block-uagb-container uagb-block-4135e168 default uagb-is-root-container\">",
+                      "target": [
+                        ".wp-block-uagb-container"
+                      ]
+                    }
+                  ],
+                  "impact": "serious",
+                  "message": "Element's background color could not be determined due to a background image"
+                }
+              ],
+              "all": [],
+              "none": [],
+              "impact": "serious",
+              "html": "<a href=\"https://complyx.io/about-tim-ermatov/\" class=\"menu-link\">About Us</a>",
+              "target": [
+                "#menu-item-1800 > .menu-link"
+              ],
+              "failureSummary": "Fix any of the following:\n  Element's background color could not be determined due to a background image"
+            },
+            {
+              "any": [
+                {
+                  "id": "color-contrast",
+                  "data": {
+                    "fgColor": "#f5f7f9",
+                    "bgColor": null,
+                    "contrastRatio": 0,
+                    "fontSize": "10.5pt (14px)",
+                    "fontWeight": "normal",
+                    "messageKey": "bgImage",
+                    "expectedContrastRatio": "4.5:1",
+                    "shadowColor": null
+                  },
+                  "relatedNodes": [
+                    {
+                      "html": "<div class=\"ast-primary-header-bar ast-primary-header main-header-bar site-header-focus-item\" data-section=\"section-primary-header-builder\">",
+                      "target": [
+                        "#ast-desktop-header > .ast-main-header-wrap.main-header-bar-wrap > .ast-primary-header-bar.ast-primary-header.main-header-bar"
+                      ]
+                    },
+                    {
+                      "html": "<div class=\"wp-block-uagb-container uagb-block-4135e168 default uagb-is-root-container\">",
+                      "target": [
+                        ".wp-block-uagb-container"
+                      ]
+                    }
+                  ],
+                  "impact": "serious",
+                  "message": "Element's background color could not be determined due to a background image"
+                }
+              ],
+              "all": [],
+              "none": [],
+              "impact": "serious",
+              "html": "<a href=\"https://complyx.io/services/\" class=\"menu-link\">Services</a>",
+              "target": [
+                "#menu-item-2157 > .menu-link[href$=\"services/\"]"
+              ],
+              "failureSummary": "Fix any of the following:\n  Element's background color could not be determined due to a background image"
+            },
+            {
+              "any": [
+                {
+                  "id": "color-contrast",
+                  "data": {
+                    "fontSize": "40.5pt (54px)",
+                    "fontWeight": "normal",
+                    "messageKey": "pseudoContent",
+                    "expectedContrastRatio": "3:1"
+                  },
+                  "relatedNodes": [
+                    {
+                      "html": "<div class=\"wp-block-uagb-container uagb-block-4135e168 default uagb-is-root-container\">",
+                      "target": [
+                        ".wp-block-uagb-container"
+                      ]
+                    }
+                  ],
+                  "impact": "serious",
+                  "message": "Element's background color could not be determined due to a pseudo element"
+                }
+              ],
+              "all": [],
+              "none": [],
+              "impact": "serious",
+              "html": "<h1 class=\"uagb-heading-text\">Financial crime services designed for Crypto, Fintechs &amp; Digital Banks</h1>",
+              "target": [
+                "h1"
+              ],
+              "failureSummary": "Fix any of the following:\n  Element's background color could not be determined due to a pseudo element"
+            },
+            {
+              "any": [
+                {
+                  "id": "color-contrast",
+                  "data": {
+                    "fontSize": "15.0pt (20px)",
+                    "fontWeight": "normal",
+                    "messageKey": "pseudoContent",
+                    "expectedContrastRatio": "4.5:1"
+                  },
+                  "relatedNodes": [
+                    {
+                      "html": "<div class=\"wp-block-uagb-container uagb-block-4135e168 default uagb-is-root-container\">",
+                      "target": [
+                        ".wp-block-uagb-container"
+                      ]
+                    }
+                  ],
+                  "impact": "serious",
+                  "message": "Element's background color could not be determined due to a pseudo element"
+                }
+              ],
+              "all": [],
+              "none": [],
+              "impact": "serious",
+              "html": "<p class=\"uagb-desc-text\">Reach out now for bespoke compliance solutions tailored for the fintech and digital banking sector.<a href=\"https://demo.getsbg.com/services/\"></a></p>",
+              "target": [
+                ".uagb-desc-text"
+              ],
+              "failureSummary": "Fix any of the following:\n  Element's background color could not be determined due to a pseudo element"
+            },
+            {
+              "any": [
+                {
+                  "id": "color-contrast",
+                  "data": {
+                    "fontSize": "11.3pt (15px)",
+                    "fontWeight": "normal",
+                    "messageKey": "pseudoContent",
+                    "expectedContrastRatio": "4.5:1"
+                  },
+                  "relatedNodes": [
+                    {
+                      "html": "<div class=\"wp-block-uagb-container uagb-block-4135e168 default uagb-is-root-container\">",
+                      "target": [
+                        ".wp-block-uagb-container"
+                      ]
+                    }
+                  ],
+                  "impact": "serious",
+                  "message": "Element's background color could not be determined due to a pseudo element"
+                }
+              ],
+              "all": [],
+              "none": [],
+              "impact": "serious",
+              "html": "<a class=\"wp-block-button__link has-ast-global-color-2-color has-white-background-color has-text-color has-background has-link-color has-border-color has-white-border-color wp-element-button\" href=\"https://complyx.io/about/\" style=\"border-width:2px\">LEARN MORE</a>",
+              "target": [
+                ".has-ast-global-color-2-color"
+              ],
+              "failureSummary": "Fix any of the following:\n  Element's background color could not be determined due to a pseudo element"
+            },
+            {
+              "any": [
+                {
+                  "id": "color-contrast",
+                  "data": {
+                    "fontSize": "11.3pt (15px)",
+                    "fontWeight": "normal",
+                    "messageKey": "pseudoContent",
+                    "expectedContrastRatio": "4.5:1"
+                  },
+                  "relatedNodes": [
+                    {
+                      "html": "<div class=\"wp-block-uagb-container uagb-block-4135e168 default uagb-is-root-container\">",
+                      "target": [
+                        ".wp-block-uagb-container"
+                      ]
+                    }
+                  ],
+                  "impact": "serious",
+                  "message": "Element's background color could not be determined due to a pseudo element"
+                }
+              ],
+              "all": [],
+              "none": [],
+              "impact": "serious",
+              "html": "<a class=\"wp-block-button__link has-ast-global-color-7-background-color has-background has-border-color has-ast-global-color-5-border-color has-text-align-center wp-element-button\" href=\"https://complyx.io/contact-us/\" style=\"border-width:2px\">CONTACT US</a>",
+              "target": [
+                ".has-ast-global-color-7-background-color"
+              ],
+              "failureSummary": "Fix any of the following:\n  Element's background color could not be determined due to a pseudo element"
+            },
+            {
+              "any": [
+                {
+                  "id": "color-contrast",
+                  "data": {
+                    "fgColor": "#f5f7f9",
+                    "bgColor": null,
+                    "contrastRatio": 0,
+                    "fontSize": "16.5pt (22px)",
+                    "fontWeight": "bold",
+                    "messageKey": "bgGradient",
+                    "expectedContrastRatio": "3:1",
+                    "shadowColor": null
+                  },
+                  "relatedNodes": [
+                    {
+                      "html": "<div class=\"site-primary-footer-wrap ast-builder-grid-row-container site-footer-focus-item ast-builder-grid-row-2-rheavy ast-builder-grid-row-tablet-2-equal ast-builder-grid-row-mobile-full ast-footer-row-stack ast-footer-row-tablet-stack ast-footer-row-mobile-stack\" data-section=\"section-primary-footer-builder\">",
+                      "target": [
+                        ".site-primary-footer-wrap"
+                      ]
+                    }
+                  ],
+                  "impact": "serious",
+                  "message": "Element's background color could not be determined due to a background gradient"
+                }
+              ],
+              "all": [],
+              "none": [],
+              "impact": "serious",
+              "html": "<h2 class=\"wp-block-heading\">Get In Touch</h2>",
+              "target": [
+                "h2"
+              ],
+              "failureSummary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            },
+            {
+              "any": [
+                {
+                  "id": "color-contrast",
+                  "data": {
+                    "fgColor": "#ffffff",
+                    "bgColor": null,
+                    "contrastRatio": 0,
+                    "fontSize": "10.5pt (14px)",
+                    "fontWeight": "normal",
+                    "messageKey": "bgGradient",
+                    "expectedContrastRatio": "4.5:1",
+                    "shadowColor": null
+                  },
+                  "relatedNodes": [
+                    {
+                      "html": "<div class=\"site-primary-footer-wrap ast-builder-grid-row-container site-footer-focus-item ast-builder-grid-row-2-rheavy ast-builder-grid-row-tablet-2-equal ast-builder-grid-row-mobile-full ast-footer-row-stack ast-footer-row-tablet-stack ast-footer-row-mobile-stack\" data-section=\"section-primary-footer-builder\">",
+                      "target": [
+                        ".site-primary-footer-wrap"
+                      ]
+                    }
+                  ],
+                  "impact": "serious",
+                  "message": "Element's background color could not be determined due to a background gradient"
+                }
+              ],
+              "all": [],
+              "none": [],
+              "impact": "serious",
+              "html": "<a href=\"mailto:tim.ermatov@complyx.io\">tim.ermatov@complyx.io</a>",
+              "target": [
+                "a[href=\"mailto:tim.ermatov@complyx.io\"]"
+              ],
+              "failureSummary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            }
+          ]
+        }
+      ],
+      "violations": []
+    },
+    "project_doc": "/mnt/data/BeeSure- website check agent.pdf",
+    "required_accessibility_level": "AA"
+  },
+  {
+    "url": "https://complyx.io",
+    "browser": "chromium",
+    "breakpoint": "tablet",
+    "width": 768,
+    "height": 1024,
+    "status": 200,
+    "title": "",
+    "screenshot": "reports\\https_complyx.io_chromium_tablet_20260401T092403Z.png",
+    "axe": {
+      "testEngine": {
+        "name": "axe-core",
+        "version": "4.6.3"
+      },
+      "testRunner": {
+        "name": "axe"
+      },
+      "testEnvironment": {
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/145.0.7632.6 Safari/537.36",
+        "windowWidth": 768,
+        "windowHeight": 1024,
+        "orientationAngle": 0,
+        "orientationType": "landscape-primary"
+      },
+      "timestamp": "2026-04-01T09:24:03.878Z",
+      "url": "https://complyx.io/",
+      "toolOptions": {
+        "runOnly": {
+          "type": "tag",
+          "values": [
+            "wcag2aa"
+          ]
+        },
+        "reporter": "v1"
+      },
+      "inapplicable": [
+        {
+          "id": "valid-lang",
+          "impact": null,
+          "tags": [
+            "cat.language",
+            "wcag2aa",
+            "wcag312",
+            "ACT"
+          ],
+          "description": "Ensures lang attributes have valid values",
+          "help": "lang attribute must have a valid value",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.6/valid-lang?application=axeAPI",
+          "nodes": []
+        }
+      ],
+      "passes": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "tags": [
+            "cat.color",
+            "wcag2aa",
+            "wcag143",
+            "ACT"
+          ],
+          "description": "Ensures the contrast between foreground and background colors meets WCAG 2 AA contrast ratio thresholds",
+          "help": "Elements must have sufficient color contrast",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.6/color-contrast?application=axeAPI",
+          "nodes": [
+            {
+              "any": [
+                {
+                  "id": "color-contrast",
+                  "data": {
+                    "fgColor": "#ffffff",
+                    "bgColor": "#000000",
+                    "contrastRatio": 21,
+                    "fontSize": "11.0pt (14.6667px)",
+                    "fontWeight": "normal",
+                    "messageKey": null,
+                    "expectedContrastRatio": "4.5:1",
+                    "shadowColor": null
+                  },
+                  "relatedNodes": [],
+                  "impact": "serious",
+                  "message": "Element has sufficient color contrast of 21"
+                }
+              ],
+              "all": [],
+              "none": [],
+              "impact": null,
+              "html": "<span style=\"font-size: 11pt\">Copyright © 2026  – All Rights Reserved</span>",
+              "target": [
+                "p > span"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "meta-viewport",
+          "impact": null,
+          "tags": [
+            "cat.sensory-and-visual-cues",
+            "wcag2aa",
+            "wcag144",
+            "ACT"
+          ],
+          "description": "Ensures <meta name=\"viewport\"> does not disable text scaling and zooming",
+          "help": "Zooming and scaling must not be disabled",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.6/meta-viewport?application=axeAPI",
+          "nodes": [
+            {
+              "any": [
+                {
+                  "id": "meta-viewport",
+                  "data": null,
+                  "relatedNodes": [],
+                  "impact": "critical",
+                  "message": "<meta> tag does not disable zooming on mobile devices"
+                }
+              ],
+              "all": [],
+              "none": [],
+              "impact": null,
+              "html": "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">",
+              "target": [
+                "meta[name=\"viewport\"]"
+              ]
+            }
+          ]
+        }
+      ],
+      "incomplete": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "tags": [
+            "cat.color",
+            "wcag2aa",
+            "wcag143",
+            "ACT"
+          ],
+          "description": "Ensures the contrast between foreground and background colors meets WCAG 2 AA contrast ratio thresholds",
+          "help": "Elements must have sufficient color contrast",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.6/color-contrast?application=axeAPI",
+          "nodes": [
+            {
+              "any": [
+                {
+                  "id": "color-contrast",
+                  "data": {
+                    "fontSize": "33.8pt (45px)",
+                    "fontWeight": "normal",
+                    "messageKey": "pseudoContent",
+                    "expectedContrastRatio": "3:1"
+                  },
+                  "relatedNodes": [
+                    {
+                      "html": "<div class=\"wp-block-uagb-container uagb-block-4135e168 default uagb-is-root-container\">",
+                      "target": [
+                        ".wp-block-uagb-container"
+                      ]
+                    }
+                  ],
+                  "impact": "serious",
+                  "message": "Element's background color could not be determined due to a pseudo element"
+                }
+              ],
+              "all": [],
+              "none": [],
+              "impact": "serious",
+              "html": "<h1 class=\"uagb-heading-text\">Financial crime services designed for Crypto, Fintechs &amp; Digital Banks</h1>",
+              "target": [
+                "h1"
+              ],
+              "failureSummary": "Fix any of the following:\n  Element's background color could not be determined due to a pseudo element"
+            },
+            {
+              "any": [
+                {
+                  "id": "color-contrast",
+                  "data": {
+                    "fontSize": "15.0pt (20px)",
+                    "fontWeight": "normal",
+                    "messageKey": "pseudoContent",
+                    "expectedContrastRatio": "4.5:1"
+                  },
+                  "relatedNodes": [
+                    {
+                      "html": "<div class=\"wp-block-uagb-container uagb-block-4135e168 default uagb-is-root-container\">",
+                      "target": [
+                        ".wp-block-uagb-container"
+                      ]
+                    }
+                  ],
+                  "impact": "serious",
+                  "message": "Element's background color could not be determined due to a pseudo element"
+                }
+              ],
+              "all": [],
+              "none": [],
+              "impact": "serious",
+              "html": "<p class=\"uagb-desc-text\">Reach out now for bespoke compliance solutions tailored for the fintech and digital banking sector.<a href=\"https://demo.getsbg.com/services/\"></a></p>",
+              "target": [
+                ".uagb-desc-text"
+              ],
+              "failureSummary": "Fix any of the following:\n  Element's background color could not be determined due to a pseudo element"
+            },
+            {
+              "any": [
+                {
+                  "id": "color-contrast",
+                  "data": {
+                    "fontSize": "11.3pt (15px)",
+                    "fontWeight": "normal",
+                    "messageKey": "pseudoContent",
+                    "expectedContrastRatio": "4.5:1"
+                  },
+                  "relatedNodes": [
+                    {
+                      "html": "<div class=\"wp-block-uagb-container uagb-block-4135e168 default uagb-is-root-container\">",
+                      "target": [
+                        ".wp-block-uagb-container"
+                      ]
+                    }
+                  ],
+                  "impact": "serious",
+                  "message": "Element's background color could not be determined due to a pseudo element"
+                }
+              ],
+              "all": [],
+              "none": [],
+              "impact": "serious",
+              "html": "<a class=\"wp-block-button__link has-ast-global-color-2-color has-white-background-color has-text-color has-background has-link-color has-border-color has-white-border-color wp-element-button\" href=\"https://complyx.io/about/\" style=\"border-width:2px\">LEARN MORE</a>",
+              "target": [
+                ".has-ast-global-color-2-color"
+              ],
+              "failureSummary": "Fix any of the following:\n  Element's background color could not be determined due to a pseudo element"
+            },
+            {
+              "any": [
+                {
+                  "id": "color-contrast",
+                  "data": {
+                    "fontSize": "11.3pt (15px)",
+                    "fontWeight": "normal",
+                    "messageKey": "pseudoContent",
+                    "expectedContrastRatio": "4.5:1"
+                  },
+                  "relatedNodes": [
+                    {
+                      "html": "<div class=\"wp-block-uagb-container uagb-block-4135e168 default uagb-is-root-container\">",
+                      "target": [
+                        ".wp-block-uagb-container"
+                      ]
+                    }
+                  ],
+                  "impact": "serious",
+                  "message": "Element's background color could not be determined due to a pseudo element"
+                }
+              ],
+              "all": [],
+              "none": [],
+              "impact": "serious",
+              "html": "<a class=\"wp-block-button__link has-ast-global-color-7-background-color has-background has-border-color has-ast-global-color-5-border-color has-text-align-center wp-element-button\" href=\"https://complyx.io/contact-us/\" style=\"border-width:2px\">CONTACT US</a>",
+              "target": [
+                ".has-ast-global-color-7-background-color"
+              ],
+              "failureSummary": "Fix any of the following:\n  Element's background color could not be determined due to a pseudo element"
+            },
+            {
+              "any": [
+                {
+                  "id": "color-contrast",
+                  "data": {
+                    "fgColor": "#ffffff",
+                    "bgColor": null,
+                    "contrastRatio": 0,
+                    "fontSize": "16.5pt (22px)",
+                    "fontWeight": "bold",
+                    "messageKey": "bgGradient",
+                    "expectedContrastRatio": "3:1",
+                    "shadowColor": null
+                  },
+                  "relatedNodes": [
+                    {
+                      "html": "<div class=\"site-primary-footer-wrap ast-builder-grid-row-container site-footer-focus-item ast-builder-grid-row-2-rheavy ast-builder-grid-row-tablet-2-equal ast-builder-grid-row-mobile-full ast-footer-row-stack ast-footer-row-tablet-stack ast-footer-row-mobile-stack\" data-section=\"section-primary-footer-builder\">",
+                      "target": [
+                        ".site-primary-footer-wrap"
+                      ]
+                    }
+                  ],
+                  "impact": "serious",
+                  "message": "Element's background color could not be determined due to a background gradient"
+                }
+              ],
+              "all": [],
+              "none": [],
+              "impact": "serious",
+              "html": "<h2 class=\"wp-block-heading\">Get In Touch</h2>",
+              "target": [
+                "h2"
+              ],
+              "failureSummary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            },
+            {
+              "any": [
+                {
+                  "id": "color-contrast",
+                  "data": {
+                    "fgColor": "#ffffff",
+                    "bgColor": null,
+                    "contrastRatio": 0,
+                    "fontSize": "10.5pt (14px)",
+                    "fontWeight": "normal",
+                    "messageKey": "bgGradient",
+                    "expectedContrastRatio": "4.5:1",
+                    "shadowColor": null
+                  },
+                  "relatedNodes": [
+                    {
+                      "html": "<div class=\"site-primary-footer-wrap ast-builder-grid-row-container site-footer-focus-item ast-builder-grid-row-2-rheavy ast-builder-grid-row-tablet-2-equal ast-builder-grid-row-mobile-full ast-footer-row-stack ast-footer-row-tablet-stack ast-footer-row-mobile-stack\" data-section=\"section-primary-footer-builder\">",
+                      "target": [
+                        ".site-primary-footer-wrap"
+                      ]
+                    }
+                  ],
+                  "impact": "serious",
+                  "message": "Element's background color could not be determined due to a background gradient"
+                }
+              ],
+              "all": [],
+              "none": [],
+              "impact": "serious",
+              "html": "<a href=\"mailto:tim.ermatov@complyx.io\">tim.ermatov@complyx.io</a>",
+              "target": [
+                "a[href=\"mailto:tim.ermatov@complyx.io\"]"
+              ],
+              "failureSummary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            }
+          ]
+        }
+      ],
+      "violations": []
+    },
+    "project_doc": "/mnt/data/BeeSure- website check agent.pdf",
+    "required_accessibility_level": "AA"
+  },
+  {
+    "url": "https://complyx.io",
+    "browser": "chromium",
+    "breakpoint": "mobile",
+    "width": 375,
+    "height": 812,
+    "status": 200,
+    "title": "",
+    "screenshot": "reports\\https_complyx.io_chromium_mobile_20260401T092409Z.png",
+    "axe": {
+      "testEngine": {
+        "name": "axe-core",
+        "version": "4.6.3"
+      },
+      "testRunner": {
+        "name": "axe"
+      },
+      "testEnvironment": {
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/145.0.7632.6 Safari/537.36",
+        "windowWidth": 375,
+        "windowHeight": 812,
+        "orientationAngle": 0,
+        "orientationType": "landscape-primary"
+      },
+      "timestamp": "2026-04-01T09:24:09.870Z",
+      "url": "https://complyx.io/",
+      "toolOptions": {
+        "runOnly": {
+          "type": "tag",
+          "values": [
+            "wcag2aa"
+          ]
+        },
+        "reporter": "v1"
+      },
+      "inapplicable": [
+        {
+          "id": "valid-lang",
+          "impact": null,
+          "tags": [
+            "cat.language",
+            "wcag2aa",
+            "wcag312",
+            "ACT"
+          ],
+          "description": "Ensures lang attributes have valid values",
+          "help": "lang attribute must have a valid value",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.6/valid-lang?application=axeAPI",
+          "nodes": []
+        }
+      ],
+      "passes": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "tags": [
+            "cat.color",
+            "wcag2aa",
+            "wcag143",
+            "ACT"
+          ],
+          "description": "Ensures the contrast between foreground and background colors meets WCAG 2 AA contrast ratio thresholds",
+          "help": "Elements must have sufficient color contrast",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.6/color-contrast?application=axeAPI",
+          "nodes": [
+            {
+              "any": [
+                {
+                  "id": "color-contrast",
+                  "data": {
+                    "fgColor": "#ffffff",
+                    "bgColor": "#000000",
+                    "contrastRatio": 21,
+                    "fontSize": "11.0pt (14.6667px)",
+                    "fontWeight": "normal",
+                    "messageKey": null,
+                    "expectedContrastRatio": "4.5:1",
+                    "shadowColor": null
+                  },
+                  "relatedNodes": [],
+                  "impact": "serious",
+                  "message": "Element has sufficient color contrast of 21"
+                }
+              ],
+              "all": [],
+              "none": [],
+              "impact": null,
+              "html": "<span style=\"font-size: 11pt\">Copyright © 2026  – All Rights Reserved</span>",
+              "target": [
+                "p > span"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "meta-viewport",
+          "impact": null,
+          "tags": [
+            "cat.sensory-and-visual-cues",
+            "wcag2aa",
+            "wcag144",
+            "ACT"
+          ],
+          "description": "Ensures <meta name=\"viewport\"> does not disable text scaling and zooming",
+          "help": "Zooming and scaling must not be disabled",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.6/meta-viewport?application=axeAPI",
+          "nodes": [
+            {
+              "any": [
+                {
+                  "id": "meta-viewport",
+                  "data": null,
+                  "relatedNodes": [],
+                  "impact": "critical",
+                  "message": "<meta> tag does not disable zooming on mobile devices"
+                }
+              ],
+              "all": [],
+              "none": [],
+              "impact": null,
+              "html": "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">",
+              "target": [
+                "meta[name=\"viewport\"]"
+              ]
+            }
+          ]
+        }
+      ],
+      "incomplete": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "tags": [
+            "cat.color",
+            "wcag2aa",
+            "wcag143",
+            "ACT"
+          ],
+          "description": "Ensures the contrast between foreground and background colors meets WCAG 2 AA contrast ratio thresholds",
+          "help": "Elements must have sufficient color contrast",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.6/color-contrast?application=axeAPI",
+          "nodes": [
+            {
+              "any": [
+                {
+                  "id": "color-contrast",
+                  "data": {
+                    "fontSize": "24.0pt (32px)",
+                    "fontWeight": "normal",
+                    "messageKey": "pseudoContent",
+                    "expectedContrastRatio": "3:1"
+                  },
+                  "relatedNodes": [
+                    {
+                      "html": "<div class=\"wp-block-uagb-container uagb-block-4135e168 default uagb-is-root-container\">",
+                      "target": [
+                        ".wp-block-uagb-container"
+                      ]
+                    }
+                  ],
+                  "impact": "serious",
+                  "message": "Element's background color could not be determined due to a pseudo element"
+                }
+              ],
+              "all": [],
+              "none": [],
+              "impact": "serious",
+              "html": "<h1 class=\"uagb-heading-text\">Financial crime services designed for Crypto, Fintechs &amp; Digital Banks</h1>",
+              "target": [
+                "h1"
+              ],
+              "failureSummary": "Fix any of the following:\n  Element's background color could not be determined due to a pseudo element"
+            },
+            {
+              "any": [
+                {
+                  "id": "color-contrast",
+                  "data": {
+                    "fontSize": "15.0pt (20px)",
+                    "fontWeight": "normal",
+                    "messageKey": "pseudoContent",
+                    "expectedContrastRatio": "4.5:1"
+                  },
+                  "relatedNodes": [
+                    {
+                      "html": "<div class=\"wp-block-uagb-container uagb-block-4135e168 default uagb-is-root-container\">",
+                      "target": [
+                        ".wp-block-uagb-container"
+                      ]
+                    }
+                  ],
+                  "impact": "serious",
+                  "message": "Element's background color could not be determined due to a pseudo element"
+                }
+              ],
+              "all": [],
+              "none": [],
+              "impact": "serious",
+              "html": "<p class=\"uagb-desc-text\">Reach out now for bespoke compliance solutions tailored for the fintech and digital banking sector.<a href=\"https://demo.getsbg.com/services/\"></a></p>",
+              "target": [
+                ".uagb-desc-text"
+              ],
+              "failureSummary": "Fix any of the following:\n  Element's background color could not be determined due to a pseudo element"
+            },
+            {
+              "any": [
+                {
+                  "id": "color-contrast",
+                  "data": {
+                    "fontSize": "11.3pt (15px)",
+                    "fontWeight": "normal",
+                    "messageKey": "pseudoContent",
+                    "expectedContrastRatio": "4.5:1"
+                  },
+                  "relatedNodes": [
+                    {
+                      "html": "<div class=\"wp-block-uagb-container uagb-block-4135e168 default uagb-is-root-container\">",
+                      "target": [
+                        ".wp-block-uagb-container"
+                      ]
+                    }
+                  ],
+                  "impact": "serious",
+                  "message": "Element's background color could not be determined due to a pseudo element"
+                }
+              ],
+              "all": [],
+              "none": [],
+              "impact": "serious",
+              "html": "<a class=\"wp-block-button__link has-ast-global-color-2-color has-white-background-color has-text-color has-background has-link-color has-border-color has-white-border-color wp-element-button\" href=\"https://complyx.io/about/\" style=\"border-width:2px\">LEARN MORE</a>",
+              "target": [
+                ".has-ast-global-color-2-color"
+              ],
+              "failureSummary": "Fix any of the following:\n  Element's background color could not be determined due to a pseudo element"
+            },
+            {
+              "any": [
+                {
+                  "id": "color-contrast",
+                  "data": {
+                    "fontSize": "11.3pt (15px)",
+                    "fontWeight": "normal",
+                    "messageKey": "pseudoContent",
+                    "expectedContrastRatio": "4.5:1"
+                  },
+                  "relatedNodes": [
+                    {
+                      "html": "<div class=\"wp-block-uagb-container uagb-block-4135e168 default uagb-is-root-container\">",
+                      "target": [
+                        ".wp-block-uagb-container"
+                      ]
+                    }
+                  ],
+                  "impact": "serious",
+                  "message": "Element's background color could not be determined due to a pseudo element"
+                }
+              ],
+              "all": [],
+              "none": [],
+              "impact": "serious",
+              "html": "<a class=\"wp-block-button__link has-ast-global-color-7-background-color has-background has-border-color has-ast-global-color-5-border-color has-text-align-center wp-element-button\" href=\"https://complyx.io/contact-us/\" style=\"border-width:2px\">CONTACT US</a>",
+              "target": [
+                ".has-ast-global-color-7-background-color"
+              ],
+              "failureSummary": "Fix any of the following:\n  Element's background color could not be determined due to a pseudo element"
+            },
+            {
+              "any": [
+                {
+                  "id": "color-contrast",
+                  "data": {
+                    "fgColor": "#ffffff",
+                    "bgColor": null,
+                    "contrastRatio": 0,
+                    "fontSize": "16.5pt (22px)",
+                    "fontWeight": "bold",
+                    "messageKey": "bgGradient",
+                    "expectedContrastRatio": "3:1",
+                    "shadowColor": null
+                  },
+                  "relatedNodes": [
+                    {
+                      "html": "<div class=\"site-primary-footer-wrap ast-builder-grid-row-container site-footer-focus-item ast-builder-grid-row-2-rheavy ast-builder-grid-row-tablet-2-equal ast-builder-grid-row-mobile-full ast-footer-row-stack ast-footer-row-tablet-stack ast-footer-row-mobile-stack\" data-section=\"section-primary-footer-builder\">",
+                      "target": [
+                        ".site-primary-footer-wrap"
+                      ]
+                    }
+                  ],
+                  "impact": "serious",
+                  "message": "Element's background color could not be determined due to a background gradient"
+                }
+              ],
+              "all": [],
+              "none": [],
+              "impact": "serious",
+              "html": "<h2 class=\"wp-block-heading\">Get In Touch</h2>",
+              "target": [
+                "h2"
+              ],
+              "failureSummary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            },
+            {
+              "any": [
+                {
+                  "id": "color-contrast",
+                  "data": {
+                    "fgColor": "#ffffff",
+                    "bgColor": null,
+                    "contrastRatio": 0,
+                    "fontSize": "10.5pt (14px)",
+                    "fontWeight": "normal",
+                    "messageKey": "bgGradient",
+                    "expectedContrastRatio": "4.5:1",
+                    "shadowColor": null
+                  },
+                  "relatedNodes": [
+                    {
+                      "html": "<div class=\"site-primary-footer-wrap ast-builder-grid-row-container site-footer-focus-item ast-builder-grid-row-2-rheavy ast-builder-grid-row-tablet-2-equal ast-builder-grid-row-mobile-full ast-footer-row-stack ast-footer-row-tablet-stack ast-footer-row-mobile-stack\" data-section=\"section-primary-footer-builder\">",
+                      "target": [
+                        ".site-primary-footer-wrap"
+                      ]
+                    }
+                  ],
+                  "impact": "serious",
+                  "message": "Element's background color could not be determined due to a background gradient"
+                }
+              ],
+              "all": [],
+              "none": [],
+              "impact": "serious",
+              "html": "<a href=\"mailto:tim.ermatov@complyx.io\">tim.ermatov@complyx.io</a>",
+              "target": [
+                "a[href=\"mailto:tim.ermatov@complyx.io\"]"
+              ],
+              "failureSummary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            }
+          ]
+        }
+      ],
+      "violations": []
+    },
+    "project_doc": "/mnt/data/BeeSure- website check agent.pdf",
+    "required_accessibility_level": "AA"
+  },
+  {
+    "url": "https://complyx.io",
+    "browser": "webkit",
+    "breakpoint": "desktop",
+    "width": 1920,
+    "height": 1080,
+    "status": 200,
+    "title": "",
+    "screenshot": "reports\\https_complyx.io_webkit_desktop_20260401T092416Z.png",
+    "axe": {
+      "testEngine": {
+        "name": "axe-core",
+        "version": "4.6.3"
+      },
+      "testRunner": {
+        "name": "axe"
+      },
+      "testEnvironment": {
+        "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15",
+        "windowWidth": 1920,
+        "windowHeight": 1080,
+        "orientationAngle": 0,
+        "orientationType": "landscape-primary"
+      },
+      "timestamp": "2026-04-01T09:24:16.267Z",
+      "url": "https://complyx.io/",
+      "toolOptions": {
+        "runOnly": {
+          "type": "tag",
+          "values": [
+            "wcag2aa"
+          ]
+        },
+        "reporter": "v1"
+      },
+      "inapplicable": [
+        {
+          "id": "valid-lang",
+          "impact": null,
+          "tags": [
+            "cat.language",
+            "wcag2aa",
+            "wcag312",
+            "ACT"
+          ],
+          "description": "Ensures lang attributes have valid values",
+          "help": "lang attribute must have a valid value",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.6/valid-lang?application=axeAPI",
+          "nodes": []
+        }
+      ],
+      "passes": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "tags": [
+            "cat.color",
+            "wcag2aa",
+            "wcag143",
+            "ACT"
+          ],
+          "description": "Ensures the contrast between foreground and background colors meets WCAG 2 AA contrast ratio thresholds",
+          "help": "Elements must have sufficient color contrast",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.6/color-contrast?application=axeAPI",
+          "nodes": [
+            {
+              "any": [
+                {
+                  "id": "color-contrast",
+                  "data": {
+                    "fgColor": "#ffffff",
+                    "bgColor": "#2a11af",
+                    "contrastRatio": 11.68,
+                    "fontSize": "11.3pt (15px)",
+                    "fontWeight": "normal",
+                    "messageKey": null,
+                    "expectedContrastRatio": "4.5:1",
+                    "shadowColor": null
+                  },
+                  "relatedNodes": [],
+                  "impact": "serious",
+                  "message": "Element has sufficient color contrast of 11.68"
+                }
+              ],
+              "all": [],
+              "none": [],
+              "impact": null,
+              "html": "<div class=\"ast-custom-button\">Get In Touch</div>",
+              "target": [
+                ".site-header-primary-section-right.ast-grid-right-section.site-header-section > .ast-header-button-1.ast-builder-layout-element[data-section=\"section-hb-button-1\"] > .ast-builder-button-wrap.ast-builder-button-size- > .ast-custom-button-link[href$=\"contact\"][target=\"_self\"] > .ast-custom-button"
+              ]
+            },
+            {
+              "any": [
+                {
+                  "id": "color-contrast",
+                  "data": {
+                    "fgColor": "#ffffff",
+                    "bgColor": "#000000",
+                    "contrastRatio": 21,
+                    "fontSize": "11.0pt (14.666667px)",
+                    "fontWeight": "normal",
+                    "messageKey": null,
+                    "expectedContrastRatio": "4.5:1",
+                    "shadowColor": null
+                  },
+                  "relatedNodes": [],
+                  "impact": "serious",
+                  "message": "Element has sufficient color contrast of 21"
+                }
+              ],
+              "all": [],
+              "none": [],
+              "impact": null,
+              "html": "<span style=\"font-size: 11pt\">Copyright © 2026  – All Rights Reserved</span>",
+              "target": [
+                "p > span"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "meta-viewport",
+          "impact": null,
+          "tags": [
+            "cat.sensory-and-visual-cues",
+            "wcag2aa",
+            "wcag144",
+            "ACT"
+          ],
+          "description": "Ensures <meta name=\"viewport\"> does not disable text scaling and zooming",
+          "help": "Zooming and scaling must not be disabled",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.6/meta-viewport?application=axeAPI",
+          "nodes": [
+            {
+              "any": [
+                {
+                  "id": "meta-viewport",
+                  "data": null,
+                  "relatedNodes": [],
+                  "impact": "critical",
+                  "message": "<meta> tag does not disable zooming on mobile devices"
+                }
+              ],
+              "all": [],
+              "none": [],
+              "impact": null,
+              "html": "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">",
+              "target": [
+                "meta[name=\"viewport\"]"
+              ]
+            }
+          ]
+        }
+      ],
+      "incomplete": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "tags": [
+            "cat.color",
+            "wcag2aa",
+            "wcag143",
+            "ACT"
+          ],
+          "description": "Ensures the contrast between foreground and background colors meets WCAG 2 AA contrast ratio thresholds",
+          "help": "Elements must have sufficient color contrast",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.6/color-contrast?application=axeAPI",
+          "nodes": [
+            {
+              "any": [
+                {
+                  "id": "color-contrast",
+                  "data": {
+                    "fgColor": "#f5f7f9",
+                    "bgColor": null,
+                    "contrastRatio": 0,
+                    "fontSize": "10.5pt (14px)",
+                    "fontWeight": "normal",
+                    "messageKey": "bgImage",
+                    "expectedContrastRatio": "4.5:1",
+                    "shadowColor": null
+                  },
+                  "relatedNodes": [
+                    {
+                      "html": "<div class=\"ast-primary-header-bar ast-primary-header main-header-bar site-header-focus-item\" data-section=\"section-primary-header-builder\">",
+                      "target": [
+                        "#ast-desktop-header > .ast-main-header-wrap.main-header-bar-wrap > .ast-primary-header-bar.ast-primary-header.main-header-bar"
+                      ]
+                    },
+                    {
+                      "html": "<div class=\"wp-block-uagb-container uagb-block-4135e168 default uagb-is-root-container\">",
+                      "target": [
+                        ".wp-block-uagb-container"
+                      ]
+                    }
+                  ],
+                  "impact": "serious",
+                  "message": "Element's background color could not be determined due to a background image"
+                }
+              ],
+              "all": [],
+              "none": [],
+              "impact": "serious",
+              "html": "<a href=\"https://complyx.io/about-tim-ermatov/\" class=\"menu-link\">About Us</a>",
+              "target": [
+                "#menu-item-1800 > .menu-link"
+              ],
+              "failureSummary": "Fix any of the following:\n  Element's background color could not be determined due to a background image"
+            },
+            {
+              "any": [
+                {
+                  "id": "color-contrast",
+                  "data": {
+                    "fgColor": "#f5f7f9",
+                    "bgColor": null,
+                    "contrastRatio": 0,
+                    "fontSize": "10.5pt (14px)",
+                    "fontWeight": "normal",
+                    "messageKey": "bgImage",
+                    "expectedContrastRatio": "4.5:1",
+                    "shadowColor": null
+                  },
+                  "relatedNodes": [
+                    {
+                      "html": "<div class=\"ast-primary-header-bar ast-primary-header main-header-bar site-header-focus-item\" data-section=\"section-primary-header-builder\">",
+                      "target": [
+                        "#ast-desktop-header > .ast-main-header-wrap.main-header-bar-wrap > .ast-primary-header-bar.ast-primary-header.main-header-bar"
+                      ]
+                    },
+                    {
+                      "html": "<div class=\"wp-block-uagb-container uagb-block-4135e168 default uagb-is-root-container\">",
+                      "target": [
+                        ".wp-block-uagb-container"
+                      ]
+                    }
+                  ],
+                  "impact": "serious",
+                  "message": "Element's background color could not be determined due to a background image"
+                }
+              ],
+              "all": [],
+              "none": [],
+              "impact": "serious",
+              "html": "<a href=\"https://complyx.io/services/\" class=\"menu-link\">Services</a>",
+              "target": [
+                "#menu-item-2157 > .menu-link[href$=\"services/\"]"
+              ],
+              "failureSummary": "Fix any of the following:\n  Element's background color could not be determined due to a background image"
+            },
+            {
+              "any": [
+                {
+                  "id": "color-contrast",
+                  "data": {
+                    "fontSize": "40.5pt (54px)",
+                    "fontWeight": "normal",
+                    "messageKey": "pseudoContent",
+                    "expectedContrastRatio": "3:1"
+                  },
+                  "relatedNodes": [
+                    {
+                      "html": "<div class=\"wp-block-uagb-container uagb-block-4135e168 default uagb-is-root-container\">",
+                      "target": [
+                        ".wp-block-uagb-container"
+                      ]
+                    }
+                  ],
+                  "impact": "serious",
+                  "message": "Element's background color could not be determined due to a pseudo element"
+                }
+              ],
+              "all": [],
+              "none": [],
+              "impact": "serious",
+              "html": "<h1 class=\"uagb-heading-text\">Financial crime services designed for Crypto, Fintechs &amp; Digital Banks</h1>",
+              "target": [
+                "h1"
+              ],
+              "failureSummary": "Fix any of the following:\n  Element's background color could not be determined due to a pseudo element"
+            },
+            {
+              "any": [
+                {
+                  "id": "color-contrast",
+                  "data": {
+                    "fontSize": "15.0pt (20px)",
+                    "fontWeight": "normal",
+                    "messageKey": "pseudoContent",
+                    "expectedContrastRatio": "4.5:1"
+                  },
+                  "relatedNodes": [
+                    {
+                      "html": "<div class=\"wp-block-uagb-container uagb-block-4135e168 default uagb-is-root-container\">",
+                      "target": [
+                        ".wp-block-uagb-container"
+                      ]
+                    }
+                  ],
+                  "impact": "serious",
+                  "message": "Element's background color could not be determined due to a pseudo element"
+                }
+              ],
+              "all": [],
+              "none": [],
+              "impact": "serious",
+              "html": "<p class=\"uagb-desc-text\">Reach out now for bespoke compliance solutions tailored for the fintech and digital banking sector.<a href=\"https://demo.getsbg.com/services/\"></a></p>",
+              "target": [
+                ".uagb-desc-text"
+              ],
+              "failureSummary": "Fix any of the following:\n  Element's background color could not be determined due to a pseudo element"
+            },
+            {
+              "any": [
+                {
+                  "id": "color-contrast",
+                  "data": {
+                    "fontSize": "11.3pt (15px)",
+                    "fontWeight": "normal",
+                    "messageKey": "pseudoContent",
+                    "expectedContrastRatio": "4.5:1"
+                  },
+                  "relatedNodes": [
+                    {
+                      "html": "<div class=\"wp-block-uagb-container uagb-block-4135e168 default uagb-is-root-container\">",
+                      "target": [
+                        ".wp-block-uagb-container"
+                      ]
+                    }
+                  ],
+                  "impact": "serious",
+                  "message": "Element's background color could not be determined due to a pseudo element"
+                }
+              ],
+              "all": [],
+              "none": [],
+              "impact": "serious",
+              "html": "<a class=\"wp-block-button__link has-ast-global-color-2-color has-white-background-color has-text-color has-background has-link-color has-border-color has-white-border-color wp-element-button\" href=\"https://complyx.io/about/\" style=\"border-width:2px\">LEARN MORE</a>",
+              "target": [
+                ".has-ast-global-color-2-color"
+              ],
+              "failureSummary": "Fix any of the following:\n  Element's background color could not be determined due to a pseudo element"
+            },
+            {
+              "any": [
+                {
+                  "id": "color-contrast",
+                  "data": {
+                    "fontSize": "11.3pt (15px)",
+                    "fontWeight": "normal",
+                    "messageKey": "pseudoContent",
+                    "expectedContrastRatio": "4.5:1"
+                  },
+                  "relatedNodes": [
+                    {
+                      "html": "<div class=\"wp-block-uagb-container uagb-block-4135e168 default uagb-is-root-container\">",
+                      "target": [
+                        ".wp-block-uagb-container"
+                      ]
+                    }
+                  ],
+                  "impact": "serious",
+                  "message": "Element's background color could not be determined due to a pseudo element"
+                }
+              ],
+              "all": [],
+              "none": [],
+              "impact": "serious",
+              "html": "<a class=\"wp-block-button__link has-ast-global-color-7-background-color has-background has-border-color has-ast-global-color-5-border-color has-text-align-center wp-element-button\" href=\"https://complyx.io/contact-us/\" style=\"border-width:2px\">CONTACT US</a>",
+              "target": [
+                ".has-ast-global-color-7-background-color"
+              ],
+              "failureSummary": "Fix any of the following:\n  Element's background color could not be determined due to a pseudo element"
+            },
+            {
+              "any": [
+                {
+                  "id": "color-contrast",
+                  "data": {
+                    "fgColor": "#f5f7f9",
+                    "bgColor": null,
+                    "contrastRatio": 0,
+                    "fontSize": "16.5pt (22px)",
+                    "fontWeight": "bold",
+                    "messageKey": "bgGradient",
+                    "expectedContrastRatio": "3:1",
+                    "shadowColor": null
+                  },
+                  "relatedNodes": [
+                    {
+                      "html": "<div class=\"site-primary-footer-wrap ast-builder-grid-row-container site-footer-focus-item ast-builder-grid-row-2-rheavy ast-builder-grid-row-tablet-2-equal ast-builder-grid-row-mobile-full ast-footer-row-stack ast-footer-row-tablet-stack ast-footer-row-mobile-stack\" data-section=\"section-primary-footer-builder\">",
+                      "target": [
+                        ".site-primary-footer-wrap"
+                      ]
+                    }
+                  ],
+                  "impact": "serious",
+                  "message": "Element's background color could not be determined due to a background gradient"
+                }
+              ],
+              "all": [],
+              "none": [],
+              "impact": "serious",
+              "html": "<h2 class=\"wp-block-heading\">Get In Touch</h2>",
+              "target": [
+                "h2"
+              ],
+              "failureSummary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            },
+            {
+              "any": [
+                {
+                  "id": "color-contrast",
+                  "data": {
+                    "fgColor": "#ffffff",
+                    "bgColor": null,
+                    "contrastRatio": 0,
+                    "fontSize": "10.5pt (14px)",
+                    "fontWeight": "normal",
+                    "messageKey": "bgGradient",
+                    "expectedContrastRatio": "4.5:1",
+                    "shadowColor": null
+                  },
+                  "relatedNodes": [
+                    {
+                      "html": "<div class=\"site-primary-footer-wrap ast-builder-grid-row-container site-footer-focus-item ast-builder-grid-row-2-rheavy ast-builder-grid-row-tablet-2-equal ast-builder-grid-row-mobile-full ast-footer-row-stack ast-footer-row-tablet-stack ast-footer-row-mobile-stack\" data-section=\"section-primary-footer-builder\">",
+                      "target": [
+                        ".site-primary-footer-wrap"
+                      ]
+                    }
+                  ],
+                  "impact": "serious",
+                  "message": "Element's background color could not be determined due to a background gradient"
+                }
+              ],
+              "all": [],
+              "none": [],
+              "impact": "serious",
+              "html": "<a href=\"mailto:tim.ermatov@complyx.io\">tim.ermatov@complyx.io</a>",
+              "target": [
+                "a[href=\"mailto:tim.ermatov@complyx.io\"]"
+              ],
+              "failureSummary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            }
+          ]
+        }
+      ],
+      "violations": []
+    },
+    "project_doc": "/mnt/data/BeeSure- website check agent.pdf",
+    "required_accessibility_level": "AA"
+  },
+  {
+    "url": "https://complyx.io",
+    "browser": "webkit",
+    "breakpoint": "tablet",
+    "width": 768,
+    "height": 1024,
+    "status": 200,
+    "title": "",
+    "screenshot": "reports\\https_complyx.io_webkit_tablet_20260401T092424Z.png",
+    "axe": {
+      "testEngine": {
+        "name": "axe-core",
+        "version": "4.6.3"
+      },
+      "testRunner": {
+        "name": "axe"
+      },
+      "testEnvironment": {
+        "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15",
+        "windowWidth": 768,
+        "windowHeight": 1024,
+        "orientationAngle": 0,
+        "orientationType": "landscape-primary"
+      },
+      "timestamp": "2026-04-01T09:24:24.354Z",
+      "url": "https://complyx.io/",
+      "toolOptions": {
+        "runOnly": {
+          "type": "tag",
+          "values": [
+            "wcag2aa"
+          ]
+        },
+        "reporter": "v1"
+      },
+      "inapplicable": [
+        {
+          "id": "valid-lang",
+          "impact": null,
+          "tags": [
+            "cat.language",
+            "wcag2aa",
+            "wcag312",
+            "ACT"
+          ],
+          "description": "Ensures lang attributes have valid values",
+          "help": "lang attribute must have a valid value",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.6/valid-lang?application=axeAPI",
+          "nodes": []
+        }
+      ],
+      "passes": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "tags": [
+            "cat.color",
+            "wcag2aa",
+            "wcag143",
+            "ACT"
+          ],
+          "description": "Ensures the contrast between foreground and background colors meets WCAG 2 AA contrast ratio thresholds",
+          "help": "Elements must have sufficient color contrast",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.6/color-contrast?application=axeAPI",
+          "nodes": [
+            {
+              "any": [
+                {
+                  "id": "color-contrast",
+                  "data": {
+                    "fgColor": "#ffffff",
+                    "bgColor": "#000000",
+                    "contrastRatio": 21,
+                    "fontSize": "11.0pt (14.666667px)",
+                    "fontWeight": "normal",
+                    "messageKey": null,
+                    "expectedContrastRatio": "4.5:1",
+                    "shadowColor": null
+                  },
+                  "relatedNodes": [],
+                  "impact": "serious",
+                  "message": "Element has sufficient color contrast of 21"
+                }
+              ],
+              "all": [],
+              "none": [],
+              "impact": null,
+              "html": "<span style=\"font-size: 11pt\">Copyright © 2026  – All Rights Reserved</span>",
+              "target": [
+                "p > span"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "meta-viewport",
+          "impact": null,
+          "tags": [
+            "cat.sensory-and-visual-cues",
+            "wcag2aa",
+            "wcag144",
+            "ACT"
+          ],
+          "description": "Ensures <meta name=\"viewport\"> does not disable text scaling and zooming",
+          "help": "Zooming and scaling must not be disabled",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.6/meta-viewport?application=axeAPI",
+          "nodes": [
+            {
+              "any": [
+                {
+                  "id": "meta-viewport",
+                  "data": null,
+                  "relatedNodes": [],
+                  "impact": "critical",
+                  "message": "<meta> tag does not disable zooming on mobile devices"
+                }
+              ],
+              "all": [],
+              "none": [],
+              "impact": null,
+              "html": "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">",
+              "target": [
+                "meta[name=\"viewport\"]"
+              ]
+            }
+          ]
+        }
+      ],
+      "incomplete": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "tags": [
+            "cat.color",
+            "wcag2aa",
+            "wcag143",
+            "ACT"
+          ],
+          "description": "Ensures the contrast between foreground and background colors meets WCAG 2 AA contrast ratio thresholds",
+          "help": "Elements must have sufficient color contrast",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.6/color-contrast?application=axeAPI",
+          "nodes": [
+            {
+              "any": [
+                {
+                  "id": "color-contrast",
+                  "data": {
+                    "fontSize": "33.8pt (45px)",
+                    "fontWeight": "normal",
+                    "messageKey": "pseudoContent",
+                    "expectedContrastRatio": "3:1"
+                  },
+                  "relatedNodes": [
+                    {
+                      "html": "<div class=\"wp-block-uagb-container uagb-block-4135e168 default uagb-is-root-container\">",
+                      "target": [
+                        ".wp-block-uagb-container"
+                      ]
+                    }
+                  ],
+                  "impact": "serious",
+                  "message": "Element's background color could not be determined due to a pseudo element"
+                }
+              ],
+              "all": [],
+              "none": [],
+              "impact": "serious",
+              "html": "<h1 class=\"uagb-heading-text\">Financial crime services designed for Crypto, Fintechs &amp; Digital Banks</h1>",
+              "target": [
+                "h1"
+              ],
+              "failureSummary": "Fix any of the following:\n  Element's background color could not be determined due to a pseudo element"
+            },
+            {
+              "any": [
+                {
+                  "id": "color-contrast",
+                  "data": {
+                    "fontSize": "15.0pt (20px)",
+                    "fontWeight": "normal",
+                    "messageKey": "pseudoContent",
+                    "expectedContrastRatio": "4.5:1"
+                  },
+                  "relatedNodes": [
+                    {
+                      "html": "<div class=\"wp-block-uagb-container uagb-block-4135e168 default uagb-is-root-container\">",
+                      "target": [
+                        ".wp-block-uagb-container"
+                      ]
+                    }
+                  ],
+                  "impact": "serious",
+                  "message": "Element's background color could not be determined due to a pseudo element"
+                }
+              ],
+              "all": [],
+              "none": [],
+              "impact": "serious",
+              "html": "<p class=\"uagb-desc-text\">Reach out now for bespoke compliance solutions tailored for the fintech and digital banking sector.<a href=\"https://demo.getsbg.com/services/\"></a></p>",
+              "target": [
+                ".uagb-desc-text"
+              ],
+              "failureSummary": "Fix any of the following:\n  Element's background color could not be determined due to a pseudo element"
+            },
+            {
+              "any": [
+                {
+                  "id": "color-contrast",
+                  "data": {
+                    "fontSize": "11.3pt (15px)",
+                    "fontWeight": "normal",
+                    "messageKey": "pseudoContent",
+                    "expectedContrastRatio": "4.5:1"
+                  },
+                  "relatedNodes": [
+                    {
+                      "html": "<div class=\"wp-block-uagb-container uagb-block-4135e168 default uagb-is-root-container\">",
+                      "target": [
+                        ".wp-block-uagb-container"
+                      ]
+                    }
+                  ],
+                  "impact": "serious",
+                  "message": "Element's background color could not be determined due to a pseudo element"
+                }
+              ],
+              "all": [],
+              "none": [],
+              "impact": "serious",
+              "html": "<a class=\"wp-block-button__link has-ast-global-color-2-color has-white-background-color has-text-color has-background has-link-color has-border-color has-white-border-color wp-element-button\" href=\"https://complyx.io/about/\" style=\"border-width:2px\">LEARN MORE</a>",
+              "target": [
+                ".has-ast-global-color-2-color"
+              ],
+              "failureSummary": "Fix any of the following:\n  Element's background color could not be determined due to a pseudo element"
+            },
+            {
+              "any": [
+                {
+                  "id": "color-contrast",
+                  "data": {
+                    "fontSize": "11.3pt (15px)",
+                    "fontWeight": "normal",
+                    "messageKey": "pseudoContent",
+                    "expectedContrastRatio": "4.5:1"
+                  },
+                  "relatedNodes": [
+                    {
+                      "html": "<div class=\"wp-block-uagb-container uagb-block-4135e168 default uagb-is-root-container\">",
+                      "target": [
+                        ".wp-block-uagb-container"
+                      ]
+                    }
+                  ],
+                  "impact": "serious",
+                  "message": "Element's background color could not be determined due to a pseudo element"
+                }
+              ],
+              "all": [],
+              "none": [],
+              "impact": "serious",
+              "html": "<a class=\"wp-block-button__link has-ast-global-color-7-background-color has-background has-border-color has-ast-global-color-5-border-color has-text-align-center wp-element-button\" href=\"https://complyx.io/contact-us/\" style=\"border-width:2px\">CONTACT US</a>",
+              "target": [
+                ".has-ast-global-color-7-background-color"
+              ],
+              "failureSummary": "Fix any of the following:\n  Element's background color could not be determined due to a pseudo element"
+            },
+            {
+              "any": [
+                {
+                  "id": "color-contrast",
+                  "data": {
+                    "fgColor": "#ffffff",
+                    "bgColor": null,
+                    "contrastRatio": 0,
+                    "fontSize": "16.5pt (22px)",
+                    "fontWeight": "bold",
+                    "messageKey": "bgGradient",
+                    "expectedContrastRatio": "3:1",
+                    "shadowColor": null
+                  },
+                  "relatedNodes": [
+                    {
+                      "html": "<div class=\"site-primary-footer-wrap ast-builder-grid-row-container site-footer-focus-item ast-builder-grid-row-2-rheavy ast-builder-grid-row-tablet-2-equal ast-builder-grid-row-mobile-full ast-footer-row-stack ast-footer-row-tablet-stack ast-footer-row-mobile-stack\" data-section=\"section-primary-footer-builder\">",
+                      "target": [
+                        ".site-primary-footer-wrap"
+                      ]
+                    }
+                  ],
+                  "impact": "serious",
+                  "message": "Element's background color could not be determined due to a background gradient"
+                }
+              ],
+              "all": [],
+              "none": [],
+              "impact": "serious",
+              "html": "<h2 class=\"wp-block-heading\">Get In Touch</h2>",
+              "target": [
+                "h2"
+              ],
+              "failureSummary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            },
+            {
+              "any": [
+                {
+                  "id": "color-contrast",
+                  "data": {
+                    "fgColor": "#ffffff",
+                    "bgColor": null,
+                    "contrastRatio": 0,
+                    "fontSize": "10.5pt (14px)",
+                    "fontWeight": "normal",
+                    "messageKey": "bgGradient",
+                    "expectedContrastRatio": "4.5:1",
+                    "shadowColor": null
+                  },
+                  "relatedNodes": [
+                    {
+                      "html": "<div class=\"site-primary-footer-wrap ast-builder-grid-row-container site-footer-focus-item ast-builder-grid-row-2-rheavy ast-builder-grid-row-tablet-2-equal ast-builder-grid-row-mobile-full ast-footer-row-stack ast-footer-row-tablet-stack ast-footer-row-mobile-stack\" data-section=\"section-primary-footer-builder\">",
+                      "target": [
+                        ".site-primary-footer-wrap"
+                      ]
+                    }
+                  ],
+                  "impact": "serious",
+                  "message": "Element's background color could not be determined due to a background gradient"
+                }
+              ],
+              "all": [],
+              "none": [],
+              "impact": "serious",
+              "html": "<a href=\"mailto:tim.ermatov@complyx.io\">tim.ermatov@complyx.io</a>",
+              "target": [
+                "a[href=\"mailto:tim.ermatov@complyx.io\"]"
+              ],
+              "failureSummary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            }
+          ]
+        }
+      ],
+      "violations": []
+    },
+    "project_doc": "/mnt/data/BeeSure- website check agent.pdf",
+    "required_accessibility_level": "AA"
+  },
+  {
+    "url": "https://complyx.io",
+    "browser": "webkit",
+    "breakpoint": "mobile",
+    "width": 375,
+    "height": 812,
+    "status": 200,
+    "title": "",
+    "screenshot": "reports\\https_complyx.io_webkit_mobile_20260401T092430Z.png",
+    "axe": {
+      "testEngine": {
+        "name": "axe-core",
+        "version": "4.6.3"
+      },
+      "testRunner": {
+        "name": "axe"
+      },
+      "testEnvironment": {
+        "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15",
+        "windowWidth": 375,
+        "windowHeight": 812,
+        "orientationAngle": 0,
+        "orientationType": "landscape-primary"
+      },
+      "timestamp": "2026-04-01T09:24:30.813Z",
+      "url": "https://complyx.io/",
+      "toolOptions": {
+        "runOnly": {
+          "type": "tag",
+          "values": [
+            "wcag2aa"
+          ]
+        },
+        "reporter": "v1"
+      },
+      "inapplicable": [
+        {
+          "id": "valid-lang",
+          "impact": null,
+          "tags": [
+            "cat.language",
+            "wcag2aa",
+            "wcag312",
+            "ACT"
+          ],
+          "description": "Ensures lang attributes have valid values",
+          "help": "lang attribute must have a valid value",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.6/valid-lang?application=axeAPI",
+          "nodes": []
+        }
+      ],
+      "passes": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "tags": [
+            "cat.color",
+            "wcag2aa",
+            "wcag143",
+            "ACT"
+          ],
+          "description": "Ensures the contrast between foreground and background colors meets WCAG 2 AA contrast ratio thresholds",
+          "help": "Elements must have sufficient color contrast",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.6/color-contrast?application=axeAPI",
+          "nodes": [
+            {
+              "any": [
+                {
+                  "id": "color-contrast",
+                  "data": {
+                    "fgColor": "#ffffff",
+                    "bgColor": "#000000",
+                    "contrastRatio": 21,
+                    "fontSize": "11.0pt (14.666667px)",
+                    "fontWeight": "normal",
+                    "messageKey": null,
+                    "expectedContrastRatio": "4.5:1",
+                    "shadowColor": null
+                  },
+                  "relatedNodes": [],
+                  "impact": "serious",
+                  "message": "Element has sufficient color contrast of 21"
+                }
+              ],
+              "all": [],
+              "none": [],
+              "impact": null,
+              "html": "<span style=\"font-size: 11pt\">Copyright © 2026  – All Rights Reserved</span>",
+              "target": [
+                "p > span"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "meta-viewport",
+          "impact": null,
+          "tags": [
+            "cat.sensory-and-visual-cues",
+            "wcag2aa",
+            "wcag144",
+            "ACT"
+          ],
+          "description": "Ensures <meta name=\"viewport\"> does not disable text scaling and zooming",
+          "help": "Zooming and scaling must not be disabled",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.6/meta-viewport?application=axeAPI",
+          "nodes": [
+            {
+              "any": [
+                {
+                  "id": "meta-viewport",
+                  "data": null,
+                  "relatedNodes": [],
+                  "impact": "critical",
+                  "message": "<meta> tag does not disable zooming on mobile devices"
+                }
+              ],
+              "all": [],
+              "none": [],
+              "impact": null,
+              "html": "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">",
+              "target": [
+                "meta[name=\"viewport\"]"
+              ]
+            }
+          ]
+        }
+      ],
+      "incomplete": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "tags": [
+            "cat.color",
+            "wcag2aa",
+            "wcag143",
+            "ACT"
+          ],
+          "description": "Ensures the contrast between foreground and background colors meets WCAG 2 AA contrast ratio thresholds",
+          "help": "Elements must have sufficient color contrast",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.6/color-contrast?application=axeAPI",
+          "nodes": [
+            {
+              "any": [
+                {
+                  "id": "color-contrast",
+                  "data": {
+                    "fontSize": "24.0pt (32px)",
+                    "fontWeight": "normal",
+                    "messageKey": "pseudoContent",
+                    "expectedContrastRatio": "3:1"
+                  },
+                  "relatedNodes": [
+                    {
+                      "html": "<div class=\"wp-block-uagb-container uagb-block-4135e168 default uagb-is-root-container\">",
+                      "target": [
+                        ".wp-block-uagb-container"
+                      ]
+                    }
+                  ],
+                  "impact": "serious",
+                  "message": "Element's background color could not be determined due to a pseudo element"
+                }
+              ],
+              "all": [],
+              "none": [],
+              "impact": "serious",
+              "html": "<h1 class=\"uagb-heading-text\">Financial crime services designed for Crypto, Fintechs &amp; Digital Banks</h1>",
+              "target": [
+                "h1"
+              ],
+              "failureSummary": "Fix any of the following:\n  Element's background color could not be determined due to a pseudo element"
+            },
+            {
+              "any": [
+                {
+                  "id": "color-contrast",
+                  "data": {
+                    "fontSize": "15.0pt (20px)",
+                    "fontWeight": "normal",
+                    "messageKey": "pseudoContent",
+                    "expectedContrastRatio": "4.5:1"
+                  },
+                  "relatedNodes": [
+                    {
+                      "html": "<div class=\"wp-block-uagb-container uagb-block-4135e168 default uagb-is-root-container\">",
+                      "target": [
+                        ".wp-block-uagb-container"
+                      ]
+                    }
+                  ],
+                  "impact": "serious",
+                  "message": "Element's background color could not be determined due to a pseudo element"
+                }
+              ],
+              "all": [],
+              "none": [],
+              "impact": "serious",
+              "html": "<p class=\"uagb-desc-text\">Reach out now for bespoke compliance solutions tailored for the fintech and digital banking sector.<a href=\"https://demo.getsbg.com/services/\"></a></p>",
+              "target": [
+                ".uagb-desc-text"
+              ],
+              "failureSummary": "Fix any of the following:\n  Element's background color could not be determined due to a pseudo element"
+            },
+            {
+              "any": [
+                {
+                  "id": "color-contrast",
+                  "data": {
+                    "fontSize": "11.3pt (15px)",
+                    "fontWeight": "normal",
+                    "messageKey": "pseudoContent",
+                    "expectedContrastRatio": "4.5:1"
+                  },
+                  "relatedNodes": [
+                    {
+                      "html": "<div class=\"wp-block-uagb-container uagb-block-4135e168 default uagb-is-root-container\">",
+                      "target": [
+                        ".wp-block-uagb-container"
+                      ]
+                    }
+                  ],
+                  "impact": "serious",
+                  "message": "Element's background color could not be determined due to a pseudo element"
+                }
+              ],
+              "all": [],
+              "none": [],
+              "impact": "serious",
+              "html": "<a class=\"wp-block-button__link has-ast-global-color-2-color has-white-background-color has-text-color has-background has-link-color has-border-color has-white-border-color wp-element-button\" href=\"https://complyx.io/about/\" style=\"border-width:2px\">LEARN MORE</a>",
+              "target": [
+                ".has-ast-global-color-2-color"
+              ],
+              "failureSummary": "Fix any of the following:\n  Element's background color could not be determined due to a pseudo element"
+            },
+            {
+              "any": [
+                {
+                  "id": "color-contrast",
+                  "data": {
+                    "fontSize": "11.3pt (15px)",
+                    "fontWeight": "normal",
+                    "messageKey": "pseudoContent",
+                    "expectedContrastRatio": "4.5:1"
+                  },
+                  "relatedNodes": [
+                    {
+                      "html": "<div class=\"wp-block-uagb-container uagb-block-4135e168 default uagb-is-root-container\">",
+                      "target": [
+                        ".wp-block-uagb-container"
+                      ]
+                    }
+                  ],
+                  "impact": "serious",
+                  "message": "Element's background color could not be determined due to a pseudo element"
+                }
+              ],
+              "all": [],
+              "none": [],
+              "impact": "serious",
+              "html": "<a class=\"wp-block-button__link has-ast-global-color-7-background-color has-background has-border-color has-ast-global-color-5-border-color has-text-align-center wp-element-button\" href=\"https://complyx.io/contact-us/\" style=\"border-width:2px\">CONTACT US</a>",
+              "target": [
+                ".has-ast-global-color-7-background-color"
+              ],
+              "failureSummary": "Fix any of the following:\n  Element's background color could not be determined due to a pseudo element"
+            },
+            {
+              "any": [
+                {
+                  "id": "color-contrast",
+                  "data": {
+                    "fgColor": "#ffffff",
+                    "bgColor": null,
+                    "contrastRatio": 0,
+                    "fontSize": "16.5pt (22px)",
+                    "fontWeight": "bold",
+                    "messageKey": "bgGradient",
+                    "expectedContrastRatio": "3:1",
+                    "shadowColor": null
+                  },
+                  "relatedNodes": [
+                    {
+                      "html": "<div class=\"site-primary-footer-wrap ast-builder-grid-row-container site-footer-focus-item ast-builder-grid-row-2-rheavy ast-builder-grid-row-tablet-2-equal ast-builder-grid-row-mobile-full ast-footer-row-stack ast-footer-row-tablet-stack ast-footer-row-mobile-stack\" data-section=\"section-primary-footer-builder\">",
+                      "target": [
+                        ".site-primary-footer-wrap"
+                      ]
+                    }
+                  ],
+                  "impact": "serious",
+                  "message": "Element's background color could not be determined due to a background gradient"
+                }
+              ],
+              "all": [],
+              "none": [],
+              "impact": "serious",
+              "html": "<h2 class=\"wp-block-heading\">Get In Touch</h2>",
+              "target": [
+                "h2"
+              ],
+              "failureSummary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            },
+            {
+              "any": [
+                {
+                  "id": "color-contrast",
+                  "data": {
+                    "fgColor": "#ffffff",
+                    "bgColor": null,
+                    "contrastRatio": 0,
+                    "fontSize": "10.5pt (14px)",
+                    "fontWeight": "normal",
+                    "messageKey": "bgGradient",
+                    "expectedContrastRatio": "4.5:1",
+                    "shadowColor": null
+                  },
+                  "relatedNodes": [
+                    {
+                      "html": "<div class=\"site-primary-footer-wrap ast-builder-grid-row-container site-footer-focus-item ast-builder-grid-row-2-rheavy ast-builder-grid-row-tablet-2-equal ast-builder-grid-row-mobile-full ast-footer-row-stack ast-footer-row-tablet-stack ast-footer-row-mobile-stack\" data-section=\"section-primary-footer-builder\">",
+                      "target": [
+                        ".site-primary-footer-wrap"
+                      ]
+                    }
+                  ],
+                  "impact": "serious",
+                  "message": "Element's background color could not be determined due to a background gradient"
+                }
+              ],
+              "all": [],
+              "none": [],
+              "impact": "serious",
+              "html": "<a href=\"mailto:tim.ermatov@complyx.io\">tim.ermatov@complyx.io</a>",
+              "target": [
+                "a[href=\"mailto:tim.ermatov@complyx.io\"]"
+              ],
+              "failureSummary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            }
+          ]
+        }
+      ],
+      "violations": []
+    },
+    "project_doc": "/mnt/data/BeeSure- website check agent.pdf",
+    "required_accessibility_level": "AA"
+  }
+]

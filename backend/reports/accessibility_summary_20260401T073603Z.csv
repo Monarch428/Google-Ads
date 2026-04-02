@@ -1,0 +1,7 @@
+url,browser,breakpoint,width,height,status,title,screenshot,violations_count,passes,incomplete,inapplicable,error
+https://complyx.io,chromium,desktop,1920,1080,200,,reports\https_complyx.io_chromium_desktop_20260401T073539Z.png,0,2,1,1,
+https://complyx.io,chromium,tablet,768,1024,200,,reports\https_complyx.io_chromium_tablet_20260401T073543Z.png,0,2,1,1,
+https://complyx.io,chromium,mobile,375,812,200,,reports\https_complyx.io_chromium_mobile_20260401T073548Z.png,0,2,1,1,
+https://complyx.io,webkit,desktop,1920,1080,200,,reports\https_complyx.io_webkit_desktop_20260401T073553Z.png,0,2,1,1,
+https://complyx.io,webkit,tablet,768,1024,200,,reports\https_complyx.io_webkit_tablet_20260401T073558Z.png,0,2,1,1,
+https://complyx.io,webkit,mobile,375,812,200,,reports\https_complyx.io_webkit_mobile_20260401T073603Z.png,0,2,1,1,

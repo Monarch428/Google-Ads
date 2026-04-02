@@ -1,17 +1,24 @@
-import { ChangeEvent, useCallback, useEffect, useState } from "react";
 import {
-  TrendingUp,
-  DollarSign,
-  Target,
-  Users,
   AlertTriangle,
-  CheckCircle,
-  Plus,
+  Plus
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
+import { ChangeEvent, useCallback, useEffect, useState } from "react";
+import { toast } from "sonner";
+import { createClient, fetchMccStatus, startMccGoogleOAuth, type MccStatusResponse } from "../lib/api";
+import { currencyOptions } from "../lib/currencies";
+import { useData } from "../lib/data-context";
+import { Manager } from "../lib/mock-data";
+import { AIRecommendationOverview } from "./ai-recommendation-overview";
+import { AlertsPanel } from "./alerts-panel";
+import { ClientCard } from "./client-card";
+import { CreateReport } from "./create-report";
+import { GoogleAdsSyncControls } from "./google-ads";
+import { ManagerActivityPanel } from "./manager-activity-panel";
+import { RecentActivityPanel } from "./recent-activity-panel";
+import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
+import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import {
   Dialog,
   DialogContent,
@@ -23,22 +30,7 @@ import {
 } from "./ui/dialog";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
-import { Manager } from "../lib/mock-data";
-import { useData } from "../lib/data-context";
-import { KPICard } from "./kpi-card";
-import { ClientCard } from "./client-card";
-import { ManagerActivityPanel } from "./manager-activity-panel";
-import { AlertsPanel } from "./alerts-panel";
-import { AIRecommendationOverview } from "./ai-recommendation-overview";
-import { RecentActivityPanel } from "./recent-activity-panel";
-import { CreateReport } from "./create-report";
-import { ReportPreview } from "./report-preview";
-import { ManagerDetails } from "./manager-details";
-import { createClient, fetchMccStatus, startMccGoogleOAuth, type MccStatusResponse } from "../lib/api";
-import { Toaster, toast } from "sonner";
-import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
-import { currencyOptions } from "../lib/currencies";
-import { GoogleAdsSyncControls } from "./google-ads-sync-controls";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 
 type ClientFormState = {
   name: string;

@@ -11,11 +11,8 @@ import pandas as pd
 from fastapi.responses import FileResponse
 
 router = APIRouter(
-    # prefix="/reports", 
     tags=["Client Reports"])
 
-
-# 📊 1. Generate client performance report (PDF or CSV)
 @router.post("/client/{client_id}/export/pdf")
 def export_client_report_pdf(
     client_id: int,
@@ -72,8 +69,6 @@ def export_client_report_pdf(
 
     return FileResponse(filename, media_type="application/pdf", filename=filename)
 
-
-# 📈 2. Export as CSV (for analytics)
 @router.get("/client/{client_id}/export/csv")
 def export_client_report_csv(client_id: int, db: Session = Depends(get_db)):
     recs = db.query(Recommendation).filter(
@@ -102,3 +97,16 @@ def export_client_report_csv(client_id: int, db: Session = Depends(get_db)):
     filename = f"client_{client_id}_report.csv"
     df.to_csv(filename, index=False)
     return FileResponse(filename, media_type="text/csv", filename=filename)
+
+
+# In your existing report_routes.py — extract the core logic into a standalone function
+async def generate_pdf_bytes(report_id: int, db: Session) -> bytes:
+    """Reusable function that returns raw PDF bytes for a given report ID."""
+    report = db.query(YourReportModel).filter(YourReportModel.id == report_id).first()
+    if not report:
+        raise ValueError(f"Report {report_id} not found")
+    
+    # Whatever PDF generation you already do — WeasyPrint, ReportLab, etc.
+    # Return the raw bytes instead of a Response
+    pdf_bytes = your_existing_pdf_generation_logic(report)
+    return pdf_bytes

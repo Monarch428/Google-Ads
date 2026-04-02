@@ -1,0 +1,15 @@
+fastapi
+uvicorn[standard]
+transformers
+torch
+language-tool-python
+beautifulsoup4
+requests
+pypdf==3.11.0            # for PDF text extraction
+python-docx==0.8.11       # DOCX extraction support
+docx2txt                  # if you use docx2txt in your code
+python-magic==0.4.27      # optional: file type detection
+pillow                    # for PIL / image support
+playwright                # for browser automation
+python-dotenv
+pandas
