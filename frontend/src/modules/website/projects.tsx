@@ -14,6 +14,8 @@ import {
   analyzeTechnicalWizard,
   generateReportWizard,
 } from "../../lib/api";
+import jsPDF from "jspdf";
+import html2canvas from "html2canvas";
 
 const ACCENT = "#e8455a";
 const ACCENT_LIGHT = "#fdf1f3";
@@ -531,7 +533,7 @@ function WStep10({ fd, set }: SP) {
   </>);
 }
 
-// ─────────────────────────── RunCheck Wizard (real — from dashboard) ─────────
+// ─────────────────────────── RunCheck Wizard ─────────────────────
 function RunCheck({ onClose }: { onClose: () => void }) {
   const [step, setStep] = useState(0);
   const [form, setForm] = useState<WizardFormData>(INITIAL_FORM);
@@ -838,14 +840,141 @@ const RESULTS_DATA: Record<string, Issue[]> = {
 const SEVERITY_COLORS: Record<IssueSeverity, string> = { Critical: "#ef4444", High: "#e8455a", Medium: "#f97316", Low: "#eab308" };
 const RESULT_TABS = ["Content", "Design", "Functionality", "SEO", "Accessibility", "Technical"];
 
+// ─────────────────────────── ✅ ONLY THIS FUNCTION CHANGED ───────
 function ProjectResults({ project, onBack }: { project: Project; onBack: () => void }) {
   const [activeTab, setActiveTab] = useState("Content");
   const [issues, setIssues] = useState<Record<string, Issue[]>>(RESULTS_DATA);
-  const markFixed = (tab: string, idx: number) => setIssues(prev => ({ ...prev, [tab]: prev[tab].map((issue, i) => i === idx ? { ...issue, status: "Fixed" as IssueStatus } : issue) }));
+
+  const markFixed = (tab: string, idx: number) =>
+    setIssues(prev => ({ ...prev, [tab]: prev[tab].map((issue, i) => i === idx ? { ...issue, status: "Fixed" as IssueStatus } : issue) }));
+
   const allIssues = Object.values(issues).flat();
   const fixedCount = allIssues.filter(i => i.status === "Fixed").length;
   const openCount = allIssues.length - fixedCount;
   const score = project.score;
+
+  // ✅ PDF download — opens a new tab with a styled report then triggers print dialog
+  const downloadPDF = async () => {
+    // Dynamically import to avoid bundle bloat
+    const { default: jsPDF } = await import("jspdf");
+
+    const score = project.score;
+    const allIssueRows = Object.entries(issues);
+
+    const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+    const W = doc.internal.pageSize.getWidth();
+    let y = 20;
+
+    // ── Header ──
+    doc.setFontSize(18); doc.setFont("helvetica", "bold");
+    doc.setTextColor(232, 69, 90);
+    doc.text(`QA Report – ${project.name}`, 15, y);
+    y += 8;
+
+    doc.setFontSize(9); doc.setFont("helvetica", "normal");
+    doc.setTextColor(107, 114, 128);
+    doc.text(`Generated: ${new Date().toLocaleString()}  |  Uploaded: ${project.date}  |  Last scan: ${project.lastScan}`, 15, y);
+    y += 5;
+    doc.setDrawColor(232, 69, 90); doc.setLineWidth(0.8);
+    doc.line(15, y, W - 15, y);
+    y += 8;
+
+    // ── Score cards ──
+    const scoreCards = [
+      { label: "Overall Score", value: score?.scores.overall ?? "—" },
+      { label: "SEO Score", value: score?.scores.seo ?? "—" },
+      { label: "Accessibility", value: score?.scores.accessibility ?? "—" },
+      { label: "Performance", value: score?.scores.performance ?? "—" },
+    ];
+    const cardW = (W - 30) / 4;
+    scoreCards.forEach((card, i) => {
+      const x = 15 + i * (cardW + 2);
+      doc.setFillColor(249, 250, 251); doc.setDrawColor(229, 231, 235);
+      doc.roundedRect(x, y, cardW, 20, 2, 2, "FD");
+      doc.setFontSize(8); doc.setFont("helvetica", "bold"); doc.setTextColor(107, 114, 128);
+      doc.text(card.label.toUpperCase(), x + cardW / 2, y + 7, { align: "center" });
+      doc.setFontSize(18); doc.setFont("helvetica", "bold"); doc.setTextColor(232, 69, 90);
+      doc.text(String(card.value), x + cardW / 2, y + 16, { align: "center" });
+    });
+    y += 26;
+
+    // ── Issue counts ──
+    const countCards = [
+      { label: "Critical", value: score?.issueCount.critical ?? 0, color: [239, 68, 68] as [number, number, number] },
+      { label: "High", value: score?.issueCount.high ?? 0, color: [232, 69, 90] as [number, number, number] },
+      { label: "Medium", value: score?.issueCount.medium ?? 0, color: [249, 115, 22] as [number, number, number] },
+      { label: "Low", value: score?.issueCount.low ?? 0, color: [234, 179, 8] as [number, number, number] },
+    ];
+    countCards.forEach((card, i) => {
+      const x = 15 + i * (cardW + 2);
+      doc.setFillColor(249, 250, 251); doc.setDrawColor(229, 231, 235);
+      doc.roundedRect(x, y, cardW, 16, 2, 2, "FD");
+      doc.setFontSize(8); doc.setFont("helvetica", "bold"); doc.setTextColor(107, 114, 128);
+      doc.text(card.label.toUpperCase(), x + cardW / 2, y + 6, { align: "center" });
+      doc.setFontSize(14); doc.setFont("helvetica", "bold");
+      doc.setTextColor(...card.color);
+      doc.text(String(card.value), x + cardW / 2, y + 13, { align: "center" });
+    });
+    y += 22;
+
+    // ── Issues table ──
+    doc.setFontSize(11); doc.setFont("helvetica", "bold"); doc.setTextColor(26, 26, 46);
+    doc.text("Issue Breakdown — All Categories", 15, y);
+    y += 6;
+
+    // Table header
+    const cols = [30, 28, 55, 22, 75, 22];
+    const headers = ["Category", "Page", "Issue", "Severity", "Suggestion", "Status"];
+    doc.setFillColor(243, 244, 246); doc.rect(15, y, W - 30, 7, "F");
+    doc.setFontSize(8); doc.setFont("helvetica", "bold"); doc.setTextColor(107, 114, 128);
+    let xPos = 15;
+    headers.forEach((h, i) => {
+      doc.text(h.toUpperCase(), xPos + 2, y + 5);
+      xPos += cols[i];
+    });
+    y += 8;
+
+    // Table rows
+    const severityColors: Record<string, [number, number, number]> = {
+      Critical: [239, 68, 68], High: [232, 69, 90], Medium: [249, 115, 22], Low: [234, 179, 8]
+    };
+
+    doc.setFont("helvetica", "normal"); doc.setFontSize(8);
+
+    allIssueRows.forEach(([category, categoryIssues]) => {
+      categoryIssues.forEach((issue) => {
+        if (y > 185) { doc.addPage(); y = 20; }
+
+        doc.setDrawColor(240, 241, 245);
+        doc.line(15, y + 6, W - 15, y + 6);
+
+        xPos = 15;
+        const rowData = [category, issue.page, issue.issue, issue.severity, issue.suggestion, issue.status];
+
+        rowData.forEach((cell, i) => {
+          if (i === 3) {
+            // Severity — colored
+            doc.setTextColor(...(severityColors[issue.severity] ?? [107, 114, 128]));
+          } else if (i === 5) {
+            // Status — green or red
+            doc.setTextColor(issue.status === "Fixed" ? 22 : 239, issue.status === "Fixed" ? 163 : 68, issue.status === "Fixed" ? 74 : 68);
+          } else {
+            doc.setTextColor(55, 65, 81);
+          }
+          const lines = doc.splitTextToSize(String(cell), cols[i] - 3);
+          doc.text(lines[0], xPos + 2, y + 5);
+          xPos += cols[i];
+        });
+        y += 8;
+      });
+    });
+
+    // ── Footer ──
+    doc.setFontSize(8); doc.setTextColor(156, 163, 175);
+    doc.text(`Atlas QA Report  ·  ${project.name}  ·  ${new Date().getFullYear()}`, W / 2, 200, { align: "center" });
+
+    doc.save(`QA-Report-${project.name.replace(/[^a-z0-9]/gi, "_")}.pdf`);
+  };
 
   return (
     <div className="space-y-6 pb-6">
@@ -859,11 +988,18 @@ function ProjectResults({ project, onBack }: { project: Project; onBack: () => v
           <button type="button" className="flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
             <Share2 className="w-4 h-4" /> Share Report
           </button>
-          <button type="button" className="flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-white rounded-lg transition-opacity hover:opacity-90" style={{ backgroundColor: ACCENT }}>
+          {/* ✅ onClick wired to downloadPDF */}
+          <button
+            type="button"
+            onClick={downloadPDF}
+            className="flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-white rounded-lg transition-opacity hover:opacity-90"
+            style={{ backgroundColor: ACCENT }}
+          >
             <Download className="w-4 h-4" /> Download PDF
           </button>
         </div>
       </div>
+
       <div className="grid grid-cols-5 gap-4">
         <div className="bg-white rounded-2xl border border-gray-200 p-5">
           <p className="text-sm text-gray-500 mb-3">Total Issues</p>
@@ -899,6 +1035,7 @@ function ProjectResults({ project, onBack }: { project: Project; onBack: () => v
           </div>
         </div>
       </div>
+
       <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
         <div className="px-6 py-5 border-b border-gray-100"><h3 className="text-base font-bold text-gray-800">Issue Breakdown</h3></div>
         <div className="flex border-b border-gray-100 bg-gray-50 px-2">

@@ -73,7 +73,7 @@ type DataContextValue = {
   approveRecommendation: (recId: string) => Promise<void>;
   dismissRecommendation: (recId: string) => Promise<void>;
 
-  updateClient: (clientId: string, payload: Partial<BackendClient>) => Promise<void>;
+  updateClient: (clientId: string, payload: Partial<Omit<BackendClient, 'currency_code'> & { currency_code?: string }>) => Promise<void>;
   deleteClient: (clientId: string) => Promise<void>;
   deleteManager: (managerId: string) => Promise<void>;
 
@@ -191,9 +191,9 @@ function mapClients(
         ? client.customer_ids
         : client.customer_id
           ? client.customer_id
-              .split(",")
-              .map((value) => value.trim())
-              .filter(Boolean)
+            .split(",")
+            .map((value) => value.trim())
+            .filter(Boolean)
           : [];
 
     const impressions = Number(metrics.impressions ?? 0);
@@ -380,6 +380,7 @@ function mapManagers(backendUsers: BackendUser[], clients: Client[]): Manager[] 
       recommendationsApproved: 0,
       actionBundlesCreated: 0,
       avgTimeToApproval: "—",
+      module_access: user.module_access ?? null,
     };
   });
 }
@@ -585,8 +586,14 @@ export function DataProvider({
     async (clientId: string, payload: Partial<BackendClient>) => {
       if (!authToken) throw new Error("Authentication required to update clients");
 
+      // Sanitize null → undefined so it matches CreateClientPayload
+      const sanitized = {
+        ...payload,
+        currency_code: payload.currency_code ?? undefined,
+      };
+
       try {
-        await updateClientApi(clientId, payload, {
+        await updateClientApi(clientId, sanitized, {
           accessToken: authToken,
           refreshToken: refreshToken ?? null,
         });
@@ -702,17 +709,18 @@ export function DataProvider({
   // managers are independent from dateRange; still refresh when auth/clients/admin changes
 
   // ✅ load once after login / token available
-useEffect(() => {
-  if (!authToken) {
-    setClientsLoading(false); // prevents permanent spinner when logged out
-    return;
-  }
-  loadClients();
-}, [authToken, loadClients]);
+  useEffect(() => {
+    if (!authToken) {
+      setClientsLoading(false); // prevents permanent spinner when logged out
+      return;
+    }
+    loadClients();
+  }, [authToken, loadClients]);
 
   useEffect(() => {
+    if (!authToken) return;
     loadManagers();
-  }, [loadManagers]);
+  }, [authToken, loadManagers]);
 
   const value = useMemo<DataContextValue>(
     () => ({

@@ -95,6 +95,13 @@ export interface BackendClient {
   updated_at?: string;
 }
 
+export interface ModuleAccessPayload {
+  gads: string[];  
+  seo: string[];
+  website: string[];
+}
+
+
 export interface BackendCampaign {
   id: number;
   name: string;
@@ -129,6 +136,7 @@ export interface BackendUser {
   company_website?: string | null;
   company_address?: string | null;
   assigned_client_ids?: number[] | null;
+  module_access?: ModuleAccessPayload | null;
 }
 
 export interface WebsiteFile {
@@ -306,6 +314,7 @@ export type UpdateUserPayload = {
   company_website?: string | null;
   company_address?: string | null;
   assigned_client_ids?: number[];
+  module_access?: ModuleAccessPayload;
 };
 
 export type CreateUserPayload = {
@@ -315,6 +324,7 @@ export type CreateUserPayload = {
   role?: string;
   is_active?: boolean;
   assigned_client_ids?: number[];
+  module_access?: ModuleAccessPayload;  
 };
 
 export interface AuthResponse {

@@ -36,6 +36,11 @@ export interface Manager {
   recommendationsApproved: number;
   actionBundlesCreated: number;
   avgTimeToApproval: string;
+  module_access?: {
+    gads: string[];
+    seo: string[];
+    website: string[];
+  } | null;
 }
 
 export interface AIRecommendation {

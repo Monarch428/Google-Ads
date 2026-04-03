@@ -8,11 +8,12 @@ import { Toaster } from "./components/ui/sonner";
 import { useRouter } from "./lib/router";
 import { toast } from "sonner";
 import type { AuthDetails, AuthMethod } from "./lib/auth-types";
+import type { ModuleId } from "./lib/modules";
 
-const AUTH_TOKEN_KEY = "aaa_auth_token";
-const AUTH_REFRESH_KEY = "aaa_refresh_token";
-const AUTH_USER_KEY = "aaa_auth_user";
-const AUTH_DETAILS_KEY = "aaa_auth_details";
+const AUTH_TOKEN_KEY    = "aaa_auth_token";
+const AUTH_REFRESH_KEY  = "aaa_refresh_token";
+const AUTH_USER_KEY     = "aaa_auth_user";
+const AUTH_DETAILS_KEY  = "aaa_auth_details";
 
 type AuthState = {
   token: string;
@@ -21,24 +22,70 @@ type AuthState = {
   details: AuthDetails | null;
 };
 
+// ── Parse the current URL path into moduleId + viewId ────────────────────────
+// URL patterns:
+//   /modules/g-ads/dashboard   → { module: "g-ads",   view: "dashboard" }
+//   /modules/seo/overview      → { module: "seo",      view: "seo-overview" }
+//   /modules/website/projects  → { module: "website",  view: "projects" }
+//   /dashboard                 → { module: "g-ads",    view: "dashboard" }
+//   /users                     → { module: null,        view: "users" }
+
+function parseRouteFromPath(pathname: string): {
+  module: ModuleId | null;
+  view: string;
+} {
+  const p = pathname.replace(/\/$/, ""); // strip trailing slash
+
+  // /modules/:moduleId/:view
+  const moduleMatch = p.match(/^\/modules\/(g-ads|seo|website)(?:\/(.+))?$/);
+  if (moduleMatch) {
+    const moduleId = moduleMatch[1] as ModuleId;
+    const rawView  = moduleMatch[2] ?? "";
+
+    // Normalise view segment → feature id used in modules.ts
+    const VIEW_ALIAS: Record<string, string> = {
+      // website
+      "dashboard":  moduleId === "website" ? "website-dashboard" : "dashboard",
+      "settings":   moduleId === "website" ? "website-settings"  : "settings",
+      // seo
+      "overview":   "seo-overview",
+      "web-errors": "web-errors",
+      "technical":  "technical-seo",
+      "content":    "content-seo",
+      "links":      "links-seo",
+      "speed":      "speed-test",
+      "insights":   "ai-insights",
+    };
+    const view = VIEW_ALIAS[rawView] ?? rawView ?? (
+      moduleId === "seo"     ? "seo-overview"      :
+      moduleId === "website" ? "website-dashboard"  :
+      "dashboard"
+    );
+    return { module: moduleId, view };
+  }
+
+  // Legacy / top-level routes
+  if (p === "/dashboard" || p === "")   return { module: "g-ads",  view: "dashboard" };
+  if (p === "/accounts")                return { module: "g-ads",  view: "accounts" };
+  if (p === "/recommendations")         return { module: "g-ads",  view: "recommendations" };
+  if (p === "/reports")                 return { module: "g-ads",  view: "reports" };
+  if (p === "/checklist")               return { module: "g-ads",  view: "checklist" };
+  if (p === "/users")                   return { module: null,      view: "users" };
+  if (p === "/settings")                return { module: null,      view: "settings" };
+
+  return { module: "g-ads", view: "dashboard" };
+}
+
 function parseStoredUser(value: string | null): BackendUser | null {
   if (!value) return null;
-  try {
-    return JSON.parse(value) as BackendUser;
-  } catch (error) {
-    console.warn("Failed to parse stored user", error);
-    return null;
-  }
+  try { return JSON.parse(value) as BackendUser; }
+  catch (error) { console.warn("Failed to parse stored user", error); return null; }
 }
 
 function parseStoredAuthDetails(value: string | null): AuthDetails | null {
   if (!value) return null;
-  try {
-    return JSON.parse(value) as AuthDetails;
-  } catch (error) {
-    console.warn("Failed to parse stored auth details", error);
-    return null;
-  }
+  try { return JSON.parse(value) as AuthDetails; }
+  catch (error) { console.warn("Failed to parse stored auth details", error); return null; }
 }
 
 type AuthMetadataInput = {
@@ -48,39 +95,36 @@ type AuthMetadataInput = {
 
 export default function App() {
   const { path, navigate } = useRouter();
+
   const [authState, setAuthState] = useState<AuthState | null>(() => {
     const storedToken = localStorage.getItem(AUTH_TOKEN_KEY);
-    const storedUser = parseStoredUser(localStorage.getItem(AUTH_USER_KEY));
-
+    const storedUser  = parseStoredUser(localStorage.getItem(AUTH_USER_KEY));
     if (storedToken && storedUser) {
-      const storedRefresh = localStorage.getItem(AUTH_REFRESH_KEY);
-      const storedDetails = parseStoredAuthDetails(localStorage.getItem(AUTH_DETAILS_KEY));
       return {
-        token: storedToken,
-        refreshToken: storedRefresh,
-        user: storedUser,
-        details: storedDetails,
+        token:        storedToken,
+        refreshToken: localStorage.getItem(AUTH_REFRESH_KEY),
+        user:         storedUser,
+        details:      parseStoredAuthDetails(localStorage.getItem(AUTH_DETAILS_KEY)),
       };
     }
-
     return null;
   });
+
+  // ── Derive initial module + view from URL (survives hard reload) ──────────
+  const { module: initialModule, view: initialView } = parseRouteFromPath(
+    typeof window !== "undefined" ? window.location.pathname : "/dashboard"
+  );
 
   const handleAuthenticated = useCallback(
     (response: AuthResponse, metadata?: AuthMetadataInput) => {
       const details: AuthDetails | null = metadata
-        ? {
-            method: metadata.method,
-            request: metadata.request,
-            response,
-            timestamp: new Date().toISOString(),
-          }
+        ? { method: metadata.method, request: metadata.request, response, timestamp: new Date().toISOString() }
         : authState?.details ?? null;
 
       const nextState: AuthState = {
-        token: response.access_token,
+        token:        response.access_token,
         refreshToken: response.refresh_token ?? null,
-        user: response.user,
+        user:         response.user,
         details,
       };
 
@@ -122,62 +166,49 @@ export default function App() {
       }
       return;
     }
-
     if (path === "/" || path === "/login") {
       navigate("/dashboard", { replace: true });
     }
   }, [authState, path, navigate, isOnGoogleCallback]);
 
   const processGoogleOAuth = useCallback(() => {
-    if (!isOnGoogleCallback || hasProcessedGoogleOAuthRef.current) {
-      return;
-    }
+    if (!isOnGoogleCallback || hasProcessedGoogleOAuthRef.current) return;
 
     hasProcessedGoogleOAuthRef.current = true;
     setIsProcessingGoogleOAuth(true);
 
     try {
-      if (typeof window === "undefined") {
-        throw new Error("Window is not available");
-      }
+      if (typeof window === "undefined") throw new Error("Window is not available");
 
-      const params = new URLSearchParams(window.location.search);
+      const params  = new URLSearchParams(window.location.search);
       const encoded = params.get("auth");
-
-      if (!encoded) {
-        throw new Error("Missing Google authentication payload");
-      }
+      if (!encoded) throw new Error("Missing Google authentication payload");
 
       const decoded = decodeURIComponent(encoded);
-      const parsed = JSON.parse(decoded) as AuthResponse;
+      const parsed  = JSON.parse(decoded) as AuthResponse;
 
       if (
         !parsed ||
-        typeof parsed.access_token !== "string" ||
+        typeof parsed.access_token  !== "string" ||
         typeof parsed.refresh_token !== "string" ||
-        !parsed.user ||
-        typeof parsed.user !== "object"
+        !parsed.user || typeof parsed.user !== "object"
       ) {
         throw new Error("Invalid Google authentication response");
       }
 
       window.history.replaceState(null, "", "/auth/google/callback");
       handleAuthenticated(parsed, {
-        method: "google",
-        request: {
-          provider: "google",
-          encoded_payload: encoded,
-          decoded_payload: parsed,
-        },
+        method:  "google",
+        request: { provider: "google", encoded_payload: encoded, decoded_payload: parsed },
       });
       toast.success("Signed in with Google", {
         description: `Welcome back, ${parsed.user.name ?? parsed.user.email}!`,
       });
     } catch (error) {
       hasProcessedGoogleOAuthRef.current = false;
-      const message =
-        error instanceof Error ? error.message : "Unable to complete Google sign-in";
-      toast.error("Google sign-in failed", { description: message });
+      toast.error("Google sign-in failed", {
+        description: error instanceof Error ? error.message : "Unable to complete Google sign-in",
+      });
       navigate("/login", { replace: true });
     } finally {
       setIsProcessingGoogleOAuth(false);
@@ -202,18 +233,14 @@ export default function App() {
     navigate("/login", { replace: true });
   }, [navigate]);
 
-  // let content: JSX.Element;
   let content: React.ReactNode;
-
 
   if (isOnGoogleCallback) {
     content = (
       <div className="min-h-screen flex flex-col items-center justify-center gap-4">
         <div className="h-12 w-12 animate-spin rounded-full border-4 border-muted border-t-primary" />
         <p className="text-muted-foreground text-sm">
-          {isProcessingGoogleOAuth
-            ? "Completing Google sign-in..."
-            : "Redirecting..."}
+          {isProcessingGoogleOAuth ? "Completing Google sign-in..." : "Redirecting..."}
         </p>
       </div>
     );
@@ -231,6 +258,10 @@ export default function App() {
             token={authState.token}
             onLogout={handleLogout}
             onUserUpdated={handleUserUpdated}
+            // ✅ Pass initial module + view derived from the URL
+            // DashboardApp must accept and use these as initial state values
+            initialModule={initialModule ?? "g-ads"}
+            initialView={initialView}
           />
         </GoogleAdsSyncProvider>
       </DataProvider>

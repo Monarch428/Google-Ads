@@ -1,4 +1,4 @@
-from typing import List
+from typing import Any, Dict, List
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
@@ -12,50 +12,68 @@ from utils.auth_dependencies import get_current_user, require_admin_user
 router = APIRouter(tags=["Users"])
 
 
-@router.get("/", response_model=List[UserResponse])
+def _serialize(user) -> Dict[str, Any]:
+    """
+    Serialize a UserModel instance to a dict, ensuring module_access
+    is always populated from the flat boolean columns.
+    """
+    return UserResponse.from_orm_with_access(user).model_dump()
+
+
+@router.get("/")
 def get_users(
     _: None = Depends(require_admin_user),
     db: Session = Depends(get_db),
-):
-    return user_service.get_all_users(db)
+) -> List[Dict[str, Any]]:
+    users = user_service.get_all_users(db)
+    return [_serialize(u) for u in users]
 
 
-@router.get("/{user_id}", response_model=UserResponse)
+@router.get("/{user_id}")
 def get_user(
     user_id: int,
     current_user=Depends(get_current_user),
     db: Session = Depends(get_db),
-):
+) -> Dict[str, Any]:
     if (current_user.role or "").lower() != "admin" and current_user.id != user_id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to view this user")
-    return user_service.get_user_by_id(db, user_id)
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to view this user",
+        )
+    user = user_service.get_user_by_id(db, user_id)
+    return _serialize(user)
 
 
-@router.post("/", response_model=UserResponse, status_code=201)
+@router.post("/", status_code=201)
 def create_user(
     user_data: UserCreate,
     _: None = Depends(require_admin_user),
     db: Session = Depends(get_db),
-):
-    return user_service.create_user(db, user_data, can_assign_clients=True)
+) -> Dict[str, Any]:
+    user = user_service.create_user(db, user_data, can_assign_clients=True)
+    return _serialize(user)
 
 
-@router.put("/{user_id}", response_model=UserResponse)
+@router.put("/{user_id}")
 def update_user(
     user_id: int,
     update_data: UserUpdate,
     current_user=Depends(get_current_user),
     db: Session = Depends(get_db),
-):
+) -> Dict[str, Any]:
     if (current_user.role or "").lower() != "admin" and current_user.id != user_id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to update this user")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to update this user",
+        )
     can_manage_assignments = (current_user.role or "").lower() == "admin"
-    return user_service.update_user(
+    user = user_service.update_user(
         db,
         user_id,
         update_data,
         can_manage_assignments=can_manage_assignments,
     )
+    return _serialize(user)
 
 
 @router.delete("/{user_id}", status_code=200)

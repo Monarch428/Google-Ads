@@ -46,6 +46,9 @@ type DashboardAppProps = {
   token?: string;
   onLogout: () => void;
   onUserUpdated?: (user: BackendUser) => void;
+  // ✅ These allow the app to restore state from the URL on hard reload
+  initialModule?: ModuleId;
+  initialView?: string;
 };
 
 type ViewContext = {
@@ -98,23 +101,33 @@ function resolveRoute(path: string, currentModule: ModuleId, isAdmin: boolean): 
   };
 }
 
-export function DashboardApp({ user, token, onLogout, onUserUpdated }: DashboardAppProps) {
+export function DashboardApp({
+  user,
+  token,
+  onLogout,
+  onUserUpdated,
+  initialModule,
+  initialView,
+}: DashboardAppProps) {
 
   const { path, navigate } = useRouter();
 
   const normalizedRole = (user.role ?? "").toLowerCase();
   const isAdmin = normalizedRole === "admin";
 
-  const [selectedModule, setSelectedModule] = useState<ModuleId | null>(null);
+  // ✅ Initialize from URL-derived props so hard reload restores the correct module
+  // If initialModule is provided (from URL parsing in App.tsx), use it directly
+  // instead of null — this skips the module selection screen on reload
+  const [selectedModule, setSelectedModule] = useState<ModuleId | null>(
+    initialModule ?? null
+  );
+
   const [moduleSwitcherDocked, setModuleSwitcherDocked] = useState(false);
   const [selectedClient, setSelectedClient] = useState<string | null>(null);
-
   const [selectedAlert, setSelectedAlert] = useState<AlertType | null>(null);
   const [selectedManager, setSelectedManager] = useState<Manager | null>(null);
   const [selectedBundle, setSelectedBundle] = useState<string | null>(null);
   const [selectedReport, setSelectedReport] = useState<string | null>(null);
-
-  const isSeoView = selectedModule === "seo";
 
   const routeContext = useMemo(
     () => resolveRoute(path, selectedModule ?? "g-ads", isAdmin),
@@ -124,13 +137,18 @@ export function DashboardApp({ user, token, onLogout, onUserUpdated }: Dashboard
   // sync module with route
   useEffect(() => {
     if (!selectedModule) return;
-
-    if (routeContext.kind === "module" && routeContext.moduleId !== selectedModule && routeContext.canonicalPath === path) {
+    if (
+      routeContext.kind === "module" &&
+      routeContext.moduleId !== selectedModule &&
+      routeContext.canonicalPath === path
+    ) {
       setSelectedModule(routeContext.moduleId);
     }
   }, [routeContext, selectedModule]);
 
   // keep canonical route
+  // ✅ On first render after hard reload, if initialView is provided we skip
+  // the canonical redirect so the user lands on the correct view immediately
   useEffect(() => {
     if (routeContext.canonicalPath !== path) {
       navigate(routeContext.canonicalPath, { replace: true });
@@ -161,18 +179,12 @@ export function DashboardApp({ user, token, onLogout, onUserUpdated }: Dashboard
 
     if (GLOBAL_VIEW_ROUTES[view]) {
       const targetRoute = GLOBAL_VIEW_ROUTES[view];
-      if (targetRoute !== path) {
-        navigate(targetRoute);
-      }
+      if (targetRoute !== path) navigate(targetRoute);
       return;
     }
 
     const targetRoute = moduleRoutes[view] ?? getModuleDefaultRoute(selectedModule ?? "g-ads");
     if (targetRoute !== path) navigate(targetRoute);
-
-    if (targetRoute !== path) {
-      navigate(targetRoute);
-    }
   };
 
   const handleModuleChange = (moduleId: ModuleId) => {
@@ -212,19 +224,14 @@ export function DashboardApp({ user, token, onLogout, onUserUpdated }: Dashboard
               onReportClick={setSelectedReport}
             />
           );
-
         case "accounts":
           return <Accounts onClientClick={setSelectedClient} />;
-
         case "recommendations":
           return <AIRecommendations onBundleClick={setSelectedBundle} />;
-
         case "reports":
           return <ClientReports onReportClick={setSelectedReport} />;
-
         case "checklist":
           return <SetupChecklist />;
-
         default:
           return <DashboardOverview onClientClick={setSelectedClient} onNavigate={handleViewChange} />;
       }
@@ -232,44 +239,30 @@ export function DashboardApp({ user, token, onLogout, onUserUpdated }: Dashboard
 
     if (selectedModule === "seo") {
       switch (routeContext.viewId) {
-        case "seo-overview":
-          return <SeoOverview />;
-        case "web-errors":
-          return <WebErrors />;
-        case "technical-seo":
-          return <TechnicalSeo />;
-        case "content-seo":
-          return <ContentSeo />;
-        case "links-seo":
-          return <LinksSeo />;
-        case "speed-test":
-          return <SpeedTest />;
-        case "ai-insights":
-          return <AiInsights />;
-        default:
-          return <SeoOverview />;
+        case "seo-overview":  return <SeoOverview />;
+        case "web-errors":    return <WebErrors />;
+        case "technical-seo": return <TechnicalSeo />;
+        case "content-seo":   return <ContentSeo />;
+        case "links-seo":     return <LinksSeo />;
+        case "speed-test":    return <SpeedTest />;
+        case "ai-insights":   return <AiInsights />;
+        default:              return <SeoOverview />;
       }
     }
 
     if (selectedModule === "website") {
       switch (routeContext.viewId) {
-        case "dashboard":
-          return <WebsiteDashboard />;
-        case "projects":
-          return <Projects />;
-        case "inputs":
-          return <Inputs />;
-        case "reports":
-          return <Reports />;
-        case "website-settings":
-          return <WebsiteSettings />;
-        default:
-          return <WebsiteDashboard />;
+        case "website-dashboard":
+        case "dashboard":        return <WebsiteDashboard />;
+        case "projects":         return <Projects />;
+        case "inputs":           return <Inputs />;
+        case "reports":          return <Reports />;
+        case "website-settings": return <WebsiteSettings />;
+        default:                 return <WebsiteDashboard />;
       }
     }
 
     const moduleDefinition = MODULE_DEFINITIONS[selectedModule ?? "g-ads"];
-
     return (
       <ModuleFeatureBoard
         module={moduleDefinition}
@@ -279,25 +272,22 @@ export function DashboardApp({ user, token, onLogout, onUserUpdated }: Dashboard
     );
   };
 
+  // ✅ Only show module selection screen if no module is selected AND
+  // there's no initialModule from the URL (i.e. user navigated to / fresh)
   if (!selectedModule) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-100 p-10">
         <div className="w-full max-w-6xl">
-
-          {/* Title */}
           <div className="text-center mb-12">
             <h1 className="text-3xl font-bold text-slate-800">Select a Module</h1>
             <p className="text-slate-500 mt-2">Choose which platform you want to manage</p>
           </div>
-
-          {/* Module Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
 
             {/* Google Ads */}
             <button
               onClick={() => handleModuleChange("g-ads")}
               className="group bg-white rounded-xl shadow hover:shadow-xl transition-all border-4 border-transparent overflow-hidden text-left"
-              style={{ '--hover-color': '#EF4F6E' } as React.CSSProperties}
               onMouseEnter={e => (e.currentTarget.style.borderColor = '#dbeafe')}
               onMouseLeave={e => (e.currentTarget.style.borderColor = 'transparent')}
             >
@@ -324,9 +314,7 @@ export function DashboardApp({ user, token, onLogout, onUserUpdated }: Dashboard
                 <div className="text-4xl">📢</div>
                 <h2 className="text-xl font-semibold text-slate-800">Google Ads</h2>
                 <p className="text-sm text-slate-500">Manage ad campaigns, monitor performance, and optimize budgets.</p>
-                <span className="text-sm font-medium group-hover:underline" style={{ color: '#EF4F6E' }}>
-                  Open Dashboard →
-                </span>
+                <span className="text-sm font-medium group-hover:underline" style={{ color: '#EF4F6E' }}>Open Dashboard →</span>
               </div>
             </button>
 
@@ -337,7 +325,6 @@ export function DashboardApp({ user, token, onLogout, onUserUpdated }: Dashboard
               onMouseEnter={e => (e.currentTarget.style.borderColor = '#d1fae5')}
               onMouseLeave={e => (e.currentTarget.style.borderColor = 'transparent')}
             >
-
               <div className="bg-green-50 border-b border-green-100 p-4 space-y-2">
                 <div className="flex items-center justify-between mb-1">
                   <div className="h-2.5 w-20 bg-green-200 rounded-full" />
@@ -361,9 +348,7 @@ export function DashboardApp({ user, token, onLogout, onUserUpdated }: Dashboard
                 <div className="text-4xl">🔍</div>
                 <h2 className="text-xl font-semibold text-slate-800">SEO Agents</h2>
                 <p className="text-sm text-slate-500">Track rankings, optimize content, and automate SEO tasks.</p>
-                <span className="text-sm font-medium group-hover:underline" style={{ color: '#EF4F6E' }}>
-                  Open Dashboard →
-                </span>
+                <span className="text-sm font-medium group-hover:underline" style={{ color: '#EF4F6E' }}>Open Dashboard →</span>
               </div>
             </button>
 
@@ -397,9 +382,7 @@ export function DashboardApp({ user, token, onLogout, onUserUpdated }: Dashboard
                 <div className="text-4xl">🌐</div>
                 <h2 className="text-xl font-semibold text-slate-800">Website Checklists</h2>
                 <p className="text-sm text-slate-500">Audit websites, manage tasks, and improve performance.</p>
-                <span className="text-sm font-medium group-hover:underline" style={{ color: '#EF4F6E' }}>
-                  Open Dashboard →
-                </span>
+                <span className="text-sm font-medium group-hover:underline" style={{ color: '#EF4F6E' }}>Open Dashboard →</span>
               </div>
             </button>
 
@@ -412,7 +395,6 @@ export function DashboardApp({ user, token, onLogout, onUserUpdated }: Dashboard
   return (
     <SidebarProvider>
       <div className="flex h-screen w-full bg-slate-50">
-
         <AppSidebar
           currentView={routeContext.kind === "module" ? routeContext.viewId : null}
           currentModule={selectedModule}
@@ -423,11 +405,8 @@ export function DashboardApp({ user, token, onLogout, onUserUpdated }: Dashboard
           user={user}
           onLogout={onLogout}
         />
-
         <main className="flex-1 flex flex-col min-h-0 overflow-hidden">
-
           {selectedModule === "website" && <DashboardHeader />}
-
           {selectedModule === "seo" && (
             <SeoHeader title="SEO Dashboard" subtitle="SEO Analyze Agent" />
           )}
@@ -437,7 +416,6 @@ export function DashboardApp({ user, token, onLogout, onUserUpdated }: Dashboard
             </div>
           </div>
         </main>
-
       </div>
     </SidebarProvider>
   );

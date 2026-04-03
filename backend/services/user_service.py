@@ -9,6 +9,46 @@ from schemas.user_schema import UserCreate, UserUpdate
 from services.auth_service import pwd_context
 
 
+# ── Module access helpers ─────────────────────────────────────────────────────
+
+VALID_PAGES = {"dashboard", "inputs", "projects", "reports", "settings"}
+MODULES     = ("gads", "seo", "website")
+
+
+def _apply_module_access(user: UserModel, module_access) -> None:
+    """
+    Write the nested {gads:[…], seo:[…], website:[…]} payload as flat booleans
+    onto the UserModel instance, e.g. user.gads_dashboard = True.
+    Accepts either a Pydantic model (from UserCreate/UserUpdate) or a plain dict.
+    """
+    if module_access is None:
+        return
+    for module in MODULES:
+        # support both object-style (Pydantic) and dict-style (model_dump output)
+        if isinstance(module_access, dict):
+            pages: List[str] = module_access.get(module, []) or []
+        else:
+            pages = getattr(module_access, module, []) or []
+        for page in VALID_PAGES:
+            setattr(user, f"{module}_{page}", page in pages)
+
+
+def _attach_module_access(user: UserModel) -> None:
+    """
+    Read the 15 flat boolean columns and attach a nested dict as
+    user.module_access so it serialises correctly in UserResponse.
+    """
+    access = {}
+    for module in MODULES:
+        access[module] = [
+            page for page in sorted(VALID_PAGES)
+            if getattr(user, f"{module}_{page}", False)
+        ]
+    setattr(user, "module_access", access)
+
+
+# ── Client assignment helpers (unchanged from original) ───────────────────────
+
 def _normalize_client_ids(raw_ids: Optional[Iterable[object]]) -> Set[int]:
     if raw_ids is None:
         return set()
@@ -45,7 +85,6 @@ def _normalize_client_ids(raw_ids: Optional[Iterable[object]]) -> Set[int]:
 def _ensure_assignable_user(user: UserModel, desired_ids: Set[int]) -> None:
     if not desired_ids:
         return
-
     if (user.role or "").lower() == "admin":
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -90,6 +129,8 @@ def _attach_assigned_client_ids(user: UserModel) -> None:
     setattr(user, "assigned_client_ids", assigned_ids)
 
 
+# ── CRUD ──────────────────────────────────────────────────────────────────────
+
 def create_user(
     db: Session, user_data: UserCreate, *, can_assign_clients: bool = False
 ) -> UserModel:
@@ -103,14 +144,17 @@ def create_user(
     role = (user_data.role or "user").strip() or "user"
     is_active = True if user_data.is_active is None else bool(user_data.is_active)
 
-    password_to_hash = user_data.password[:72]
     new_user = UserModel(
         name=user_data.name,
         email=user_data.email,
-        password_hash=pwd_context.hash(password_to_hash),
+        password_hash=pwd_context.hash(user_data.password[:72]),
         role=role,
         is_active=is_active,
     )
+
+    # ── write module access booleans ──
+    if user_data.module_access is not None:
+        _apply_module_access(new_user, user_data.module_access)
 
     db.add(new_user)
     db.flush()
@@ -132,34 +176,31 @@ def create_user(
     else:
         setattr(new_user, "assigned_client_ids", assigned_ids)
 
+    _attach_module_access(new_user)
     return new_user
 
 
 def get_all_users(db: Session) -> List[UserModel]:
-    """Return all users in the system."""
-
     users = db.query(UserModel).all()
     for user in users:
         _attach_assigned_client_ids(user)
+        _attach_module_access(user)
     return users
 
 
 def get_user_by_id(db: Session, user_id: int) -> UserModel:
-    """Fetch a single user or raise 404 if it does not exist."""
-
     user = db.query(UserModel).filter(UserModel.id == user_id).first()
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
 
     _attach_assigned_client_ids(user)
+    _attach_module_access(user)
     return user
 
 
 def update_user(
     db: Session, user_id: int, update_data: UserUpdate, *, can_manage_assignments: bool = False
 ) -> UserModel:
-    """Update mutable user attributes, hashing the password when provided."""
-
     user = get_user_by_id(db, user_id)
 
     if update_data.email and update_data.email != user.email:
@@ -172,6 +213,7 @@ def update_user(
 
     data = update_data.model_dump(exclude_unset=True)
 
+    # ── client assignments ──
     assigned_ids = None
     if "assigned_client_ids" in data:
         if not can_manage_assignments:
@@ -181,10 +223,18 @@ def update_user(
             )
         assigned_ids = _apply_client_assignments(db, user, data.pop("assigned_client_ids"))
 
+    # ── module access — pop from dict, apply separately ──
+    raw_module_access = data.pop("module_access", None)
+    if raw_module_access is not None:
+        # model_dump() gives a plain dict; _apply_module_access handles both dict and object
+        _apply_module_access(user, raw_module_access)
+
+    # ── password ──
     password = data.pop("password", None)
     if password:
         user.password_hash = pwd_context.hash(password[:72])
 
+    # ── remaining scalar fields ──
     for key, value in data.items():
         setattr(user, key, value)
 
@@ -196,12 +246,11 @@ def update_user(
     else:
         setattr(user, "assigned_client_ids", assigned_ids)
 
+    _attach_module_access(user)
     return user
 
 
 def delete_user(db: Session, user_id: int) -> dict:
-    """Delete a user and clean up any client assignments."""
-
     user = get_user_by_id(db, user_id)
 
     if (user.role or "").lower() == "admin":

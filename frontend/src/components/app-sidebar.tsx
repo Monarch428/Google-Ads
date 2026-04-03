@@ -31,6 +31,7 @@ import beezLogo from "figma:asset/e78fffddab88e738f7460441ac9695d5a0e809a4.png";
 import { BackendUser } from "../lib/api";
 import { MODULE_DEFINITIONS, MODULE_IDS } from "../lib/modules";
 import type { ModuleId } from "../lib/modules";
+import type { Role } from "../lib/permissions";
 
 interface AppSidebarProps {
   currentView: string | null;
@@ -50,7 +51,46 @@ function getInitials(name: string | undefined) {
   return initials || "AU";
 }
 
-const MODULE_LIST = MODULE_IDS.map((id) => MODULE_DEFINITIONS[id]);
+function normalizeRole(role: string | undefined): Role {
+  const r = (role ?? "").toLowerCase();
+  if (r === "admin" || r.includes("admin")) return "admin";
+  if (r === "senior" || r.includes("senior")) return "senior";
+  if (r === "junior" || r.includes("junior")) return "junior";
+  if (r === "manager" || r.includes("manager")) return "manager";
+  return "manager";
+}
+
+// ── Map ModuleId → module_access key used by the backend ─────────────────────
+const MODULE_ACCESS_KEY: Record<ModuleId, "gads" | "seo" | "website"> = {
+  "g-ads":   "gads",
+  "seo":     "seo",
+  "website": "website",
+};
+
+// ── Map feature.id → backend page key ────────────────────────────────────────
+const FEATURE_TO_PAGE_KEY: Record<string, string> = {
+  // g-ads
+  "dashboard":         "dashboard",
+  "accounts":          "inputs",
+  "recommendations":   "reports",
+  "reports":           "reports",
+  "checklist":         "settings",
+  // seo
+  "seo-overview":      "dashboard",
+  "web-errors":        "dashboard",
+  "technical-seo":     "inputs",
+  "content-seo":       "inputs",
+  "links-seo":         "projects",
+  "speed-test":        "projects",
+  "ai-insights":       "reports",
+  // website
+  "website-dashboard": "dashboard",
+  "inputs":            "inputs",
+  "projects":          "projects",
+  "website-settings":  "settings",
+};
+
+const ALL_MODULES = MODULE_IDS.map((id) => MODULE_DEFINITIONS[id]);
 
 export function AppSidebar({
   currentView,
@@ -62,10 +102,34 @@ export function AppSidebar({
   user,
   onLogout,
 }: AppSidebarProps) {
-  const isAdmin = (user.role ?? "").toLowerCase() === "admin";
+  const userRole = normalizeRole(user.role);
+  const isAdmin = userRole === "admin";
   const workspaceLabel = isAdmin ? "Admin Dashboard" : "Manager Workspace";
-  const activeModule = MODULE_DEFINITIONS[currentModule] ?? MODULE_LIST[0];
+
+  // ── Filter which modules appear in the switcher ───────────────────────────
+  // Admin sees all modules. Non-admin only sees modules where at least 1 page is granted.
+  const visibleModules = ALL_MODULES.filter((module) => {
+    if (isAdmin) return true;
+    const moduleAccess = user.module_access;
+    if (!moduleAccess) return false;
+    const accessKey = MODULE_ACCESS_KEY[module.id];
+    const allowedPages: string[] = moduleAccess[accessKey] ?? [];
+    return allowedPages.length > 0;
+  });
+
+  const activeModule = MODULE_DEFINITIONS[currentModule] ?? visibleModules[0] ?? ALL_MODULES[0];
   const moduleFeatures = activeModule?.features ?? [];
+
+  // ── Filter sidebar nav items based on backend module_access ───────────────
+  const visibleFeatures = moduleFeatures.filter((item) => {
+    if (isAdmin) return true;
+    const moduleAccess = user.module_access;
+    if (!moduleAccess) return false;
+    const accessKey = MODULE_ACCESS_KEY[currentModule];
+    const allowedPages: string[] = moduleAccess[accessKey] ?? [];
+    const pageKey = FEATURE_TO_PAGE_KEY[item.id] ?? item.id;
+    return allowedPages.includes(pageKey);
+  });
 
   return (
     <Sidebar>
@@ -74,7 +138,6 @@ export function AppSidebar({
           <img src={beezLogo} alt="Beez Logo" className="h-12 w-12 object-contain" />
           <div className="space-y-1">
             <div className="flex items-center gap-2">
-              {/* <h2 className="text-slate-900">AI Agency Analyst</h2> */}
               <h2 className="text-slate-900">Atlas</h2>
               <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-blue-700">
                 {activeModule.shortLabel}
@@ -84,30 +147,37 @@ export function AppSidebar({
           </div>
         </div>
       </SidebarHeader>
+
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupLabel>Main Menu</SidebarGroupLabel>
           <SidebarGroupContent className="space-y-3">
-            <div
-              className="rounded-xl border bg-white/70 shadow-sm transition-all"
-            >
+
+            {/* Module Switcher */}
+            <div className="rounded-xl border bg-white/70 shadow-sm transition-all">
               <button
                 type="button"
                 onClick={onModuleSwitcherToggle}
                 className="flex w-full items-center justify-between px-3 py-3 text-left"
                 aria-expanded={!moduleSwitcherDocked}
               >
-                <div className="flex items-center gap-3 ">
+                <div className="flex items-center gap-3">
                   <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-50 text-blue-700">
                     <activeModule.icon className="h-4 w-4" />
                   </div>
                   <div className="flex flex-col items-start gap-0.5">
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-600">Modules</p>
-                    <span className="text-sm font-semibold text-slate-900">{activeModule.label}</span>
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-600">
+                      Modules
+                    </p>
+                    <span className="text-sm font-semibold text-slate-900">
+                      {activeModule.label}
+                    </span>
                   </div>
                 </div>
                 <div className="flex items-center gap-2 text-slate-600">
-                  <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium">Switch</span>
+                  <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium">
+                    Switch
+                  </span>
                   <ChevronDown
                     className={cn(
                       "h-4 w-4 transition-transform duration-200",
@@ -116,9 +186,10 @@ export function AppSidebar({
                   />
                 </div>
               </button>
+
               {!moduleSwitcherDocked && (
                 <div className="flex flex-col gap-2 px-3 pb-3">
-                  {MODULE_LIST.map((module) => {
+                  {visibleModules.map((module) => {
                     const isActive = module.id === activeModule.id;
                     return (
                       <button
@@ -158,8 +229,9 @@ export function AppSidebar({
               )}
             </div>
 
+            {/* Nav Items — filtered by backend module_access */}
             <SidebarMenu className="gap-1 pt-1">
-              {moduleFeatures.map((item) => {
+              {visibleFeatures.map((item) => {
                 const active = currentView === item.id;
                 return (
                   <SidebarMenuItem key={item.id}>
@@ -191,9 +263,12 @@ export function AppSidebar({
                 );
               })}
             </SidebarMenu>
+
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
+
+      {/* Footer — user avatar + dropdown */}
       <SidebarFooter className="border-t p-4">
         <DropdownMenu>
           <DropdownMenuTrigger className="w-full">
